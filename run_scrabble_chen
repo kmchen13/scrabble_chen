@@ -1,0 +1,55 @@
+#!/bin/bash
+
+# Vérifie que jq est installé
+if ! command -v jq &> /dev/null; then
+  echo "❌ Erreur : 'jq' n'est pas installé. Installe-le avec : sudo apt install jq"
+  exit 1
+fi
+
+# Relance adb pour éliminer tous zombies
+adb kill-server
+adb start-server
+adb devices
+
+# Récupère les 2 premiers IDs des devices Android (arm et arm64)
+devices=($(flutter devices --machine | jq -r '.[] | select(.targetPlatform == "android-arm" or .targetPlatform == "android-arm64") | .id'))
+
+if [ ${#devices[@]} -lt 2 ]; then
+  echo "❌ Moins de 2 appareils détectés. Branche-les puis réessaie."
+  flutter devices
+  exit 1
+fi
+
+echo "📱 Appareil 1 : ${devices[0]}"
+echo "📱 Appareil 2 : ${devices[1]}"
+echo "🚀 Compilation unique de l’APK..."
+
+# Compile une fois le debug APK
+flutter build apk --debug
+
+APK_PATH="build/app/outputs/flutter-apk/app-debug.apk"
+
+if [ ! -f "$APK_PATH" ]; then
+  echo "❌ APK introuvable à $APK_PATH"
+  exit 1
+fi
+
+echo "📲 Installation et lancement sur les appareils..."
+
+for device in "${devices[@]:0:2}"; do
+  echo "➡️ Device $device : installation"
+  adb -s "$device" install -r "$APK_PATH"
+
+  echo "➡️ Device $device : lancement de l'app"
+  # Remplace com.example.scrabble_chen/.MainActivity par ton package et activity Flutter
+  adb -s "$device" shell am start -n com.example.scrabble_chen/.MainActivity
+done
+
+echo "✅ App lancée sur les 2 appareils."
+
+# Ouvre Konsole avec un onglet par device pour logs adb logcat
+for device in "${devices[@]:0:2}"; do
+konsole --new-tab -e bash -c "flutter run -d $devices --no-hot; echo 'Terminé — appuyez sur q pour quitter'; while true; do read -n 1 key; if [[ \$key == q ]]; then break; fi; done" &
+
+done
+
