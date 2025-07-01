@@ -20,36 +20,37 @@ if [ ${#devices[@]} -lt 2 ]; then
   exit 1
 fi
 
-echo "📱 Appareil 1 : ${devices[0]}"
-echo "📱 Appareil 2 : ${devices[1]}"
-echo "🚀 Compilation unique de l’APK..."
 
-# Compile une fois le debug APK
-flutter build apk --debug
+if [[ $1 == "-"*"c"* ]]
+then
+	# Compile une fois le debug APK
+	flutter build apk --debug
 
-APK_PATH="build/app/outputs/flutter-apk/app-debug.apk"
+	APK_PATH="build/app/outputs/flutter-apk/app-debug.apk"
 
-if [ ! -f "$APK_PATH" ]; then
-  echo "❌ APK introuvable à $APK_PATH"
-  exit 1
+	if [ ! -f "$APK_PATH" ]; then
+	  echo "❌ APK introuvable à $APK_PATH"
+	  exit 1
+	fi
+
+	echo "📲 Installation sur les appareils..."
+
+	for device in "${devices[@]:0:2}"; do
+	  echo "➡️ Device $device : installation"
+	  adb -s "$device" install -r "$APK_PATH"
+
+	  echo "➡️ Device $device : lancement de l'app"
+	  # Remplace com.example.scrabble_chen/.MainActivity par ton package et activity Flutter
+	  adb -s "$device" shell am start -n com.example.scrabble_chen/.MainActivity
+	done
 fi
 
-echo "📲 Installation et lancement sur les appareils..."
-
-for device in "${devices[@]:0:2}"; do
-  echo "➡️ Device $device : installation"
-  adb -s "$device" install -r "$APK_PATH"
-
-  echo "➡️ Device $device : lancement de l'app"
-  # Remplace com.example.scrabble_chen/.MainActivity par ton package et activity Flutter
-  adb -s "$device" shell am start -n com.example.scrabble_chen/.MainActivity
-done
-
-echo "✅ App lancée sur les 2 appareils."
+echo "✅ App lancement sur les 2 appareils."
 
 # Ouvre Konsole avec un onglet par device pour logs adb logcat
 for device in "${devices[@]:0:2}"; do
-konsole --new-tab -e bash -c "flutter run -d $devices --no-hot; echo 'Terminé — appuyez sur q pour quitter'; while true; do read -n 1 key; if [[ \$key == q ]]; then break; fi; done" &
-
+	echo "lancement $device"
+	konsole --new-tab -e bash -c "flutter run -d $device --no-hot; echo 'Terminé — appuyez sur q pour quitter'; while true; do read -n 1 key; if [[ \$key == q ]]; then break; fi; done" &
+#	konsole --new-tab -e bash -c "flutter run -d $device;" &
 done
 

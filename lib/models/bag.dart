@@ -31,7 +31,13 @@ class BagModel {
   }
 
   /// Renvoie une copie des lettres restantes
-  List<String> get remainingLetters => List.unmodifiable(_bag);
+  Map<String, int> get remainingLetters {
+    final Map<String, int> countMap = {};
+    for (final letter in _bag) {
+      countMap[letter] = (countMap[letter] ?? 0) + 1;
+    }
+    return countMap;
+  }
 
   /// Nombre de lettres restantes
   int get remainingCount => _bag.length;

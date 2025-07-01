@@ -17,36 +17,28 @@ class PlayerRack extends StatelessWidget {
   Widget build(BuildContext context) {
     final tileSize = _calculateTileSize(context);
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(letters.length + 1, (index) {
-        if (index == letters.length) {
-          return DragTarget<DraggedLetter>(
-            onAcceptWithDetails: (details) {
-              onMove(details.data.fromIndex, letters.length);
-            },
-            builder:
-                (_, __, ___) => SizedBox(width: tileSize, height: tileSize),
-          );
-        }
-
-        return DragTarget<DraggedLetter>(
-          onAcceptWithDetails: (details) {
-            onMove(details.data.fromIndex, index);
-          },
-          builder: (_, __, ___) {
-            return Draggable<DraggedLetter>(
-              data: DraggedLetter(letter: letters[index], fromIndex: index),
-              feedback: Material(
-                color: Colors.transparent,
-                child: _buildLetterTile(letters[index], tileSize),
-              ),
-              childWhenDragging: _buildLetterTile("", tileSize),
+    return Container(
+      height: tileSize + 16,
+      alignment: Alignment.centerLeft,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        itemCount: letters.length,
+        itemBuilder: (context, index) {
+          return Draggable<DraggedLetter>(
+            data: DraggedLetter(letter: letters[index], fromIndex: index),
+            feedback: Material(
+              color: Colors.transparent,
               child: _buildLetterTile(letters[index], tileSize),
-            );
-          },
-        );
-      }),
+            ),
+            childWhenDragging: _buildLetterTile("", tileSize),
+            child: GestureDetector(
+              onLongPress: () => onRemoveLetter(index),
+              child: _buildLetterTile(letters[index], tileSize),
+            ),
+          );
+        },
+      ),
     );
   }
 
