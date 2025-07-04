@@ -1,13 +1,10 @@
 // join_screen.dart
 import 'package:flutter/material.dart';
-import 'dart:io';
-import 'dart:convert';
 
 import 'models/game_state.dart';
 import 'services/settings_service.dart';
 import 'game_screen.dart';
 import 'network/scrabble_client.dart';
-import 'network/local_client.dart';
 
 class JoinScreen extends StatefulWidget {
   const JoinScreen({super.key});
@@ -17,68 +14,37 @@ class JoinScreen extends StatefulWidget {
 }
 
 class _JoinScreenState extends State<JoinScreen> {
-  String _log = "Recherche d'un hôte...";
+  String _log = "Connexion en cours...";
   ScrabbleClient? client;
-  String? _detectedHostIp;
-  String _remoteUserName = 'Adversaire';
+  String serverUserName = 'Hôte';
 
   @override
   void initState() {
     super.initState();
-    _listenForBroadcast();
+    _connectToScrabbleServer();
   }
 
-  void _listenForBroadcast() async {
-    final RawDatagramSocket udpSocket = await RawDatagramSocket.bind(
-      InternetAddress.anyIPv4,
-      42100,
+  Future<void> _connectToScrabbleServer() async {
+    final localUserName = settings.localUserName;
+
+    client = await ScrabbleClient.create(
+      localUserName: localUserName,
+      onDiscovered: (String ip, int port, String discoveredUserName) async {
+        serverUserName = discoveredUserName;
+        setState(() {
+          _log += '\nHôte détecté : $ip:$port ($serverUserName)';
+        });
+        await _connectToHost(ip, port);
+      },
     );
-
-    udpSocket.listen((RawSocketEvent event) async {
-      if (event == RawSocketEvent.read) {
-        final datagram = udpSocket.receive();
-        if (datagram == null) return;
-
-        final message = utf8.decode(datagram.data);
-        if (message.startsWith('SCRABBLE_HOST:')) {
-          final parts = message.split(':');
-          if (parts.length >= 2) {
-            final ip = parts[1];
-            _detectedHostIp = ip;
-            _log += '\nHôte détecté : $ip';
-
-            udpSocket.close();
-            await _connectToHost(ip);
-          }
-        }
-      }
-    });
-  }
-
-  Future<void> _connectToHost(String ip) async {
-    final int port = 4567;
-    final String localUserName = settings.localUserName;
-
-    client = LocalScrabbleClient();
 
     client!.onMessageReceived = (message) {
       setState(() {
         _log += '\n[Serveur] $message';
       });
 
-      if (message.startsWith('LETTERS:')) {
-        final letters =
-            message
-                .substring('LETTERS:'.length)
-                .split(',')
-                .map((s) => s.trim())
-                .toList();
-
-        final gameState = GameState(
-          playerLetters: letters,
-          board: GameState.createEmptyBoard(15),
-          bag: null,
-        );
+      try {
+        final gameState = GameState.fromJson(message);
 
         if (!context.mounted) return;
         Navigator.pushReplacement(
@@ -87,11 +53,15 @@ class _JoinScreenState extends State<JoinScreen> {
             builder:
                 (_) => GameScreen(
                   gameState: gameState,
-                  localUserName: localUserName,
-                  remoteUserName: _remoteUserName,
+                  client: client!,
+                  isClient: true,
                 ),
           ),
         );
+      } catch (e) {
+        setState(() {
+          _log += '\nErreur de décodage GameState: $e';
+        });
       }
     };
 
@@ -100,10 +70,11 @@ class _JoinScreenState extends State<JoinScreen> {
         _log += '\nConnexion fermée.';
       });
     };
+  }
 
+  Future<void> _connectToHost(String ip, int port) async {
     try {
       await client!.connect(ip, port);
-      client!.sendMessage('USERNAME:$localUserName');
       setState(() {
         _log += '\nConnecté à $ip:$port';
       });

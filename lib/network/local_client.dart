@@ -4,54 +4,35 @@ import 'dart:io';
 import 'scrabble_client.dart';
 
 class LocalScrabbleClient implements ScrabbleClient {
-  late Socket _socket;
+  RawDatagramSocket? _udpSocket;
+  late void Function(String) _onHostDetected;
+  // ...
 
-  // Callbacks initialisés avec des fonctions vides par défaut
-  MessageReceivedCallback _onMessageReceived = (String message) {};
-  ConnectionClosedCallback _onConnectionClosed = () {};
+  Future<void> discoverHost(
+    Function(String ip, int port, String hostUserName) onFound,
+  ) async {
+    _udpSocket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 42100);
 
-  @override
-  Future<void> connect(String address, int port) async {
-    try {
-      _socket = await Socket.connect(address, port);
+    _udpSocket!.listen((event) {
+      if (event == RawSocketEvent.read) {
+        final datagram = _udpSocket!.receive();
+        if (datagram == null) return;
 
-      _socket
-          .map((data) => data.toList()) // Conversion Uint8List -> List<int>
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())
-          .listen(
-            (line) {
-              _onMessageReceived(line);
-            },
-            onDone: () {
-              _onConnectionClosed();
-            },
-            onError: (error) {
-              _onConnectionClosed();
-            },
-          );
-    } catch (e) {
-      rethrow;
-    }
+        final message = utf8.decode(datagram.data);
+        if (message.startsWith('SCRABBLE_HOST:')) {
+          final parts = message.split(':');
+          if (parts.length >= 4) {
+            final ip = parts[1];
+            final port = int.tryParse(parts[2]) ?? 4567;
+            final remoteUserName = parts[3];
+
+            _udpSocket?.close();
+            onFound(ip, port, remoteUserName);
+          }
+        }
+      }
+    });
   }
 
-  @override
-  void sendMessage(String message) {
-    _socket.writeln(message);
-  }
-
-  @override
-  void disconnect() {
-    _socket.close();
-  }
-
-  @override
-  set onMessageReceived(MessageReceivedCallback callback) {
-    _onMessageReceived = callback;
-  }
-
-  @override
-  set onConnectionClosed(ConnectionClosedCallback callback) {
-    _onConnectionClosed = callback;
-  }
+  // connect, sendMessage, etc.
 }

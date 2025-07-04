@@ -106,6 +106,19 @@ class _GameScreenState extends State<GameScreen> {
         widget.gameState.hostScore += score;
       }
 
+      // Retirer les lettres placées du rack initial
+      for (final placed in _lettersPlacedThisTurn) {
+        _initialRack.remove(placed.letter);
+      }
+
+      // Tirer des lettres depuis le sac pour compléter à 7
+      final bag = widget.gameState.bag;
+      if (bag != null) {
+        final newLetters = bag.drawLetters(7 - _playerLetters.length);
+        _playerLetters.addAll(newLetters);
+        widget.gameState.playerLetters = List.from(_playerLetters); // MAJ rack
+      }
+
       widget.gameState.isClientTurn = !widget.gameState.isClientTurn;
 
       _initialRack = List.from(_playerLetters);

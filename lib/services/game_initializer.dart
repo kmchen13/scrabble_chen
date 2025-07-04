@@ -1,38 +1,25 @@
-import '../models/bag.dart';
 import '../models/game_state.dart';
+import '../models/bag.dart';
+import 'settings_service.dart';
 
 class GameInitializer {
-  static GameCreationResult createGame({int boardSize = 15}) {
+  static ({GameState gameState}) createGame() {
     final bag = BagModel();
     final hostLetters = bag.drawLetters(7);
     final clientLetters = bag.drawLetters(7);
 
-    final hostGameState = GameState(
-      board: GameState.createEmptyBoard(boardSize),
-      playerLetters: hostLetters,
+    final gameState = GameState(
+      board: GameState.createEmptyBoard(15),
       bag: bag,
+      hostLetters: hostLetters,
+      clientLetters: clientLetters,
+      hostUserName: settings.localUserName, // Celui qui initialise
+      clientUserName: '', // sera rempli côté client après réception
+      isClientTurn: true, // le client commence
+      hostScore: 0,
+      clientScore: 0,
     );
 
-    final clientGameState = GameState(
-      board: GameState.createEmptyBoard(boardSize),
-      playerLetters: clientLetters,
-      bag: bag,
-      isClientTurn: true, // Client commence
-    );
-
-    return GameCreationResult(
-      hostGameState: hostGameState,
-      clientGameState: clientGameState,
-    );
+    return (gameState: gameState);
   }
-}
-
-class GameCreationResult {
-  final GameState hostGameState;
-  final GameState clientGameState;
-
-  GameCreationResult({
-    required this.hostGameState,
-    required this.clientGameState,
-  });
 }
