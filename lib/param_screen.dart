@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-
 import 'models/user_settings.dart';
 
 class ParamScreen extends StatefulWidget {
@@ -13,8 +12,15 @@ class ParamScreen extends StatefulWidget {
 
 class _ParamScreenState extends State<ParamScreen> {
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _localIPController = TextEditingController();
+  final TextEditingController _localPortController = TextEditingController();
+  final TextEditingController _udpPortController = TextEditingController();
+  final TextEditingController _relayAddressController = TextEditingController();
+  final TextEditingController _relayPortController = TextEditingController();
+
   bool _soundEnabled = true;
-  String? _communicationMode; // nullable au départ pour indiquer chargement
+  String? _communicationMode;
+  DateTime? _startTime;
 
   static const String settingsKey = 'user_settings';
 
@@ -27,7 +33,6 @@ class _ParamScreenState extends State<ParamScreen> {
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     final jsonString = prefs.getString(settingsKey);
-
     final settings =
         jsonString != null
             ? UserSettings.fromJson(json.decode(jsonString))
@@ -35,12 +40,17 @@ class _ParamScreenState extends State<ParamScreen> {
 
     setState(() {
       _nameController.text = settings.localUserName;
-      // Protection : communicationMode doit être 'local' ou 'web', sinon 'local'
+      _localIPController.text = settings.localIP;
+      _localPortController.text = settings.localPort.toString();
+      _udpPortController.text = settings.udpPort.toString();
+      _relayAddressController.text = settings.relayAddress;
+      _relayPortController.text = settings.relayPort.toString();
       _communicationMode =
           ['local', 'web'].contains(settings.communicationMode)
               ? settings.communicationMode
               : 'local';
       _soundEnabled = settings.soundEnabled;
+      _startTime = settings.startTime;
     });
   }
 
@@ -49,17 +59,22 @@ class _ParamScreenState extends State<ParamScreen> {
       localUserName: _nameController.text,
       communicationMode: _communicationMode ?? 'local',
       soundEnabled: _soundEnabled,
+      localIP: _localIPController.text,
+      localPort: int.tryParse(_localPortController.text) ?? 4567,
+      udpPort: int.tryParse(_udpPortController.text) ?? 4560,
+      expectedUserName: '',
+      relayAddress: _relayAddressController.text,
+      relayPort: int.tryParse(_relayPortController.text) ?? 8080,
     );
 
     if (!context.mounted) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(settingsKey, json.encode(settings.toJson()));
-    Navigator.pop(context); // Retour à l'écran précédent
+    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    // Tant que les settings ne sont pas chargés, on affiche un indicateur
     if (_communicationMode == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -68,23 +83,10 @@ class _ParamScreenState extends State<ParamScreen> {
       appBar: AppBar(title: const Text("Paramètres")),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
+        child: ListView(
           children: [
             const SizedBox(height: 16),
-            Row(
-              children: [
-                const Expanded(flex: 1, child: Text("Nom du joueur :")),
-                Expanded(
-                  flex: 2,
-                  child: TextField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      hintText: "Entrez votre nom",
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            _buildTextField("Nom du joueur :", _nameController),
             const SizedBox(height: 20),
             Row(
               children: [
@@ -117,6 +119,36 @@ class _ParamScreenState extends State<ParamScreen> {
               ],
             ),
             const SizedBox(height: 20),
+            _buildTextField(
+              "Adresse IP locale :",
+              _localIPController,
+              enabled: false,
+            ),
+            const SizedBox(height: 20),
+            _buildTextField(
+              "Port local :",
+              _localPortController,
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 20),
+            _buildTextField(
+              "Port UDP local :",
+              _udpPortController,
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 20),
+            _buildTextField(
+              "Adresse du relay :",
+              _relayAddressController,
+              enabled: false,
+            ),
+            const SizedBox(height: 20),
+            _buildTextField(
+              "Port du relay :",
+              _relayPortController,
+              keyboardType: TextInputType.number,
+            ),
+            const SizedBox(height: 20),
             Row(
               children: [
                 const Expanded(flex: 1, child: Text("Sons activés :")),
@@ -133,7 +165,21 @@ class _ParamScreenState extends State<ParamScreen> {
                 ),
               ],
             ),
-            const Spacer(),
+            const SizedBox(height: 20),
+            if (_startTime != null)
+              Row(
+                children: [
+                  const Expanded(flex: 1, child: Text("Heure de début :")),
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      "${_startTime!.toLocal()}",
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  ),
+                ],
+              ),
+            const SizedBox(height: 30),
             ElevatedButton(
               onPressed: _saveSettings,
               child: const Text("Enregistrer"),
@@ -141,6 +187,32 @@ class _ParamScreenState extends State<ParamScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTextField(
+    String label,
+    TextEditingController controller, {
+    bool enabled = true,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return Row(
+      children: [
+        Expanded(flex: 1, child: Text(label)),
+        Expanded(
+          flex: 2,
+          child: TextField(
+            controller: controller,
+            enabled: enabled,
+            keyboardType: keyboardType,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

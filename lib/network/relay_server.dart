@@ -1,42 +1,125 @@
-import 'scrabble_server.dart';
+import 'dart:convert';
+import 'dart:io';
 
-// Exemple simplifié, à adapter avec ton RelayClient concret
-class RelayScrabbleServer implements ScrabbleServer {
-  late ClientConnectedCallback _onClientConnected;
-  late ErrorCallback _onError;
+class Player {
+  final String userName;
+  final WebSocket socket;
+  final String expectedUser;
 
-  @override
-  Future<void> start({
-    required void Function(String) onClientConnected,
-    required void Function(Object error) onError,
-  }) async {
-    _onClientConnected = onClientConnected;
-    _onError = onError;
+  Player({
+    required this.userName,
+    required this.socket,
+    required this.expectedUser,
+  });
+}
 
-    try {
-      // Exemple d'initialisation (adapter avec ton RelayClient réel)
-      // await relayClient.connect();
-      // relayClient.onMessageReceived = (msg) {
-      //   if (msg.startsWith('USERNAME:')) {
-      //     final username = msg.substring('USERNAME:'.length).trim();
-      //     _onClientConnected(username);
-      //   }
-      // };
-      // relayClient.onConnectionClosed = () {
-      //   // Gérer la déconnexion si besoin
-      // };
-    } catch (e) {
-      _onError(e);
+void main() async {
+  final players = <Player>[];
+
+  final server = await HttpServer.bind(InternetAddress.anyIPv4, 8080);
+  print(
+    '[RELAY] Serveur WebSocket lancé sur ws://${server.address.address}:${server.port}',
+  );
+
+  await for (HttpRequest request in server) {
+    if (WebSocketTransformer.isUpgradeRequest(request)) {
+      final socket = await WebSocketTransformer.upgrade(request);
+      print('[RELAY] Nouveau client connecté');
+
+      socket.listen(
+        (data) {
+          _handleMessage(data, socket, players);
+        },
+        onDone: () {
+          print('[RELAY] Déconnexion');
+          players.removeWhere((p) => p.socket == socket);
+        },
+      );
+    } else {
+      request.response
+        ..statusCode = HttpStatus.forbidden
+        ..write('WebSocket uniquement')
+        ..close();
     }
   }
+}
 
-  @override
-  void sendToClient(String message) {
-    // relayClient.sendMessage(message);
-  }
+void _handleMessage(
+  dynamic data,
+  WebSocket senderSocket,
+  List<Player> players,
+) {
+  try {
+    final message = jsonDecode(data);
 
-  @override
-  void stop() {
-    // relayClient.disconnect();
+    if (message['type'] == 'connect') {
+      final userName = message['userName'];
+      final expectedUser = message['expectedUser'];
+
+      final player = Player(
+        userName: userName,
+        socket: senderSocket,
+        expectedUser: expectedUser,
+      );
+
+      players.add(player);
+      print('[RELAY] $userName attend $expectedUser');
+
+      // Chercher un joueur qui attend cette personne
+      Player? match;
+      try {
+        match = players.firstWhere(
+          (p) =>
+              p.userName == expectedUser &&
+              p.expectedUser == userName &&
+              p.socket != senderSocket,
+        );
+      } catch (_) {
+        match = null;
+      }
+
+      if (match != null) {
+        print(
+          '[RELAY] Match trouvé entre ${player.userName} et ${match.userName}',
+        );
+
+        // Informer chaque joueur que la connexion est établie
+        player.socket.add(
+          jsonEncode({'type': 'matched', 'partnerName': match.userName}),
+        );
+
+        match.socket.add(
+          jsonEncode({'type': 'matched', 'partnerName': player.userName}),
+        );
+      }
+    } else if (message['type'] == 'gameState') {
+      final gameStateJson = message['data'];
+
+      // Envoyer au partenaire
+      Player? sender = players.firstWhere(
+        (p) => p.socket == senderSocket,
+        orElse: () => null!,
+      );
+      if (sender == null) return;
+
+      Player? receiver;
+      try {
+        receiver = players.firstWhere(
+          (p) =>
+              p.userName == sender.expectedUser &&
+              p.expectedUser == sender.userName,
+        );
+      } catch (_) {
+        receiver = null;
+      }
+
+      if (receiver != null) {
+        receiver.socket.add(
+          jsonEncode({'type': 'gameState', 'data': gameStateJson}),
+        );
+      }
+    }
+  } catch (e) {
+    print('[RELAY] Erreur : $e');
   }
 }

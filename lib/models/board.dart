@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
-import 'models/dragged_letter.dart';
+import 'dragged_letter.dart';
 
 const int boardSize = 15;
 
 Widget buildScrabbleBoard({
   required List<List<String>> board,
   required List<String> playerLetters,
+  required List<({int row, int col, String letter})> lettersPlacedThisTurn,
   required void Function(String letter, int row, int col) onLetterPlaced,
+  required void Function(String letter) onLetterReturned,
 }) {
   return GridView.builder(
     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -20,8 +22,16 @@ Widget buildScrabbleBoard({
       final bgColor = getColorForBonus(bonus);
       final cellLetter = board[row][col];
 
+      // ✅ Vérifie si cette case fait partie des lettres du tour
+      final isPlacedThisTurn = lettersPlacedThisTurn.any(
+        (pos) => pos.row == row && pos.col == col,
+      );
+
       return DragTarget<DraggedLetter>(
-        onWillAccept: (data) => board[row][col].isEmpty,
+        onWillAccept: (data) {
+          // Accepte si la case est vide
+          return board[row][col].isEmpty;
+        },
         onAcceptWithDetails: (details) {
           final letter = details.data.letter;
           if (board[row][col].isEmpty) {
@@ -29,19 +39,36 @@ Widget buildScrabbleBoard({
           }
         },
         builder: (context, candidateData, rejectedData) {
-          return Container(
-            decoration: BoxDecoration(
-              border: Border.all(
-                color: cellLetter.isNotEmpty ? Colors.brown : Colors.grey,
+          final cellLetter = board[row][col];
+          final isPlacedThisTurn = lettersPlacedThisTurn.any(
+            (pos) => pos.row == row && pos.col == col,
+          );
+
+          return GestureDetector(
+            onTap: () {
+              if (isPlacedThisTurn && cellLetter.isNotEmpty) {
+                onLetterReturned(cellLetter); // ✅ Retourne dans le rack
+              }
+            },
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: cellLetter.isNotEmpty ? Colors.amber : Colors.grey,
+                ),
+                color:
+                    cellLetter.isNotEmpty
+                        ? Colors.amber[200]
+                        : getColorForBonus(bonusMap[row][col]),
               ),
-              color: cellLetter.isNotEmpty ? Colors.brown : bgColor,
-            ),
-            child: Center(
-              child: Text(
-                cellLetter.isNotEmpty ? cellLetter : bonusLabel(bonus),
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+              child: Center(
+                child: Text(
+                  cellLetter.isNotEmpty
+                      ? cellLetter
+                      : bonusLabel(bonusMap[row][col]),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),

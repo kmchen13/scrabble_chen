@@ -4,15 +4,12 @@ import 'package:flutter/services.dart';
 
 import 'services/settings_service.dart';
 
-import 'join_screen.dart';
-import 'host_screen.dart';
+import 'start_screen.dart';
 import 'param_screen.dart';
-import 'relay_P2P/join_screen.dart';
-import 'relay_P2P/host_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await loadSettings(); // chargement global
+  await loadSettings();
   print('[DEBUG] localUserName = ' + settings.localUserName);
   runApp(const ScrabbleApp());
 }
@@ -35,7 +32,7 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Scrabble P2P")),
+      appBar: AppBar(title: const Text("Scrabble_chen ;-)")),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -43,41 +40,12 @@ class HomeScreen extends StatelessWidget {
             if (!kIsWeb) ...[
               ElevatedButton(
                 onPressed: () {
-                  final mode = settings.communicationMode;
-                  if (mode == 'web') {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const RelayHostScreen(),
-                      ),
-                    );
-                  } else {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const HostScreen()),
-                    );
-                  }
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const StartScreen()),
+                  );
                 },
-                child: const Text("Héberger une partie"),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  final mode = settings.communicationMode;
-                  if (mode == 'web') {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const RelayJoinScreen(),
-                      ),
-                    );
-                  } else {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const JoinScreen()),
-                    );
-                  }
-                },
-                child: const Text("Rejoindre une partie"),
+                child: const Text("Commencer une partie"),
               ),
               ElevatedButton(
                 onPressed: () {
@@ -90,7 +58,7 @@ class HomeScreen extends StatelessWidget {
               ),
               ElevatedButton(
                 onPressed: () {
-                  SystemNavigator.pop(); // ferme proprement l'app, comme un "back" ultime
+                  SystemNavigator.pop();
                 },
                 child: const Text("Quitter"),
               ),

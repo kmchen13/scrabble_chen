@@ -21,36 +21,19 @@ if [ ${#devices[@]} -lt 2 ]; then
 fi
 
 
-if [[ $1 == "-"*"c"* ]]
-then
-	# Compile une fois le debug APK
-	flutter build apk --debug
-
-	APK_PATH="build/app/outputs/flutter-apk/app-debug.apk"
-
-	if [ ! -f "$APK_PATH" ]; then
-	  echo "❌ APK introuvable à $APK_PATH"
-	  exit 1
-	fi
-
-	echo "📲 Installation sur les appareils..."
-
-	for device in "${devices[@]:0:2}"; do
-	  echo "➡️ Device $device : installation"
-	  adb -s "$device" install -r "$APK_PATH"
-
-	  echo "➡️ Device $device : lancement de l'app"
-	  # Remplace com.example.scrabble_chen/.MainActivity par ton package et activity Flutter
-	  adb -s "$device" shell am start -n com.example.scrabble_chen/.MainActivity
-	done
-fi
-
 echo "✅ App lancement sur les 2 appareils."
 
 # Ouvre Konsole avec un onglet par device pour logs adb logcat
+I=0
+WIDTH=20
+HEIGHT=10
+XOFFSET=0
 for device in "${devices[@]:0:2}"; do
 	echo "lancement $device"
-	konsole --new-tab -e bash -c "flutter run -d $device --no-hot; echo 'Terminé — appuyez sur q pour quitter'; while true; do read -n 1 key; if [[ \$key == q ]]; then break; fi; done" &
+	YOFFSET=$((600*I))
+	((I++))
+
+	konsole -e bash -c "flutter run -d $device --no-hot; echo 'Terminé — appuyez sur q pour quitter'; while true; do read -n 1 key; if [[ \$key == q ]]; then break; fi; done" &
 #	konsole --new-tab -e bash -c "flutter run -d $device;" &
 done
 

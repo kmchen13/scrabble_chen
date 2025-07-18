@@ -19,3 +19,8 @@ Future<void> loadSettings() async {
     settings = UserSettings.defaultSettings();
   }
 }
+
+Future<void> saveSettings() async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString('user_settings', json.encode(settings.toJson()));
+}

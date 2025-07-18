@@ -1,38 +1,39 @@
-import '../models/bag.dart';
 import '../models/game_state.dart';
+import '../models/bag.dart';
 
 class GameInitializer {
-  static GameCreationResult createGame({int boardSize = 15}) {
-    final bag = BagModel();
-    final hostLetters = bag.drawLetters(7);
-    final clientLetters = bag.drawLetters(7);
+  static GameState createGame({
+    required bool isLeft,
+    required String leftName,
+    required String leftIP,
+    required String leftPort,
+    required String rightName,
+    required String rightIP,
+    required String rightPort,
+  }) {
+    final BagModel bag = BagModel();
+    final List<String> leftLetters = bag.drawLetters(7);
+    final List<String> rightLetters = bag.drawLetters(7);
 
-    final hostGameState = GameState(
-      board: GameState.createEmptyBoard(boardSize),
-      playerLetters: hostLetters,
-      bag: bag,
+    final List<List<String>> board = List.generate(
+      15,
+      (_) => List.generate(15, (_) => ''),
     );
 
-    final clientGameState = GameState(
-      board: GameState.createEmptyBoard(boardSize),
-      playerLetters: clientLetters,
+    return GameState(
+      isLeft: isLeft,
+      leftName: leftName,
+      leftIP: leftIP,
+      leftPort: leftPort,
+      rightName: rightName,
+      rightIP: rightIP,
+      rightPort: rightPort,
+      board: board,
       bag: bag,
-      isClientTurn: true, // Client commence
-    );
-
-    return GameCreationResult(
-      hostGameState: hostGameState,
-      clientGameState: clientGameState,
+      leftLetters: leftLetters,
+      rightLetters: rightLetters,
+      leftScore: 0,
+      rightScore: 0,
     );
   }
-}
-
-class GameCreationResult {
-  final GameState hostGameState;
-  final GameState clientGameState;
-
-  GameCreationResult({
-    required this.hostGameState,
-    required this.clientGameState,
-  });
 }
