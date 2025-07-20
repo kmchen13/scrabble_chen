@@ -6,6 +6,7 @@ import 'models/bag.dart';
 import 'network/scrabble_net.dart';
 import 'services/settings_service.dart';
 import 'services/utility.dart';
+import 'services/game_initializer.dart';
 
 typedef MovePlayedCallback = void Function(GameMove move);
 
@@ -125,22 +126,23 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _zoomOnArea(int row, int col) {
-    // Dimensions
-    const double cellSize = 40; // Assure-toi de la taille exacte
-    const int zoomSize = 10; // 10×10 cases
-    const double scale = 2.0; // Niveau de zoom
+    // Taille des cases (doit correspondre à celle du buildScrabbleBoard)
+    const double cellSize = 40; // Peut être ajusté
+    const int zoomSize = 12; // 12×12 cases visibles max
+    const double scale = 15 / zoomSize; // Ajuste le zoom selon boardSize (15)
 
-    // Calcul de la zone cible
-    final double targetX = ((col - zoomSize ~/ 2) * cellSize).clamp(
-      0,
-      double.infinity,
-    );
-    final double targetY = ((row - zoomSize ~/ 2) * cellSize).clamp(
-      0,
-      double.infinity,
-    );
+    // Dimensions totales du plateau
+    final double boardSizePx = cellSize * 15;
 
-    // Applique la transformation
+    // Calcul des coordonnées ciblées pour centrer la zone autour (row,col)
+    double targetX = (col - zoomSize ~/ 2) * cellSize;
+    double targetY = (row - zoomSize ~/ 2) * cellSize;
+
+    // Clamp pour ne pas sortir du plateau
+    targetX = targetX.clamp(0, boardSizePx - (boardSizePx / scale));
+    targetY = targetY.clamp(0, boardSizePx - (boardSizePx / scale));
+
+    // Applique la transformation (zoom + translation)
     _boardController.value =
         Matrix4.identity()
           ..scale(scale)
@@ -181,39 +183,132 @@ class _GameScreenState extends State<GameScreen> {
     if (!mounted) return;
 
     setState(() {
-      final int score = _lettersPlacedThisTurn.length;
+      int score = 0;
+      int wordMultiplier = 1;
 
-      // Mettre à jour le score
+      // Calcul du score des lettres placées
+      for (final placed in _lettersPlacedThisTurn) {
+        final String letter = placed.letter;
+        final int row = placed.row;
+        final int col = placed.col;
+
+        int letterScore = letterPoints[letter] ?? 0;
+
+        // Appliquer les bonus
+        final bonus = bonusMap[row][col];
+        switch (bonus) {
+          case BonusType.doubleLetter:
+            letterScore *= 2;
+            break;
+          case BonusType.tripleLetter:
+            letterScore *= 3;
+            break;
+          case BonusType.doubleWord:
+            wordMultiplier *= 2;
+            break;
+          case BonusType.tripleWord:
+            wordMultiplier *= 3;
+            break;
+          case BonusType.none:
+            break;
+        }
+
+        score += letterScore;
+
+        widget.gameState.board[row][col] = letter;
+      }
+
+      score *= wordMultiplier;
+
+      if (_lettersPlacedThisTurn.length == 7) {
+        score += 50; // bonus Scrabble
+      }
+
       if (widget.gameState.isLeft) {
         widget.gameState.leftScore += score;
       } else {
         widget.gameState.rightScore += score;
       }
 
-      // 🔁 Mettre à jour le plateau
-      for (final placed in _lettersPlacedThisTurn) {
-        final int row = placed.row;
-        final int col = placed.col;
-        final String letter = placed.letter;
-
-        widget.gameState.board[row][col] = letter;
-      }
-
-      // Passer le tour
       widget.gameState.isLeft = !widget.gameState.isLeft;
 
-      // Réinitialiser le rack
       _initialRack = List.from(_playerLetters);
-
-      // 3. Compléter le rack avec des lettres du sac
       refillRack(7);
-
-      // Nettoyer les lettres placées ce tour-ci
       _lettersPlacedThisTurn.clear();
 
-      // 🔄 Transmettre le GameState mis à jour
       widget.onGameStateUpdated?.call(widget.gameState);
+
+      // **Vérifier si la partie est terminée**
+      if (_playerLetters.isEmpty && widget.gameState.bag.remainingCount == 0) {
+        _showEndGamePopup();
+      }
     });
+  }
+
+  void _showEndGamePopup() {
+    String winner;
+    if (widget.gameState.leftScore > widget.gameState.rightScore) {
+      winner = widget.gameState.leftName;
+    } else if (widget.gameState.rightScore > widget.gameState.leftScore) {
+      winner = widget.gameState.rightName;
+    } else {
+      winner = "Égalité !";
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (_) => AlertDialog(
+            title: const Text("Fin de la partie"),
+            content: Text(
+              "Le gagnant est : $winner\n\nScore final :\n"
+              "${widget.gameState.leftName}: ${widget.gameState.leftScore}\n"
+              "${widget.gameState.rightName}: ${widget.gameState.rightScore}",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _startRematch();
+                },
+                child: const Text("Revanche"),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _startRematch() {
+    final bool leftWon =
+        widget.gameState.leftScore > widget.gameState.rightScore;
+    final String newLeft =
+        leftWon ? widget.gameState.rightName : widget.gameState.leftName;
+    final String newRight =
+        leftWon ? widget.gameState.leftName : widget.gameState.rightName;
+
+    final newGameState = GameInitializer.createGame(
+      isLeft: true, // Le nouveau joueur gauche commence
+      leftName: newLeft,
+      leftIP: '', // Peut être mis à jour
+      leftPort: '',
+      rightName: newRight,
+      rightIP: '',
+      rightPort: '',
+    );
+
+    setState(() {
+      widget.gameState.copyFrom(newGameState);
+      _board = newGameState.board.map((r) => List<String>.from(r)).toList();
+      _playerLetters =
+          newGameState.isLeft
+              ? newGameState.leftLetters
+              : newGameState.rightLetters;
+      _initialRack = List.from(_playerLetters);
+      _lettersPlacedThisTurn.clear();
+    });
+
+    widget.onGameStateUpdated?.call(widget.gameState);
   }
 
   void _showBagContents() {
@@ -271,6 +366,12 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isCurrentTurn =
+        (widget.gameState.isLeft &&
+            widget.gameState.leftName == settings.localUserName) ||
+        (!widget.gameState.isLeft &&
+            widget.gameState.rightName == settings.localUserName);
+
     return Scaffold(
       appBar: AppBar(title: const Text("Scrabble_chen ;-)")),
       body: Column(
@@ -353,13 +454,14 @@ class _GameScreenState extends State<GameScreen> {
             flex: 5,
             child: GestureDetector(
               onDoubleTap: () {
-                // Réinitialiser la vue
+                // Réinitialiser la vue globale
                 _boardController.value = Matrix4.identity();
               },
               child: InteractiveViewer(
                 transformationController: _boardController,
+                panEnabled: true,
                 minScale: 1.0,
-                maxScale: 3.0,
+                maxScale: 15 / 12, // Zoom max pour afficher ~12 cases
                 child: buildScrabbleBoard(
                   board: _board,
                   playerLetters: _playerLetters,
@@ -370,6 +472,7 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ),
           ),
+
           const SizedBox(height: 12),
           SizedBox(
             height: 60,
@@ -392,11 +495,37 @@ class _GameScreenState extends State<GameScreen> {
                 tooltip: 'Annuler',
                 onPressed: _handleUndo,
               ),
-              IconButton(
-                icon: const Icon(Icons.send),
-                tooltip: 'Envoyer',
-                onPressed: _handleSubmit,
+
+              ElevatedButton(
+                onPressed:
+                    isCurrentTurn
+                        ? _handleSubmit
+                        : null, // désactivé si ce n’est pas son tour
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color.fromARGB(
+                    255,
+                    141,
+                    23,
+                    15,
+                  ), // désactivé
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20), // bords arrondis
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                ),
+                child: const Text(
+                  'Envoyer',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
+
               IconButton(
                 icon: const Icon(Icons.inventory_2),
                 tooltip: 'Voir le sac',
