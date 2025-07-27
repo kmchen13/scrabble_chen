@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'dragged_letter.dart';
+import '../models/dragged_letter.dart';
 
 const int boardSize = 15;
 
 Widget buildScrabbleBoard({
   required List<List<String>> board,
-  required List<String> playerLetters,
   required List<({int row, int col, String letter})> lettersPlacedThisTurn,
   required void Function(String letter, int row, int col) onLetterPlaced,
   required void Function(String letter) onLetterReturned,
@@ -18,20 +17,16 @@ Widget buildScrabbleBoard({
     itemBuilder: (context, index) {
       final row = index ~/ boardSize;
       final col = index % boardSize;
+      final cellLetter = board[row][col];
       final bonus = bonusMap[row][col];
       final bgColor = getColorForBonus(bonus);
-      final cellLetter = board[row][col];
 
-      // ✅ Vérifie si cette case fait partie des lettres du tour
       final isPlacedThisTurn = lettersPlacedThisTurn.any(
         (pos) => pos.row == row && pos.col == col,
       );
 
       return DragTarget<DraggedLetter>(
-        onWillAccept: (data) {
-          // Accepte si la case est vide
-          return board[row][col].isEmpty;
-        },
+        onWillAccept: (data) => board[row][col].isEmpty,
         onAcceptWithDetails: (details) {
           final letter = details.data.letter;
           if (board[row][col].isEmpty) {
@@ -39,15 +34,11 @@ Widget buildScrabbleBoard({
           }
         },
         builder: (context, candidateData, rejectedData) {
-          final cellLetter = board[row][col];
-          final isPlacedThisTurn = lettersPlacedThisTurn.any(
-            (pos) => pos.row == row && pos.col == col,
-          );
-
           return GestureDetector(
             onTap: () {
+              // Retourne dans le rack si la lettre est placée ce tour
               if (isPlacedThisTurn && cellLetter.isNotEmpty) {
-                onLetterReturned(cellLetter); // Retourne dans le rack
+                onLetterReturned(cellLetter);
               }
             },
             child: Container(
@@ -58,32 +49,59 @@ Widget buildScrabbleBoard({
                 color:
                     cellLetter.isNotEmpty
                         ? (isPlacedThisTurn
-                            ? Colors
-                                .amber[100] // plus clair pour indiquer le dernier coup
+                            ? Colors.amber[100]
                             : Colors.amber[200])
-                        : getColorForBonus(bonusMap[row][col]),
+                        : bgColor,
               ),
               child: Center(
-                child: Text(
-                  cellLetter.isNotEmpty
-                      ? cellLetter
-                      : bonusLabel(bonusMap[row][col]),
-                  style: TextStyle(
-                    fontSize:
-                        cellLetter.isNotEmpty ? 12 : 9, // bonus plus petit
-                    fontWeight: FontWeight.bold,
-                    color:
-                        cellLetter.isNotEmpty
-                            ? (isPlacedThisTurn ? Colors.black54 : Colors.black)
-                            : Colors.white, // bonus en blanc
-                  ),
-                ),
+                child:
+                    cellLetter.isNotEmpty
+                        ? LongPressDraggable<DraggedLetter>(
+                          data: DraggedLetter(
+                            letter: cellLetter,
+                            fromIndex: -1,
+                            row: row,
+                            col: col,
+                          ),
+                          feedback: Material(
+                            color: Colors.transparent,
+                            child: _buildLetterTile(cellLetter),
+                          ),
+                          childWhenDragging: Container(
+                            color: Colors.transparent,
+                          ),
+                          child: _buildLetterTile(
+                            cellLetter,
+                            greyed: isPlacedThisTurn,
+                          ),
+                        )
+                        : Text(
+                          bonusLabel(bonus),
+                          style: const TextStyle(
+                            fontSize: 9,
+                            color: Colors.white, // Bonus en blanc
+                          ),
+                        ),
               ),
             ),
           );
         },
       );
     },
+  );
+}
+
+Widget _buildLetterTile(String letter, {bool greyed = false}) {
+  return Container(
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      color: greyed ? Colors.grey[400] : Colors.amber[200],
+      border: Border.all(color: Colors.black),
+    ),
+    child: Text(
+      letter,
+      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+    ),
   );
 }
 

@@ -26,7 +26,8 @@ class _StartScreenState extends State<StartScreen> {
   void initState() {
     super.initState();
     _net = ScrabbleNet();
-    if (_debug) print('${logHeader()} _net hashCode = ${_net.hashCode}');
+    if (_debug)
+      print('${logHeader('startScreen')} _net hashCode = ${_net.hashCode}');
 
     // Lancement d'une demande de partenaire.
     // Si 2 joueurs donnent rightName = '' ils sont connectés
@@ -44,19 +45,21 @@ class _StartScreenState extends State<StartScreen> {
 
       setState(() => _navigated = true);
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder:
-              (_) => GameScreen(
-                net: _net,
-                gameState: newState,
-                onGameStateUpdated: (updatedState) {
-                  _net.sendGameState(updatedState);
-                },
-              ),
-        ),
-      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder:
+                (_) => GameScreen(
+                  net: _net,
+                  gameState: newState,
+                  onGameStateUpdated: (updatedState) {
+                    _net.sendGameState(updatedState);
+                  },
+                ),
+          ),
+        );
+      });
     };
 
     _net.onMatched = ({
@@ -81,30 +84,38 @@ class _StartScreenState extends State<StartScreen> {
         rightPort: rightPort.toString(),
       );
 
-      _net.sendGameState(initialGameState);
+      if (isLeft) {
+        _net.sendGameState(initialGameState);
+      }
 
       if (!_navigated) {
         setState(() => _navigated = true);
 
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder:
-                (_) => GameScreen(
-                  net: _net,
-                  gameState: initialGameState,
-                  onGameStateUpdated: (updatedState) {
-                    _net.sendGameState(updatedState);
-                  },
-                ),
-          ),
-        );
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder:
+                  (_) => GameScreen(
+                    net: _net,
+                    gameState: initialGameState,
+                    onGameStateUpdated: (updatedState) {
+                      _net.sendGameState(updatedState);
+                    },
+                  ),
+            ),
+          );
+        });
       }
     };
   }
 
   @override
   void dispose() {
+    if (_debug) {
+      print('${logHeader('startScreen')} dispose() appelé');
+      // debugPrintStack(label: 'Stack au moment de dispose():');
+    }
     _net.onMatched = null;
     //    _net.onGameStateReceived = null;
     super.dispose();

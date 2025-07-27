@@ -137,11 +137,7 @@ class _ParamScreenState extends State<ParamScreen> {
               keyboardType: TextInputType.number,
             ),
             const SizedBox(height: 20),
-            _buildTextField(
-              "Adresse du relay :",
-              _relayAddressController,
-              enabled: false,
-            ),
+            _buildTextField("Adresse du relay :", _relayAddressController),
             const SizedBox(height: 20),
             _buildTextField(
               "Port du relay :",
@@ -183,6 +179,15 @@ class _ParamScreenState extends State<ParamScreen> {
             ElevatedButton(
               onPressed: _saveSettings,
               child: const Text("Enregistrer"),
+            ),
+            const SizedBox(height: 30),
+            ElevatedButton(
+              onPressed: () async {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.remove(settingsKey);
+                await _loadSettings();
+              },
+              child: const Text("Recharger les paramètres d'usine"),
             ),
           ],
         ),

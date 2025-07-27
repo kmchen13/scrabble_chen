@@ -9,6 +9,7 @@ late final UserSettings settings;
 
 Future<void> loadSettings() async {
   final prefs = await SharedPreferences.getInstance();
+  await prefs.reload();
   final jsonString = prefs.getString('user_settings');
   if (jsonString != null) {
     final jsonMap = Map<String, dynamic>.from(

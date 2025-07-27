@@ -7,8 +7,8 @@ String getTimestamp() {
   return '[$h:$m:$s.$ms]';
 }
 
-String logHeader() {
-  return "[LocalNet]${getTimestamp()}";
+String logHeader(String caller) {
+  return "[$caller]${getTimestamp()}";
 }
 
 void wait(msTime) async {

@@ -32,7 +32,7 @@ class UserSettings {
       localPort: 4567,
       udpPort: 4560,
       expectedUserName: '',
-      relayAddress: '',
+      relayAddress: 'relay-server-3lv4.onrender.com',
       relayPort: 0,
       startTime: null,
     );
@@ -51,6 +51,14 @@ class UserSettings {
       'relayPort': relayPort,
       'startTime': startTime?.toIso8601String(),
     };
+  }
+
+  String get relayServerUrl {
+    if (relayPort == 0) {
+      return "wss://$relayAddress";
+    } else {
+      return "wss://$relayAddress:$relayPort";
+    }
   }
 
   factory UserSettings.fromJson(Map<String, dynamic> json) {

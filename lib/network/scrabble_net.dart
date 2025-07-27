@@ -51,4 +51,6 @@ abstract class ScrabbleNet {
   void Function(GameState)? onGameStateReceived;
 
   void disconnect();
+
+  void Function(String message)? onError;
 }
