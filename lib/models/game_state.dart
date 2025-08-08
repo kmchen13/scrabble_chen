@@ -6,16 +6,19 @@ class GameState {
   bool isLeft;
   final String leftName;
   final String leftIP;
-  final String leftPort;
+  final int leftPort;
   final String rightName;
   final String rightIP;
-  final String rightPort;
+  final int rightPort;
   List<List<String>> board;
   BagModel bag;
   List<String> leftLetters;
   List<String> rightLetters;
   int leftScore;
   int rightScore;
+
+  // Ajout du champ lettersPlacedThisTurn
+  List<({int row, int col, String letter})> lettersPlacedThisTurn;
 
   GameState({
     required this.isLeft,
@@ -31,6 +34,7 @@ class GameState {
     required this.rightLetters,
     required this.leftScore,
     required this.rightScore,
+    required this.lettersPlacedThisTurn, // ajouté ici
   });
 
   Map<String, dynamic> toMap() {
@@ -43,11 +47,17 @@ class GameState {
       'rightIP': rightIP,
       'rightPort': rightPort,
       'board': board,
-      'bag': bag.remainingLetters,
+      'bag': bag.toMap(),
+
       'leftLetters': leftLetters,
       'rightLetters': rightLetters,
       'leftScore': leftScore,
       'rightScore': rightScore,
+      // Sérialisation de lettersPlacedThisTurn
+      'lettersPlacedThisTurn':
+          lettersPlacedThisTurn
+              .map((e) => {'row': e.row, 'col': e.col, 'letter': e.letter})
+              .toList(),
     };
   }
 
@@ -63,11 +73,23 @@ class GameState {
       board: List<List<String>>.from(
         map['board'].map<List<String>>((row) => List<String>.from(row)),
       ),
-      bag: BagModel(),
+      bag: BagModel.fromMap(map['bag']),
+
       leftLetters: List<String>.from(map['leftLetters']),
       rightLetters: List<String>.from(map['rightLetters']),
       leftScore: map['leftScore'],
       rightScore: map['rightScore'],
+      // Désérialisation de lettersPlacedThisTurn
+      lettersPlacedThisTurn:
+          (map['lettersPlacedThisTurn'] as List)
+              .map(
+                (e) => (
+                  row: e['row'] as int,
+                  col: e['col'] as int,
+                  letter: e['letter'] as String,
+                ),
+              )
+              .toList(),
     );
   }
 
@@ -77,16 +99,17 @@ class GameState {
       GameState.fromMap(jsonDecode(source));
 
   GameState copyWith({
-    bool? isrightTurn,
+    bool? isLeft,
     List<List<String>>? board,
     BagModel? bag,
     List<String>? leftLetters,
     List<String>? rightLetters,
-    var leftScore,
-    var rightScore,
+    int? leftScore,
+    int? rightScore,
+    List<({int row, int col, String letter})>? lettersPlacedThisTurn,
   }) {
     return GameState(
-      isLeft: isLeft,
+      isLeft: isLeft ?? this.isLeft,
       leftName: leftName,
       leftIP: leftIP,
       leftPort: leftPort,
@@ -99,6 +122,8 @@ class GameState {
       rightLetters: rightLetters ?? this.rightLetters,
       leftScore: leftScore ?? this.leftScore,
       rightScore: rightScore ?? this.rightScore,
+      lettersPlacedThisTurn:
+          lettersPlacedThisTurn ?? this.lettersPlacedThisTurn,
     );
   }
 
@@ -110,10 +135,13 @@ class GameState {
     leftLetters = List<String>.from(other.leftLetters);
     rightLetters = List<String>.from(other.rightLetters);
 
-    // ✅ Copie profonde du board
+    // Copie profonde du board
     board = other.board.map((row) => List<String>.from(row)).toList();
 
-    // ✅ Copie indépendante du sac
+    // Copie indépendante du sac
     bag.copyFrom(other.bag);
+
+    // Copie de lettersPlacedThisTurn
+    lettersPlacedThisTurn = List.from(other.lettersPlacedThisTurn);
   }
 }

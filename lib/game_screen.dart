@@ -8,6 +8,8 @@ import 'services/settings_service.dart';
 import 'services/utility.dart';
 import 'services/game_initializer.dart';
 import 'models/dragged_letter.dart';
+import 'score.dart';
+import 'services/game_storage.dart';
 
 typedef MovePlayedCallback = void Function(GameMove move);
 
@@ -101,11 +103,23 @@ class _GameScreenState extends State<GameScreen> {
 
   void _handleLetterPlaced(String letter, int row, int col) {
     setState(() {
+      // Évite d’écraser une lettre déjà sur la case (par erreur externe)
+      if (_board[row][col].isNotEmpty) return;
+
+      // Place la lettre à la nouvelle position
       _board[row][col] = letter;
-      _playerLetters.remove(letter);
+
+      // Retire du rack uniquement si elle y est encore
+      _playerLetters.remove(letter); // safe : remove ne crash pas si absente
+
+      // Supprime d’anciens placements si lettre déplacée
+      _lettersPlacedThisTurn.removeWhere((e) => e.row == row && e.col == col);
+
       _lettersPlacedThisTurn.add((row: row, col: col, letter: letter));
     });
+
     widget.onMovePlayed?.call(GameMove(letter: letter, row: row, col: col));
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _zoomOnArea(row, col);
     });
@@ -113,19 +127,28 @@ class _GameScreenState extends State<GameScreen> {
 
   void _showBagContents() {
     final bag = widget.gameState.bag;
-    if (bag == null) return;
-
     final remaining = bag.remainingLetters;
-    final content = remaining.entries
-        .map((entry) => "${entry.key}: ${entry.value}")
-        .join('\n');
 
     showDialog(
       context: context,
       builder:
           (_) => AlertDialog(
             title: const Text("Lettres restantes dans le sac"),
-            content: Text(content),
+            content: SizedBox(
+              width: 200,
+              height: 300,
+              child: GridView.count(
+                crossAxisCount: 3,
+                childAspectRatio: 3.5, // Ajuste hauteur/largeur
+                children:
+                    remaining.entries.map((entry) {
+                      return Text(
+                        "${entry.key} : ${entry.value}",
+                        style: const TextStyle(fontSize: 16),
+                      );
+                    }).toList(),
+              ),
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -166,6 +189,7 @@ class _GameScreenState extends State<GameScreen> {
     setState(() {
       for (final placed in _lettersPlacedThisTurn) {
         _board[placed.row][placed.col] = '';
+        widget.gameState.bag.addLetter(placed.letter); // ✅ Restaure dans le sac
       }
       _playerLetters = List.from(_initialRack);
       _lettersPlacedThisTurn.clear();
@@ -173,46 +197,44 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _handleSubmit() {
+    // Fusionne les lettres posées ce tour dans le plateau
+    for (final placed in _lettersPlacedThisTurn) {
+      _board[placed.row][placed.col] = placed.letter;
+    }
     setState(() {
-      int score = 0;
-      int wordMultiplier = 1;
+      final result = getWordsCreatedAndScore(
+        board: widget.gameState.board,
+        lettersPlacedThisTurn: _lettersPlacedThisTurn,
+      );
 
-      for (final placed in _lettersPlacedThisTurn) {
-        final bonus = bonusMap[placed.row][placed.col];
-        int letterScore = letterPoints[placed.letter] ?? 0;
-        switch (bonus) {
-          case BonusType.doubleLetter:
-            letterScore *= 2;
-            break;
-          case BonusType.tripleLetter:
-            letterScore *= 3;
-            break;
-          case BonusType.doubleWord:
-            wordMultiplier *= 2;
-            break;
-          case BonusType.tripleWord:
-            wordMultiplier *= 3;
-            break;
-          case BonusType.none:
-            break;
-        }
-        score += letterScore;
-        widget.gameState.board[placed.row][placed.col] = placed.letter;
+      int totalScore = result.totalScore;
+
+      // Bonus Scrabble : 7 lettres jouées
+      if (_lettersPlacedThisTurn.length == 7) {
+        totalScore += 50;
       }
 
-      score *= wordMultiplier;
-      if (_lettersPlacedThisTurn.length == 7) score += 50;
-
+      // Appliquer le score au joueur actif
       if (widget.gameState.isLeft) {
-        widget.gameState.leftScore += score;
+        widget.gameState.leftScore += totalScore;
       } else {
-        widget.gameState.rightScore += score;
+        widget.gameState.rightScore += totalScore;
       }
 
-      widget.gameState.isLeft = !widget.gameState.isLeft;
-      _initialRack = List.from(_playerLetters);
-      refillRack(7);
+      // Placer définitivement les lettres sur le plateau et les retirer du sac
+      for (final placed in _lettersPlacedThisTurn) {
+        widget.gameState.board[placed.row][placed.col] = placed.letter;
+        widget.gameState.bag.removeLetter(placed.letter);
+      }
+
+      // Vider les lettres posées ce tour
       _lettersPlacedThisTurn.clear();
+
+      // Tirer de nouvelles lettres
+      refillRack(7);
+
+      // Passer au tour suivant
+      widget.gameState.isLeft = !widget.gameState.isLeft;
 
       widget.onGameStateUpdated?.call(widget.gameState);
 
@@ -225,7 +247,15 @@ class _GameScreenState extends State<GameScreen> {
   void refillRack(int rackSize) {
     int missing = rackSize - _playerLetters.length;
     if (missing > 0) {
-      _playerLetters.addAll(widget.gameState.bag.drawLetters(missing));
+      final drawn = widget.gameState.bag.drawLetters(missing);
+      _playerLetters.addAll(drawn);
+
+      // ✅ MISE À JOUR du GameState avec les nouvelles lettres
+      if (widget.gameState.isLeft) {
+        widget.gameState.leftLetters = List.from(_playerLetters);
+      } else {
+        widget.gameState.rightLetters = List.from(_playerLetters);
+      }
     }
   }
 
@@ -273,10 +303,10 @@ class _GameScreenState extends State<GameScreen> {
       isLeft: true,
       leftName: newLeft,
       leftIP: '',
-      leftPort: '',
+      leftPort: 0,
       rightName: newRight,
       rightIP: '',
-      rightPort: '',
+      rightPort: 0,
     );
 
     setState(() {
@@ -428,6 +458,11 @@ class _GameScreenState extends State<GameScreen> {
               icon: const Icon(Icons.inventory_2),
               onPressed: _showBagContents,
             ),
+            IconButton(
+              icon: const Icon(Icons.save),
+              tooltip: "Sauvegarder la partie",
+              onPressed: _saveCurrentGame,
+            ),
           ],
         ),
       ),
@@ -445,5 +480,12 @@ class _GameScreenState extends State<GameScreen> {
         _board[removed.row][removed.col] = '';
       }
     });
+  }
+
+  Future<void> _saveCurrentGame() async {
+    await saveGameState(widget.gameState.toMap());
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text("Partie sauvegardée")));
   }
 }

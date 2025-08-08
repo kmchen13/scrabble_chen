@@ -46,7 +46,7 @@ class _StartScreenState extends State<StartScreen> {
       setState(() => _navigated = true);
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.pushReplacement(
+        Navigator.push(
           context,
           MaterialPageRoute(
             builder:
@@ -72,27 +72,24 @@ class _StartScreenState extends State<StartScreen> {
       required int rightPort,
       required int rightStartTime,
     }) {
-      final isLeft = leftStartTime < rightStartTime;
+      // Le premier à envoyer une demande (+ petit startTime) de partenaire est toujours à droite
+      // Celui qui rejoint (plus grand StartTime) est toujours à gauche. Il joue le premier coup et envoit le gameState
+      final bool isLeft = leftStartTime > rightStartTime;
 
-      final initialGameState = GameInitializer.createGame(
-        isLeft: isLeft,
-        leftName: leftName,
-        leftIP: leftIP,
-        leftPort: leftPort.toString(),
-        rightName: rightName,
-        rightIP: rightIP,
-        rightPort: rightPort.toString(),
-      );
-
-      if (isLeft) {
-        _net.sendGameState(initialGameState);
-      }
-
-      if (!_navigated) {
+      if (isLeft && settings.localUserName == leftName) {
+        final initialGameState = GameInitializer.createGame(
+          isLeft: isLeft,
+          leftName: leftName,
+          leftIP: leftIP,
+          leftPort: leftPort,
+          rightName: rightName,
+          rightIP: rightIP,
+          rightPort: rightPort,
+        );
         setState(() => _navigated = true);
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          Navigator.pushReplacement(
+          Navigator.push(
             context,
             MaterialPageRoute(
               builder:
@@ -106,7 +103,10 @@ class _StartScreenState extends State<StartScreen> {
             ),
           );
         });
-      }
+      } else
+        setState(() {
+          _log = 'Partenaire trouvé. A lui de jouer';
+        });
     };
   }
 
@@ -116,6 +116,7 @@ class _StartScreenState extends State<StartScreen> {
       print('${logHeader('startScreen')} dispose() appelé');
       // debugPrintStack(label: 'Stack au moment de dispose():');
     }
+    _net.disconnect();
     _net.onMatched = null;
     //    _net.onGameStateReceived = null;
     super.dispose();

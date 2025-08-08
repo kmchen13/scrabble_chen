@@ -6,7 +6,7 @@ import '../services/settings_service.dart';
 import '../services/utility.dart';
 import 'scrabble_net.dart';
 
-/**
+/*
  *  RelayNet is a class that implements the ScrabbleNet interface
  *  for relay server communication using WebSockets.
  *  It handles player matching and game state transmission through a relay server.
@@ -60,7 +60,12 @@ class RelayNet implements ScrabbleNet {
 
     Timer.periodic(const Duration(seconds: 30), (_) {
       if (_connected) {
-        _channel?.sink.add(jsonEncode({'type': 'ping'}));
+        _channel?.sink.add(
+          jsonEncode({
+            'type': 'keepalive',
+            'timestamp': DateTime.now().millisecondsSinceEpoch,
+          }),
+        );
       }
     });
 
@@ -128,7 +133,8 @@ class RelayNet implements ScrabbleNet {
       'data': state.toJson(),
     });
     _channel!.sink.add(jsonString);
-    if (_debug) print('${logHeader("RelaylNet")} GameState envoyé');
+    if (_debug)
+      print('${logHeader("RelaylNet")} GameState envoyé: ${state.toJson()}');
   }
 
   @override

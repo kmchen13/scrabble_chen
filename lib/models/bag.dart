@@ -17,13 +17,19 @@ class BagModel {
     });
   }
 
-  /// Constructeur depuis un Map
-  BagModel.fromMap(Map<String, int> map) {
-    _bag = [];
-    map.forEach((letter, count) {
-      _bag.addAll(List.filled(count, letter));
+  /// Constructeur depuis un Map<String, dynamic> ou Map<String, int>
+  factory BagModel.fromMap(Map<String, dynamic> map) {
+    final bag = BagModel._empty();
+    map.forEach((key, value) {
+      final letter = key.toString();
+      final count = value is int ? value : int.tryParse(value.toString()) ?? 0;
+      bag._bag.addAll(List.filled(count, letter));
     });
+    return bag;
   }
+
+  /// Constructeur vide privé
+  BagModel._empty();
 
   /// Sérialisation
   Map<String, int> toMap() {
@@ -63,5 +69,21 @@ class BagModel {
     newBag.forEach((letter, count) {
       _bag.addAll(List.filled(count, letter));
     });
+  }
+
+  /// ✅ Ajoute une lettre au sac
+  void addLetter(String letter) {
+    _bag.add(letter);
+  }
+
+  /// ✅ Supprime une lettre du sac (une occurrence seulement)
+  /// Retourne true si la lettre a été retirée, false sinon
+  bool removeLetter(String letter) {
+    final index = _bag.indexOf(letter);
+    if (index != -1) {
+      _bag.removeAt(index);
+      return true;
+    }
+    return false;
   }
 }

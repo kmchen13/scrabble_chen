@@ -9,7 +9,7 @@ import '../services/settings_service.dart';
 import '../services/utility.dart';
 import 'scrabble_net.dart';
 
-/**
+/*
  *  LocalNet is a class that implements the ScrabbleNet interface
  *  for local network play using UDP and TCP.
  *  It handles player matching, game state transmission, and network communication. 

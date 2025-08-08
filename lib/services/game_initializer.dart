@@ -6,10 +6,10 @@ class GameInitializer {
     required bool isLeft,
     required String leftName,
     required String leftIP,
-    required String leftPort,
+    required int leftPort,
     required String rightName,
     required String rightIP,
-    required String rightPort,
+    required int rightPort,
   }) {
     final BagModel bag = BagModel();
     final List<String> leftLetters = bag.drawLetters(7);
@@ -21,7 +21,7 @@ class GameInitializer {
     );
 
     return GameState(
-      isLeft: isLeft,
+      isLeft: isLeft, //Gauche joue le premier coup
       leftName: leftName,
       leftIP: leftIP,
       leftPort: leftPort,
@@ -34,6 +34,7 @@ class GameInitializer {
       rightLetters: rightLetters,
       leftScore: 0,
       rightScore: 0,
+      lettersPlacedThisTurn: [],
     );
   }
 }
