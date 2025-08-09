@@ -1,9 +1,11 @@
 import 'dart:convert';
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../models/game_state.dart';
 import '../services/settings_service.dart';
 import '../services/utility.dart';
+import '../services/log.dart';
 import 'scrabble_net.dart';
 
 /*
@@ -52,11 +54,16 @@ class RelayNet implements ScrabbleNet {
     required int startTime,
   }) async {
     if (_debug)
-      print(
+      logger.i(
         '${logHeader("RelaylNet")} Connexion à $_relayServerUrl : $localName : $expectedName : $startTime',
       );
-    _channel = WebSocketChannel.connect(Uri.parse(_relayServerUrl));
-    _connected = true;
+    try {
+      _channel = WebSocketChannel.connect(Uri.parse(_relayServerUrl));
+      _connected = true;
+      logger.d("Connexion réussie");
+    } catch (e, st) {
+      logger.e("Erreur de connexion", error: e, stackTrace: st);
+    }
 
     Timer.periodic(const Duration(seconds: 30), (_) {
       if (_connected) {
@@ -70,7 +77,7 @@ class RelayNet implements ScrabbleNet {
     });
 
     _channel!.stream.listen((data) {
-      if (_debug) print('${logHeader("RelaylNet")} Message reçu: $data');
+      if (_debug) logger.i('${logHeader("RelaylNet")} Message reçu: $data');
 
       try {
         final Map<String, dynamic> decoded =
@@ -86,7 +93,8 @@ class RelayNet implements ScrabbleNet {
             break;
         }
       } catch (e) {
-        if (_debug) print('${logHeader("RelaylNet")} Erreur parsing JSON: $e');
+        if (_debug)
+          logger.i('${logHeader("RelaylNet")} Erreur parsing JSON: $e');
       }
     });
 
@@ -118,14 +126,14 @@ class RelayNet implements ScrabbleNet {
         rightStartTime: rightStartTime,
       );
     } catch (e) {
-      print('${logHeader("RelayNet")} Erreur parsing match: $e');
+      logger.i('${logHeader("RelayNet")} Erreur parsing match: $e');
     }
   }
 
   @override
   void sendGameState(GameState state) {
     if (!_connected || _channel == null) {
-      if (_debug) print('${logHeader("RelaylNet")} ⚠️ Pas connecté');
+      if (_debug) logger.i('${logHeader("RelaylNet")} ⚠️ Pas connecté');
       return;
     }
     final jsonString = jsonEncode({
@@ -134,7 +142,7 @@ class RelayNet implements ScrabbleNet {
     });
     _channel!.sink.add(jsonString);
     if (_debug)
-      print('${logHeader("RelaylNet")} GameState envoyé: ${state.toJson()}');
+      logger.i('${logHeader("RelaylNet")} GameState envoyé: ${state.toJson()}');
   }
 
   @override
@@ -142,7 +150,7 @@ class RelayNet implements ScrabbleNet {
     _connected = false;
     _channel?.sink.close();
     _channel = null;
-    if (_debug) print('${logHeader("RelaylNet")} Déconnecté');
+    if (_debug) logger.i('${logHeader("RelaylNet")} Déconnecté');
   }
 
   void Function(String error)? onError;

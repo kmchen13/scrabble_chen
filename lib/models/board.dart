@@ -58,7 +58,7 @@ Widget buildScrabbleBoard({
                   final dragged = details.data;
                   final letter = dragged.letter;
                   if (_debug) {
-                    print('Lettre acceptée : ${dragged.letter} à ($row, $col)');
+                    debugPrint('Lettre acceptée : ${dragged.letter} à ($row, $col)');
                   }
 
                   if (board[row][col].isEmpty) {

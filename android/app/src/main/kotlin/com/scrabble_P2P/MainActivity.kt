@@ -1,4 +1,4 @@
-package com.example.scrabble_chen
+package com.scrabble_P2P
 
 import io.flutter.embedding.android.FlutterActivity
 

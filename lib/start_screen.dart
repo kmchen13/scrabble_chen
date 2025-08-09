@@ -27,7 +27,7 @@ class _StartScreenState extends State<StartScreen> {
     super.initState();
     _net = ScrabbleNet();
     if (_debug)
-      print('${logHeader('startScreen')} _net hashCode = ${_net.hashCode}');
+      debugPrint('${logHeader('startScreen')} _net hashCode = ${_net.hashCode}');
 
     // Lancement d'une demande de partenaire.
     // Si 2 joueurs donnent rightName = '' ils sont connectés
@@ -40,7 +40,7 @@ class _StartScreenState extends State<StartScreen> {
     );
 
     _net.onGameStateReceived = (newState) {
-      print("[startScreen] onGameStateReceived déclenché !");
+      debugPrint("[startScreen] onGameStateReceived déclenché !");
       if (!mounted || _navigated) return;
 
       setState(() => _navigated = true);
@@ -113,7 +113,7 @@ class _StartScreenState extends State<StartScreen> {
   @override
   void dispose() {
     if (_debug) {
-      print('${logHeader('startScreen')} dispose() appelé');
+      debugPrint('${logHeader('startScreen')} dispose() appelé');
       // debugPrintStack(label: 'Stack au moment de dispose():');
     }
     _net.disconnect();

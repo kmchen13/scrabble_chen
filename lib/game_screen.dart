@@ -339,7 +339,7 @@ class _GameScreenState extends State<GameScreen> {
             widget.gameState.rightName == settings.localUserName);
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Scrabble_chen ;-)")),
+      appBar: AppBar(title: const Text("scrabble_P2P ;-)")),
       body: Column(
         children: [
           _buildScoreBar(),

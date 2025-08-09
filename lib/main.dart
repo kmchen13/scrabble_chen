@@ -64,7 +64,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Scrabble_chen ;-)")),
+      appBar: AppBar(title: const Text("Scrabble_P2P ;-)")),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
