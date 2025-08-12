@@ -1,11 +1,9 @@
 import 'bonus.dart';
 import 'models/dragged_letter.dart';
+import 'models/placed_letter.dart';
 
-/*Fonctions utilitaires pour calcul score */
-bool _isLikelyHorizontal(
-  List<({int row, int col, String letter})> letters,
-  List<List<String>> board,
-) {
+/* Fonctions utilitaires pour calcul score */
+bool _isLikelyHorizontal(List<PlacedLetter> letters, List<List<String>> board) {
   if (letters.length == 1) {
     final l = letters.first;
     final hasLeft = l.col > 0 && board[l.row][l.col - 1].isNotEmpty;
@@ -96,7 +94,7 @@ bool _inBounds(int row, int col) {
 /* Détection de tous les mots formés et calcul score total */
 ({List<String> words, int totalScore}) getWordsCreatedAndScore({
   required List<List<String>> board,
-  required List<({int row, int col, String letter})> lettersPlacedThisTurn,
+  required List<PlacedLetter> lettersPlacedThisTurn,
 }) {
   if (lettersPlacedThisTurn.isEmpty) {
     return (words: [], totalScore: 0);
@@ -115,6 +113,7 @@ bool _inBounds(int row, int col) {
   final placedCoords = {
     for (final l in lettersPlacedThisTurn) (l.row, l.col): l.letter,
   };
+
   if (isHorizontal) {
     // Lettre placée avec la plus petite colonne
     final start = lettersPlacedThisTurn.reduce((a, b) => a.col < b.col ? a : b);
@@ -148,8 +147,9 @@ bool _inBounds(int row, int col) {
       totalScore += mainScore;
     }
   }
+
+  // Mots secondaires perpendiculaires
   for (final l in lettersPlacedThisTurn) {
-    // Mot secondaire
     final (perpWord, perpScore) =
         isHorizontal
             ? _extractWordWithScore(

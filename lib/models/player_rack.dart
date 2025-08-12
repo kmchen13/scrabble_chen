@@ -69,7 +69,7 @@ class _PlayerRackInternalState extends State<_PlayerRackInternal> {
             },
             onAccept: (data) {
               setState(() => _hoveredIndex = null);
-              if (widget.onMove != null) {
+              if (widget.onMove != null && data.fromIndex > 0) {
                 widget.onMove!(data.fromIndex, index);
               }
             },

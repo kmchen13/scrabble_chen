@@ -1,5 +1,5 @@
 import 'dart:convert';
-
+import 'placed_letter.dart';
 import 'bag.dart';
 
 class GameState {
@@ -17,8 +17,8 @@ class GameState {
   int leftScore;
   int rightScore;
 
-  // Ajout du champ lettersPlacedThisTurn
-  List<({int row, int col, String letter})> lettersPlacedThisTurn;
+  // Lettres posées ce tour
+  List<PlacedLetter> lettersPlacedThisTurn;
 
   GameState({
     required this.isLeft,
@@ -34,8 +34,13 @@ class GameState {
     required this.rightLetters,
     required this.leftScore,
     required this.rightScore,
-    required this.lettersPlacedThisTurn, // ajouté ici
+    required this.lettersPlacedThisTurn,
   });
+
+  /// Réinitialise les lettres posées ce tour
+  void resetPlacedThisTurn() {
+    lettersPlacedThisTurn.clear();
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -48,15 +53,20 @@ class GameState {
       'rightPort': rightPort,
       'board': board,
       'bag': bag.toMap(),
-
       'leftLetters': leftLetters,
       'rightLetters': rightLetters,
       'leftScore': leftScore,
       'rightScore': rightScore,
-      // Sérialisation de lettersPlacedThisTurn
       'lettersPlacedThisTurn':
           lettersPlacedThisTurn
-              .map((e) => {'row': e.row, 'col': e.col, 'letter': e.letter})
+              .map(
+                (e) => {
+                  'row': e.row,
+                  'col': e.col,
+                  'letter': e.letter,
+                  'placedThisTurn': e.placedThisTurn,
+                },
+              )
               .toList(),
     };
   }
@@ -74,19 +84,18 @@ class GameState {
         map['board'].map<List<String>>((row) => List<String>.from(row)),
       ),
       bag: BagModel.fromMap(map['bag']),
-
       leftLetters: List<String>.from(map['leftLetters']),
       rightLetters: List<String>.from(map['rightLetters']),
       leftScore: map['leftScore'],
       rightScore: map['rightScore'],
-      // Désérialisation de lettersPlacedThisTurn
       lettersPlacedThisTurn:
-          (map['lettersPlacedThisTurn'] as List)
+          (map['lettersPlacedThisTurn'] as List<dynamic>)
               .map(
-                (e) => (
+                (e) => PlacedLetter(
                   row: e['row'] as int,
                   col: e['col'] as int,
                   letter: e['letter'] as String,
+                  placedThisTurn: e['placedThisTurn'] as bool? ?? false,
                 ),
               )
               .toList(),
@@ -106,7 +115,7 @@ class GameState {
     List<String>? rightLetters,
     int? leftScore,
     int? rightScore,
-    List<({int row, int col, String letter})>? lettersPlacedThisTurn,
+    List<PlacedLetter>? lettersPlacedThisTurn,
   }) {
     return GameState(
       isLeft: isLeft ?? this.isLeft,
@@ -131,17 +140,10 @@ class GameState {
     isLeft = other.isLeft;
     leftScore = other.leftScore;
     rightScore = other.rightScore;
-
     leftLetters = List<String>.from(other.leftLetters);
     rightLetters = List<String>.from(other.rightLetters);
-
-    // Copie profonde du board
     board = other.board.map((row) => List<String>.from(row)).toList();
-
-    // Copie indépendante du sac
     bag.copyFrom(other.bag);
-
-    // Copie de lettersPlacedThisTurn
     lettersPlacedThisTurn = List.from(other.lettersPlacedThisTurn);
   }
 }

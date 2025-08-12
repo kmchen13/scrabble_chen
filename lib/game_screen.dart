@@ -8,6 +8,7 @@ import 'services/settings_service.dart';
 import 'services/utility.dart';
 import 'services/game_initializer.dart';
 import 'models/dragged_letter.dart';
+import 'models/placed_letter.dart';
 import 'score.dart';
 import 'services/game_storage.dart';
 
@@ -45,8 +46,9 @@ class _GameScreenState extends State<GameScreen> {
   late List<String> _playerLetters;
   late List<List<String>> _board;
   late List<String> _initialRack;
-  final List<({int row, int col, String letter})> _lettersPlacedThisTurn = [];
+  final List<PlacedLetter> _lettersPlacedThisTurn = [];
   final TransformationController _boardController = TransformationController();
+  bool _firstLetter = true;
 
   @override
   void initState() {
@@ -67,8 +69,11 @@ class _GameScreenState extends State<GameScreen> {
                 ? widget.gameState.leftLetters
                 : widget.gameState.rightLetters;
         _initialRack = List.from(_playerLetters);
-        _lettersPlacedThisTurn.clear();
+        _lettersPlacedThisTurn
+          ..clear()
+          ..addAll(widget.gameState.lettersPlacedThisTurn);
       });
+      _firstLetter = true;
     };
 
     _board =
@@ -101,21 +106,38 @@ class _GameScreenState extends State<GameScreen> {
     saveSettings();
   }
 
-  void _handleLetterPlaced(String letter, int row, int col) {
+  void onLetterPlaced(
+    String letter,
+    int row,
+    int col,
+    int? oldRow,
+    int? oldCol,
+  ) {
     setState(() {
       // Évite d’écraser une lettre déjà sur la case (par erreur externe)
       if (_board[row][col].isNotEmpty) return;
 
+      if (_firstLetter) {
+        // Premier coup joué ce tour => on vide les coups précédents
+        _lettersPlacedThisTurn.clear();
+        _firstLetter = false;
+      }
+      // Nettoie l'ancienne lettre
+      if (oldRow != null && oldCol != null) {
+        _board[oldRow][oldCol] = '';
+        _lettersPlacedThisTurn.removeWhere(
+          (e) => e.row == oldRow && e.col == oldCol && e.letter == letter,
+        );
+      }
       // Place la lettre à la nouvelle position
       _board[row][col] = letter;
 
       // Retire du rack uniquement si elle y est encore
       _playerLetters.remove(letter); // safe : remove ne crash pas si absente
 
-      // Supprime d’anciens placements si lettre déplacée
-      _lettersPlacedThisTurn.removeWhere((e) => e.row == row && e.col == col);
-
-      _lettersPlacedThisTurn.add((row: row, col: col, letter: letter));
+      _lettersPlacedThisTurn.add(
+        PlacedLetter(row: row, col: col, letter: letter, placedThisTurn: true),
+      );
     });
 
     widget.onMovePlayed?.call(GameMove(letter: letter, row: row, col: col));
@@ -226,9 +248,10 @@ class _GameScreenState extends State<GameScreen> {
         widget.gameState.board[placed.row][placed.col] = placed.letter;
         widget.gameState.bag.removeLetter(placed.letter);
       }
-
-      // Vider les lettres posées ce tour
-      _lettersPlacedThisTurn.clear();
+      // Transmettre les _lettersPlacedThisTurn pour surbrillance
+      widget.gameState.lettersPlacedThisTurn = List.from(
+        _lettersPlacedThisTurn,
+      );
 
       // Tirer de nouvelles lettres
       refillRack(7);
@@ -354,8 +377,17 @@ class _GameScreenState extends State<GameScreen> {
                 maxScale: 15 / 12,
                 child: buildScrabbleBoard(
                   board: _board,
-                  lettersPlacedThisTurn: _lettersPlacedThisTurn,
-                  onLetterPlaced: _handleLetterPlaced,
+                  lettersPlacedThisTurn:
+                      _lettersPlacedThisTurn
+                          .map(
+                            (e) => PlacedLetter(
+                              row: e.row,
+                              col: e.col,
+                              letter: e.letter,
+                            ),
+                          )
+                          .toList(),
+                  onLetterPlaced: onLetterPlaced,
                   onLetterReturned: _returnLetterToRack,
                 ),
               ),

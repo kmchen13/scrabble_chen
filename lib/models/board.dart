@@ -1,15 +1,23 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
-import '../models/dragged_letter.dart';
 import 'package:collection/collection.dart';
+import '../models/dragged_letter.dart';
+import '../models/placed_letter.dart';
 import '../bonus.dart';
 
 const int boardSize = 15;
 
 Widget buildScrabbleBoard({
   required List<List<String>> board,
-  required List<({int row, int col, String letter})> lettersPlacedThisTurn,
-  required void Function(String letter, int row, int col) onLetterPlaced,
+  required List<PlacedLetter> lettersPlacedThisTurn,
+  required void Function(
+    String letter,
+    int row,
+    int col,
+    int? oldRow,
+    int? oldCol,
+  )
+  onLetterPlaced,
   required void Function(String letter) onLetterReturned,
 }) {
   bool _debug = true;
@@ -17,7 +25,7 @@ Widget buildScrabbleBoard({
 
   return LayoutBuilder(
     builder: (context, constraints) {
-      final tileSize = _calculateTileSize(context); // ← dynamique
+      final tileSize = _calculateTileSize(context);
 
       return GridView.builder(
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -27,17 +35,15 @@ Widget buildScrabbleBoard({
         itemBuilder: (context, index) {
           final row = index ~/ boardSize;
           final col = index % boardSize;
+
           final cellLetterRecord = lettersPlacedThisTurn.firstWhereOrNull(
             (e) => e.row == row && e.col == col,
           );
-          final cellLetter = cellLetterRecord?.letter ?? board[row][col];
 
+          final cellLetter = cellLetterRecord?.letter ?? board[row][col];
           final bonus = bonusMap[row][col];
           final bgColor = getColorForBonus(bonus);
-
-          final isPlacedThisTurn = lettersPlacedThisTurn.any(
-            (pos) => pos.row == row && pos.col == col,
-          );
+          final isPlacedThisTurn = cellLetterRecord != null;
 
           bool isHovered = false;
 
@@ -51,41 +57,21 @@ Widget buildScrabbleBoard({
                   }
                   return false;
                 },
-                onLeave: (data) {
+                onLeave: (_) {
                   setState(() => isHovered = false);
                 },
                 onAcceptWithDetails: (details) {
                   final dragged = details.data;
                   final letter = dragged.letter;
+
                   if (_debug) {
-                    debugPrint('Lettre acceptée : ${dragged.letter} à ($row, $col)');
+                    debugPrint('Lettre acceptée : $letter à ($row, $col)');
                   }
 
                   if (board[row][col].isEmpty) {
                     setState(() => isHovered = false);
 
-                    // Nettoie l'ancienne position
-                    if (dragged.row != null && dragged.col != null) {
-                      board[dragged.row!][dragged.col!] = '';
-                    }
-
-                    // Supprime l’ancienne entrée si existe
-                    if (dragged.row != null && dragged.col != null) {
-                      lettersPlacedThisTurn.removeWhere(
-                        (e) =>
-                            e.row == dragged.row &&
-                            e.col == dragged.col &&
-                            e.letter == dragged.letter,
-                      );
-                    }
-
-                    // Ajoute la nouvelle position
-                    lettersPlacedThisTurn.add((
-                      row: row,
-                      col: col,
-                      letter: letter,
-                    ));
-                    onLetterPlaced(letter, row, col);
+                    onLetterPlaced(letter, row, col, dragged.row, dragged.col);
                   }
                 },
                 builder: (context, candidateData, rejectedData) {
@@ -114,66 +100,85 @@ Widget buildScrabbleBoard({
                         color:
                             cellLetter.isNotEmpty
                                 ? (isPlacedThisTurn
-                                    ? Colors.amber[400]
-                                    : Colors.amber[200])
+                                    ? Colors
+                                        .amber[400] // Surbrillance des lettres posées ce tour
+                                    : Colors
+                                        .amber[200]) // Lettres posées avant ce tour
                                 : bgColor,
                       ),
                       child: Center(
                         child:
-                            (cellLetter.isNotEmpty && !isCurrentlyDragged)
-                                ? Draggable<DraggedLetter>(
-                                  data: DraggedLetter(
-                                    letter: cellLetter,
-                                    fromIndex: -1,
-                                    row: row,
-                                    col: col,
-                                  ),
-                                  onDragStarted: () {
-                                    HapticFeedback.mediumImpact();
-                                    currentlyDragged = DraggedLetter(
-                                      letter: cellLetter,
-                                      fromIndex: -1,
-                                      row: row,
-                                      col: col,
-                                    );
-                                    setState(() {});
-                                  },
-                                  onDragEnd: (_) {
-                                    currentlyDragged = null;
-                                    setState(() {});
-                                  },
-                                  feedback: Opacity(
-                                    opacity: 0.7,
-                                    child: Transform.scale(
-                                      scale: 1.4,
+                            cellLetter.isNotEmpty
+                                ? (isPlacedThisTurn && !isCurrentlyDragged
+                                    ? Draggable<DraggedLetter>(
+                                      data: DraggedLetter(
+                                        letter: cellLetter,
+                                        fromIndex: -1,
+                                        row: row,
+                                        col: col,
+                                      ),
+                                      onDragStarted: () {
+                                        HapticFeedback.mediumImpact();
+                                        currentlyDragged = DraggedLetter(
+                                          letter: cellLetter,
+                                          fromIndex: -1,
+                                          row: row,
+                                          col: col,
+                                        );
+                                        setState(() {});
+                                      },
+                                      onDragEnd: (details) {
+                                        // Si le drag est annulé (drop hors DragTarget)
+                                        if (!details.wasAccepted) {
+                                          // remettre la lettre à sa place, ou autre gestion
+                                          onLetterPlaced(
+                                            cellLetter,
+                                            row,
+                                            col,
+                                            null,
+                                            null,
+                                          );
+                                        }
+                                        currentlyDragged = null;
+                                        setState(() {});
+                                      },
+                                      feedback: Opacity(
+                                        opacity: 0.7,
+                                        child: Transform.scale(
+                                          scale: 1.4,
+                                          child: _buildLetterTile(
+                                            cellLetter,
+                                            size: tileSize * 2,
+                                            highlight: isPlacedThisTurn,
+                                          ),
+                                        ),
+                                      ),
+                                      childWhenDragging: Opacity(
+                                        opacity: 0.3,
+                                        child: _buildLetterTile(
+                                          cellLetter,
+                                          size: tileSize * 3,
+                                          highlight: isPlacedThisTurn,
+                                        ),
+                                      ),
                                       child: _buildLetterTile(
                                         cellLetter,
-                                        size: tileSize * 2,
-                                      ),
-                                    ),
-                                  ),
-                                  childWhenDragging: Opacity(
-                                    opacity: 0.3,
-                                    child: _buildLetterTile(
-                                      cellLetter,
-                                      size: tileSize * 3,
-                                    ),
-                                  ),
-                                  child: _buildLetterTile(
-                                    cellLetter,
-                                    size: tileSize,
-                                    greyed: isPlacedThisTurn,
-                                  ),
-                                )
-                                : (cellLetter.isEmpty
-                                    ? Text(
-                                      bonusLabel(bonus),
-                                      style: const TextStyle(
-                                        fontSize: 9,
-                                        color: Colors.white,
+                                        size: tileSize,
+                                        highlight: isPlacedThisTurn,
                                       ),
                                     )
-                                    : const SizedBox.shrink()),
+                                    : _buildLetterTile(
+                                      cellLetter,
+                                      size: tileSize,
+                                      highlight: false,
+                                    ))
+                                : Text(
+                                  bonusLabel(bonus),
+                                  style: const TextStyle(
+                                    fontSize: 9,
+                                    color: Colors.white,
+                                  ),
+                                ),
                       ),
                     ),
                   );
@@ -209,14 +214,14 @@ Widget _buildLetterTile(
     decoration: BoxDecoration(
       color:
           highlight
-              ? Colors.amber[800]?.withOpacity(0.6)
+              ? Colors.amber[600]?.withOpacity(0.6)
               : (greyed ? Colors.amber[100] : Colors.amber[200]),
       border: Border.all(color: Colors.black),
     ),
     child: Stack(
       children: [
         Transform.translate(
-          offset: Offset(0, -3), // Ajustez cette valeur pour monter la lettre
+          offset: const Offset(0, -3),
           child: Center(
             child: Text(
               letter,
