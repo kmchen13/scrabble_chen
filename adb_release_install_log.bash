@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-NEW_NAME="scrabble_P2P-v1.0.0.apk"
+NEW_NAME="scrabble_P2P-v1.0.1.apk"
 APK_DIR="build/app/outputs/flutter-apk"
 APK_NAME="app-release.apk"
     

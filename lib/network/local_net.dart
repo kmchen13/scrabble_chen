@@ -139,30 +139,32 @@ class LocalNet implements ScrabbleNet {
                       debugPrint(
                         '${logHeader("LocalNet")} TCP reçu (après ACK): $tcpMsg',
                       );
-                      debugPrint(
-                        "${logHeader("LocalNet")} Callback onGameStateReceived = $onGameStateReceived",
-                      );
                     }
 
+                    // On ne crée pas de GameState ici
                     try {
                       final decoded = jsonDecode(tcpMsg);
                       final gameState = GameState.fromJson(decoded);
-                      debugPrint(
-                        "${logHeader("LocalNet")} onGameStateReceived actuel = ${onGameStateReceived.hashCode}",
-                      );
-
                       onGameStateReceived?.call(gameState);
+                    } catch (_) {
                       if (_debug)
                         debugPrint(
-                          '${logHeader("LocalNet")} GameState reçu et décodé (ACK sender).',
-                        );
-                    } catch (e) {
-                      if (_debug)
-                        debugPrint(
-                          '${logHeader("LocalNet")} Erreur JSON (ACK sender): $e',
+                          '${logHeader("LocalNet")} Message non JSON ignoré.',
                         );
                     }
                   });
+
+              // 🔹 Déclenchement pur du match
+              onMatched?.call(
+                leftName: localName,
+                leftIP: localIP,
+                leftPort: localPort,
+                leftStartTime: startTime,
+                rightName: remoteName,
+                rightIP: remoteIP,
+                rightPort: remotePort,
+                rightStartTime: remoteStartTime,
+              );
             } catch (e) {
               if (_debug)
                 debugPrint('${logHeader("LocalNet")} Erreur envoi ACK: $e');
@@ -221,34 +223,22 @@ class LocalNet implements ScrabbleNet {
           if (tcpMsg.trim().startsWith('SCRABBLE_ACK:')) {
             final parts = tcpMsg.split(':');
             if (parts.length < 9) return;
-            final leftName = parts[1];
-            final leftIP = parts[2];
-            final leftPort = int.tryParse(parts[3]) ?? 0;
-            final leftStartTime = int.tryParse(parts[4]) ?? 0;
-            final rightName = parts[5];
-            final rightIP = parts[6];
-            final rightPort = int.tryParse(parts[7]) ?? 0;
-            final rightStartTime = int.tryParse(parts[8]) ?? 0;
 
             onMatched?.call(
-              leftName: leftName,
-              leftIP: leftIP,
-              leftPort: leftPort,
-              leftStartTime: leftStartTime,
-              rightName: rightName,
-              rightIP: rightIP,
-              rightPort: rightPort,
-              rightStartTime: rightStartTime,
+              leftName: parts[1],
+              leftIP: parts[2],
+              leftPort: int.tryParse(parts[3]) ?? 0,
+              leftStartTime: int.tryParse(parts[4]) ?? 0,
+              rightName: parts[5],
+              rightIP: parts[6],
+              rightPort: int.tryParse(parts[7]) ?? 0,
+              rightStartTime: int.tryParse(parts[8]) ?? 0,
             );
           } else {
             try {
               final decoded = jsonDecode(tcpMsg);
               final gameState = GameState.fromJson(decoded);
               onGameStateReceived?.call(gameState);
-              if (_debug)
-                debugPrint(
-                  '${logHeader("LocalNet")} GameState reçu et décodé.',
-                );
             } catch (e) {
               if (_debug)
                 debugPrint(
