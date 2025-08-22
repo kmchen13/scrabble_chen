@@ -1,31 +1,19 @@
 import 'dart:convert';
 import 'dart:async';
-import 'package:flutter/foundation.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:http/http.dart' as http;
+
 import '../models/game_state.dart';
 import '../services/settings_service.dart';
-import '../services/utility.dart';
 import '../services/log.dart';
+import '../services/utility.dart';
 import 'scrabble_net.dart';
 
-/*
- *  RelayNet is a class that implements the ScrabbleNet interface
- *  for relay server communication using WebSockets.
- *  It handles player matching and game state transmission through a relay server.
- * Connection starts with a WebSocket connection to the relay server mentioning its userName, expectedPartner. Server adds startTime.
- * When a match occurs between two players, the relay server sends the match information to relaNet. Then relayNet triggers startScreen onMatched callback.
- * 
- */
-
 class RelayNet implements ScrabbleNet {
-  // String _relayServerUrl = "ws://170.253.40.247:8083/ws";
-  // String _relayServerUrl = "ws://192.168.1.155:8080/ws";
-  // String _relayServerUrl = "wss://relay-server-3lv4.onrender.com";
   late final String _relayServerUrl;
-
-  WebSocketChannel? _channel;
-  bool _connected = false;
-  bool _debug = true;
+  final bool _debug = true;
+  Timer? _pollingTimer;
+  bool _isConnected = false;
+  final int _timerFrequency = 2; // fréquence de polling en secondes
 
   RelayNet() {
     _relayServerUrl = settings.relayServerUrl;
@@ -53,104 +41,141 @@ class RelayNet implements ScrabbleNet {
     required String expectedName,
     required int startTime,
   }) async {
-    if (_debug)
-      logger.i(
-        '${logHeader("RelaylNet")} Connexion à $_relayServerUrl : $localName : $expectedName : $startTime',
-      );
     try {
-      _channel = WebSocketChannel.connect(Uri.parse(_relayServerUrl));
-      _connected = true;
-      logger.d("Connexion réussie");
-    } catch (e, st) {
-      logger.e("Erreur de connexion", error: e, stackTrace: st);
-    }
+      final res = await http.post(
+        Uri.parse("$_relayServerUrl/register"),
+        body: jsonEncode({
+          'userName': localName,
+          'expectedName': expectedName,
+          'startTime': startTime,
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
 
-    Timer.periodic(const Duration(seconds: 30), (_) {
-      if (_connected) {
-        _channel?.sink.add(
-          jsonEncode({
-            'type': 'keepalive',
-            'timestamp': DateTime.now().millisecondsSinceEpoch,
-          }),
+      final json = jsonDecode(res.body);
+      if (_debug) {
+        logger.i(
+          "Demande de connexion $localName → $expectedName : $startTime",
         );
       }
-    });
 
-    _channel!.stream.listen((data) {
-      if (_debug) logger.i('${logHeader("RelaylNet")} Message reçu: $data');
+      // démarrer le polling continu pour recevoir les réponses
+      _startPolling(localName);
 
-      try {
-        final Map<String, dynamic> decoded =
-            jsonDecode(data) as Map<String, dynamic>;
+      if (json['status'] == 'matched') {
+        _isConnected = true;
 
-        switch (decoded['type']) {
-          case 'matched':
-            _handleMatch(Map<String, dynamic>.from(decoded));
-            break;
-          case 'gameState':
-            final gameState = GameState.fromJson(jsonEncode(decoded['data']));
-            onGameStateReceived?.call(gameState);
-            break;
-        }
-      } catch (e) {
-        if (_debug)
-          logger.i('${logHeader("RelaylNet")} Erreur parsing JSON: $e');
+        onMatched?.call(
+          leftName: localName,
+          leftIP: '',
+          leftPort: 0,
+          leftStartTime: startTime,
+          rightName: json['partner'],
+          rightIP: '',
+          rightPort: 0,
+          rightStartTime: json['partnerStartTime'] ?? startTime,
+        );
       }
-    });
-
-    // Envoyer une demande de matchmaking
-    final connectMsg = jsonEncode({
-      'type': 'connect',
-      'userName': localName,
-      'expectedName': expectedName,
-      'startTime': startTime,
-    });
-    _channel!.sink.add(connectMsg);
+    } catch (e) {
+      logger.e("Erreur lors de la connexion : $e\nurl: $_relayServerUrl");
+    }
   }
 
-  void _handleMatch(Map<String, dynamic> message) {
-    try {
-      final leftName = message['leftName'] as String;
-      final leftStartTime = message['leftStartTime'] as int;
-      final rightName = message['rightName'] as String;
-      final rightStartTime = message['rightStartTime'] as int;
+  void _startPolling(String localName) {
+    if (_debug) print('Polling started for $localName');
+    _pollingTimer?.cancel();
+    _pollingTimer = Timer.periodic(
+      Duration(seconds: _timerFrequency),
+      (_) async => await pollMessages(localName),
+    );
+  }
 
-      onMatched?.call(
-        leftName: leftName,
-        leftIP: '',
-        leftPort: 0,
-        leftStartTime: leftStartTime,
-        rightName: rightName,
-        rightIP: '',
-        rightPort: 0,
-        rightStartTime: rightStartTime,
+  String partnerFromGameState(GameState state, String userName) {
+    return state.leftName == userName ? state.rightName : state.leftName;
+  }
+
+  @override
+  Future<void> sendGameState(GameState state) async {
+    final String userName = settings.localUserName;
+    try {
+      await http.post(
+        Uri.parse("$_relayServerUrl/gamestate"),
+        body: jsonEncode({
+          'from': userName,
+          'to': partnerFromGameState(state, userName),
+          'type': 'gameState',
+          'message': state.toJson(),
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+      logger.i("GameState envoyé : $state");
+    } catch (e) {
+      logger.e("Erreur envoi GameState : $e");
+    }
+  }
+
+  Future<void> pollMessages(String localName) async {
+    if (_debug) print('Poll de $localName');
+    try {
+      final res = await http.get(
+        Uri.parse("$_relayServerUrl/poll?userName=$localName"),
+      );
+      final json = jsonDecode(res.body);
+
+      switch (json['type']) {
+        case 'gameState':
+          if (_debug) print('GameState reçu pour $localName');
+          final dynamic msg = json['message'];
+          final gameState = GameState.fromJson(msg);
+
+          onGameStateReceived?.call(gameState);
+          break;
+
+        case 'message':
+          if (_debug) print("Message reçu: ${json['message']}");
+          break;
+
+        case 'matched':
+          if (_debug) print('Match trouvé pour $localName');
+          onMatched?.call(
+            leftName: localName,
+            leftIP: '',
+            leftPort: 0,
+            leftStartTime: json['startTime'] ?? 0,
+            rightName: json['partner'],
+            rightIP: '',
+            rightPort: 0,
+            rightStartTime: json['partnerStartTime'] ?? 0,
+          );
+          break;
+
+        case 'no_message':
+          if (_debug) print("Aucun message pour $localName");
+          break;
+
+        default:
+          if (_debug) print("Type de message inconnu: ${json['type']}");
+          break;
+      }
+    } catch (e, st) {
+      logger.e("Erreur pollMessages : $e\n$st");
+    }
+  }
+
+  @override
+  Future<void> disconnect() async {
+    try {
+      final String localName = settings.localUserName;
+      await http.get(
+        Uri.parse("$_relayServerUrl/disconnect?userName=$localName&partner="),
       );
     } catch (e) {
-      logger.i('${logHeader("RelayNet")} Erreur parsing match: $e');
+      logger.e("Erreur lors de la déconnexion : $e");
+    } finally {
+      _isConnected = false;
+      _pollingTimer?.cancel();
+      _pollingTimer = null;
     }
-  }
-
-  @override
-  void sendGameState(GameState state) {
-    if (!_connected || _channel == null) {
-      if (_debug) logger.i('${logHeader("RelaylNet")} ⚠️ Pas connecté');
-      return;
-    }
-    final jsonString = jsonEncode({
-      'type': 'gameState',
-      'data': state.toJson(),
-    });
-    _channel!.sink.add(jsonString);
-    if (_debug)
-      logger.i('${logHeader("RelaylNet")} GameState envoyé: ${state.toJson()}');
-  }
-
-  @override
-  void disconnect() {
-    _connected = false;
-    _channel?.sink.close();
-    _channel = null;
-    if (_debug) logger.i('${logHeader("RelaylNet")} Déconnecté');
   }
 
   void Function(String error)? onError;

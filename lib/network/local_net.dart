@@ -221,6 +221,7 @@ class LocalNet implements ScrabbleNet {
           if (_debug) debugPrint('${logHeader("LocalNet")} TCP reçu: $tcpMsg');
 
           if (tcpMsg.trim().startsWith('SCRABBLE_ACK:')) {
+            // @todo implémenter la possibilité d'envoyer des messages; switch ($startswith)
             final parts = tcpMsg.split(':');
             if (parts.length < 9) return;
 

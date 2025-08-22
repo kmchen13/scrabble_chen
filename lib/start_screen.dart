@@ -27,7 +27,9 @@ class _StartScreenState extends State<StartScreen> {
     super.initState();
     _net = ScrabbleNet();
     if (_debug)
-      debugPrint('${logHeader('startScreen')} _net hashCode = ${_net.hashCode}');
+      debugPrint(
+        '${logHeader('startScreen')} _net hashCode = ${_net.hashCode}',
+      );
 
     // Lancement d'une demande de partenaire.
     // Si 2 joueurs donnent rightName = '' ils sont connectés

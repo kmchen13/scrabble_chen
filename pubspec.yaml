@@ -15,6 +15,7 @@ dependencies:
   network_info_plus: ^5.0.3
   shared_preferences: ^2.2.2
   web_socket_channel: ^2.3.0
+  http: ^1.2.0
   logger: ^2.4.0
 
 flutter_icons:

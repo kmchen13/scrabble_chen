@@ -55,9 +55,9 @@ class UserSettings {
 
   String get relayServerUrl {
     if (relayPort == 0) {
-      return "wss://$relayAddress";
+      return "$relayAddress";
     } else {
-      return "wss://$relayAddress:$relayPort";
+      return "$relayAddress:$relayPort";
     }
   }
 
