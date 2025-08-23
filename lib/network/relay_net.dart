@@ -14,6 +14,7 @@ class RelayNet implements ScrabbleNet {
   Timer? _pollingTimer;
   bool _isConnected = false;
   final int _timerFrequency = 2; // fréquence de polling en secondes
+  final int _retryDelay = 2; // délai de retry si "waiting" ou erreur
 
   RelayNet() {
     _relayServerUrl = settings.relayServerUrl;
@@ -31,9 +32,6 @@ class RelayNet implements ScrabbleNet {
     required int rightStartTime,
   })?
   onMatched;
-
-  @override
-  void Function(GameState)? onGameStateReceived;
 
   @override
   Future<void> connect({
@@ -57,13 +55,12 @@ class RelayNet implements ScrabbleNet {
         logger.i(
           "Demande de connexion $localName → $expectedName : $startTime",
         );
+        logger.i("Réponse serveur: $json");
       }
-
-      // démarrer le polling continu pour recevoir les réponses
-      _startPolling(localName);
 
       if (json['status'] == 'matched') {
         _isConnected = true;
+        _startPolling(localName);
 
         onMatched?.call(
           leftName: localName,
@@ -75,9 +72,30 @@ class RelayNet implements ScrabbleNet {
           rightPort: 0,
           rightStartTime: json['partnerStartTime'] ?? startTime,
         );
+      } else if (json['status'] == 'waiting') {
+        if (_debug) print("En attente de partenaire… démarrage du polling");
+        _startPolling(localName);
+      } else {
+        // Si ce n’est ni waiting ni matched → on retente
+        if (_debug)
+          print("Pas de match ni attente → retry dans $_retryDelay s");
+        Future.delayed(Duration(seconds: _retryDelay), () {
+          connect(
+            localName: localName,
+            expectedName: expectedName,
+            startTime: startTime,
+          );
+        });
       }
     } catch (e) {
       logger.e("Erreur lors de la connexion : $e\nurl: $_relayServerUrl");
+      Future.delayed(Duration(seconds: _retryDelay), () {
+        connect(
+          localName: localName,
+          expectedName: expectedName,
+          startTime: startTime,
+        );
+      });
     }
   }
 
@@ -114,6 +132,9 @@ class RelayNet implements ScrabbleNet {
     }
   }
 
+  @override
+  void Function(GameState)? onGameStateReceived;
+
   Future<void> pollMessages(String localName) async {
     if (_debug) print('Poll de $localName');
     try {
@@ -127,7 +148,6 @@ class RelayNet implements ScrabbleNet {
           if (_debug) print('GameState reçu pour $localName');
           final dynamic msg = json['message'];
           final gameState = GameState.fromJson(msg);
-
           onGameStateReceived?.call(gameState);
           break;
 
@@ -137,6 +157,7 @@ class RelayNet implements ScrabbleNet {
 
         case 'matched':
           if (_debug) print('Match trouvé pour $localName');
+          _isConnected = true;
           onMatched?.call(
             leftName: localName,
             leftIP: '',
@@ -153,6 +174,12 @@ class RelayNet implements ScrabbleNet {
           if (_debug) print("Aucun message pour $localName");
           break;
 
+        case 'gameOver':
+          final gameState = GameState.fromJson(json['message']);
+          if (_debug) print('GameOver reçu pour $localName');
+          onGameOverReceived?.call(gameState);
+          break;
+
         default:
           if (_debug) print("Type de message inconnu: ${json['type']}");
           break;
@@ -161,6 +188,29 @@ class RelayNet implements ScrabbleNet {
       logger.e("Erreur pollMessages : $e\n$st");
     }
   }
+
+  @override
+  void sendGameOver(GameState finalState) async {
+    final String userName = settings.localUserName;
+    try {
+      await http.post(
+        Uri.parse("$_relayServerUrl/gamestate"),
+        body: jsonEncode({
+          'from': userName,
+          'to': partnerFromGameState(finalState, userName),
+          'type': 'gameOver',
+          'message': finalState.toJson(),
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+      logger.i("GameOver envoyé : $finalState");
+    } catch (e) {
+      logger.e("Erreur envoi GameOver : $e");
+    }
+  }
+
+  @override
+  void Function(GameState)? onGameOverReceived;
 
   @override
   Future<void> disconnect() async {

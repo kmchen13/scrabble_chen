@@ -1,0 +1,12 @@
+1.0.0
+Création des éléments du jeu de scrabble et couche réseau mode local
+1.0.1
+Ebauche dujeu, tirage, placement sur le plateau
+1.0.2
+couche réseau mode web
+1.0.3
+finalisation du jeu jusqu'à fin de partie sans validations
+1.1.0
+Refonte mode web en polling
+1.1.0
+Relance des conections jusqu'à réception réponse "waiting du serveur"

@@ -294,6 +294,52 @@ class LocalNet implements ScrabbleNet {
     }
   }
 
+  @override
+  void sendGameOver(GameState finalState, {int attempt = 1}) {
+    final jsonString = jsonEncode({
+      "type": "gameOver",
+      "message": finalState.toJson(),
+    });
+
+    if (_peerSocket == null) {
+      if (_debug) {
+        debugPrint(
+          '${logHeader("LocalNet")} ⚠️ _peerSocket est null (tentative $attempt) — retry dans 300ms...',
+        );
+      }
+      if (attempt < 10) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          sendGameOver(finalState, attempt: attempt + 1);
+        });
+      } else {
+        if (_debug)
+          debugPrint('${logHeader("LocalNet")} ❌ Abandon envoi gameOver.');
+
+        onError?.call('Impossible d\'envoyer le gameOver après 10 tentatives.');
+      }
+      return;
+    }
+
+    try {
+      _peerSocket!.writeln(jsonString);
+      _peerSocket!.flush();
+      if (_debug) {
+        debugPrint(
+          '${logHeader("LocalNet")} ✅ gameOver envoyé sur port TCP ${_peerSocket!.remotePort}',
+        );
+      }
+    } catch (e) {
+      if (_debug) {
+        debugPrint(
+          '${logHeader("LocalNet")} ❌ Erreur lors de l\'envoi du gameOver: $e',
+        );
+      }
+    }
+  }
+
+  @override
+  void Function(GameState finalState)? onGameOverReceived;
+
   void disconnect() {
     _closeBroadcast();
     _tcpServer?.close();

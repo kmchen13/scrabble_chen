@@ -76,6 +76,14 @@ class _GameScreenState extends State<GameScreen> {
       _firstLetter = true;
     };
 
+    _net.onGameOverReceived = (finalState) {
+      if (!mounted) return;
+      setState(() {
+        widget.gameState.copyFrom(finalState); // si tu as une méthode update
+      });
+      _showEndGamePopup();
+    };
+
     _board =
         widget.gameState.board.map((row) => List<String>.from(row)).toList();
     _playerLetters =

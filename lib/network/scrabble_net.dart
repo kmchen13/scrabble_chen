@@ -50,6 +50,12 @@ abstract class ScrabbleNet {
   // Réception d'un GameState
   void Function(GameState)? onGameStateReceived;
 
+  // Envoi d'un GameOver au partenaire
+  void sendGameOver(GameState state);
+
+  // Réception d'un GameOver
+  void Function(GameState)? onGameOverReceived;
+
   void disconnect();
 
   void Function(String message)? onError;

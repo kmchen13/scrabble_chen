@@ -1,3 +1,17 @@
+/*
+* scrabble P2P - A Scrabble game using peer to peer connections
+* Copyright (C) 2024  KMC
+* This program is free software: you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation, either version 3 of the License, or
+* (at your option) any later version.
+*
+* Version 1.1.0 - Aout 2024
+* mode web / Polling OK. Une seule partie à la fois. Reprise incomplète.
+* Version 1.0.2 - Jul 2024
+* mode local OK, Jeu OK sans validation des coups
+
+*/
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -64,7 +78,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Scrabble_P2P-v1.0.2 ;-)")),
+      appBar: AppBar(title: const Text("Scrabble_P2P-v1.1.0 ;-)")),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
