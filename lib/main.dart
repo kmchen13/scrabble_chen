@@ -23,6 +23,7 @@ import 'network/scrabble_net.dart';
 import 'start_screen.dart';
 import 'game_screen.dart';
 import 'param_screen.dart';
+import 'constants.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -78,7 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Scrabble_P2P-v1.1.0 ;-)")),
+      appBar: AppBar(title: const Text("$appName-v$version ;-)")),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
