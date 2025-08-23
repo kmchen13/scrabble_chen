@@ -2,12 +2,9 @@ import 'package:flutter/material.dart';
 import 'models/board.dart';
 import 'models/game_state.dart';
 import 'models/player_rack.dart';
-import 'models/bag.dart';
 import 'network/scrabble_net.dart';
 import 'services/settings_service.dart';
-import 'services/utility.dart';
 import 'services/game_initializer.dart';
-import 'models/dragged_letter.dart';
 import 'models/placed_letter.dart';
 import 'score.dart';
 import 'services/game_storage.dart';
@@ -262,15 +259,17 @@ class _GameScreenState extends State<GameScreen> {
       );
 
       // Tirer de nouvelles lettres
-      refillRack(7);
+      // refillRack(7);
 
       // Passer au tour suivant
       widget.gameState.isLeft = !widget.gameState.isLeft;
 
       widget.onGameStateUpdated?.call(widget.gameState);
 
-      if (_playerLetters.isEmpty && widget.gameState.bag.remainingCount == 0) {
+      // if (_playerLetters.isEmpty && widget.gameState.bag.remainingCount == 0) {
+      if (_playerLetters.isEmpty) {
         _showEndGamePopup();
+        _net.sendGameOver(widget.gameState);
       }
     });
   }

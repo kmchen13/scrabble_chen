@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'network/scrabble_net.dart';
-import 'models/game_state.dart';
 import 'services/settings_service.dart';
 import 'game_screen.dart';
 import 'services/game_initializer.dart';

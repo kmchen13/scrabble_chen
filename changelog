@@ -8,5 +8,3 @@ couche réseau mode web
 finalisation du jeu jusqu'à fin de partie sans validations
 1.1.0
 Refonte mode web en polling
-1.1.0
-Relance des conections jusqu'à réception réponse "waiting du serveur"

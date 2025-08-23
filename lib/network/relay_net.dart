@@ -5,7 +5,6 @@ import 'package:http/http.dart' as http;
 import '../models/game_state.dart';
 import '../services/settings_service.dart';
 import '../services/log.dart';
-import '../services/utility.dart';
 import 'scrabble_net.dart';
 
 class RelayNet implements ScrabbleNet {
@@ -73,12 +72,12 @@ class RelayNet implements ScrabbleNet {
           rightStartTime: json['partnerStartTime'] ?? startTime,
         );
       } else if (json['status'] == 'waiting') {
-        if (_debug) print("En attente de partenaire… démarrage du polling");
+        if (_debug) logger.i("En attente de partenaire… démarrage du polling");
         _startPolling(localName);
       } else {
         // Si ce n’est ni waiting ni matched → on retente
         if (_debug)
-          print("Pas de match ni attente → retry dans $_retryDelay s");
+          logger.i("Pas de match ni attente → retry dans $_retryDelay s");
         Future.delayed(Duration(seconds: _retryDelay), () {
           connect(
             localName: localName,
@@ -100,7 +99,7 @@ class RelayNet implements ScrabbleNet {
   }
 
   void _startPolling(String localName) {
-    if (_debug) print('Polling started for $localName');
+    if (_debug) logger.i('Polling started for $localName');
     _pollingTimer?.cancel();
     _pollingTimer = Timer.periodic(
       Duration(seconds: _timerFrequency),
@@ -136,7 +135,7 @@ class RelayNet implements ScrabbleNet {
   void Function(GameState)? onGameStateReceived;
 
   Future<void> pollMessages(String localName) async {
-    if (_debug) print('Poll de $localName');
+    if (_debug) logger.i('Poll de $localName');
     try {
       final res = await http.get(
         Uri.parse("$_relayServerUrl/poll?userName=$localName"),
@@ -145,18 +144,18 @@ class RelayNet implements ScrabbleNet {
 
       switch (json['type']) {
         case 'gameState':
-          if (_debug) print('GameState reçu pour $localName');
+          if (_debug) logger.i('GameState reçu pour $localName');
           final dynamic msg = json['message'];
           final gameState = GameState.fromJson(msg);
           onGameStateReceived?.call(gameState);
           break;
 
         case 'message':
-          if (_debug) print("Message reçu: ${json['message']}");
+          if (_debug) logger.i("Message reçu: ${json['message']}");
           break;
 
         case 'matched':
-          if (_debug) print('Match trouvé pour $localName');
+          if (_debug) logger.i('Match trouvé pour $localName');
           _isConnected = true;
           onMatched?.call(
             leftName: localName,
@@ -171,17 +170,17 @@ class RelayNet implements ScrabbleNet {
           break;
 
         case 'no_message':
-          if (_debug) print("Aucun message pour $localName");
+          if (_debug) logger.i("Aucun message pour $localName");
           break;
 
         case 'gameOver':
           final gameState = GameState.fromJson(json['message']);
-          if (_debug) print('GameOver reçu pour $localName');
+          if (_debug) logger.i('GameOver reçu pour $localName');
           onGameOverReceived?.call(gameState);
           break;
 
         default:
-          if (_debug) print("Type de message inconnu: ${json['type']}");
+          if (_debug) logger.i("Type de message inconnu: ${json['type']}");
           break;
       }
     } catch (e, st) {
