@@ -75,7 +75,6 @@ class RelayNet implements ScrabbleNet {
         if (debug) logger.i("En attente de partenaire… démarrage du polling");
         _startPolling(localName);
       } else {
-        // Si ce n’est ni waiting ni matched → on retente
         if (debug)
           logger.i("Pas de match ni attente → retry dans $_retryDelay s");
         Future.delayed(Duration(seconds: _retryDelay), () {
@@ -98,6 +97,7 @@ class RelayNet implements ScrabbleNet {
     }
   }
 
+  // ⭐️ centralise le démarrage du polling
   void _startPolling(String localName) {
     if (debug) logger.i('Polling started for $localName');
     _pollingTimer?.cancel();
@@ -105,6 +105,19 @@ class RelayNet implements ScrabbleNet {
       Duration(seconds: _timerFrequency),
       (_) async => await pollMessages(localName),
     );
+  }
+
+  // ⭐️ suspend explicitement
+  void _pausePolling() {
+    if (debug) logger.i("⏸️ Polling suspendu");
+    _pollingTimer?.cancel();
+    _pollingTimer = null;
+  }
+
+  // ⭐️ reprend explicitement
+  void _resumePolling(String localName) {
+    if (debug) logger.i("▶️ Polling repris");
+    _startPolling(localName);
   }
 
   String partnerFromGameState(GameState state, String userName) {
@@ -126,6 +139,9 @@ class RelayNet implements ScrabbleNet {
         headers: {'Content-Type': 'application/json'},
       );
       logger.i("GameState envoyé : $state");
+
+      // ⭐️ après avoir joué, on relance le polling
+      _resumePolling(userName);
     } catch (e) {
       logger.e("Erreur envoi GameState : $e");
     }
@@ -148,6 +164,9 @@ class RelayNet implements ScrabbleNet {
           final dynamic msg = json['message'];
           final gameState = GameState.fromJson(msg);
           onGameStateReceived?.call(gameState);
+
+          // ⭐️ stoppe le polling (on attend que le joueur joue)
+          _pausePolling();
           break;
 
         case 'message':
@@ -177,6 +196,9 @@ class RelayNet implements ScrabbleNet {
           final gameState = GameState.fromJson(json['message']);
           if (debug) logger.i('GameOver reçu pour $localName');
           onGameOverReceived?.call(gameState);
+
+          // ⭐️ fin de partie → plus de polling
+          _pausePolling();
           break;
 
         default:
@@ -193,7 +215,7 @@ class RelayNet implements ScrabbleNet {
     final String userName = settings.localUserName;
     try {
       await http.post(
-        Uri.parse("$_relayServerUrl/gamestate"),
+        Uri.parse("$_relayServerUrl/gameover"), // ⭐️ endpoint dédié
         body: jsonEncode({
           'from': userName,
           'to': partnerFromGameState(finalState, userName),
@@ -203,6 +225,8 @@ class RelayNet implements ScrabbleNet {
         headers: {'Content-Type': 'application/json'},
       );
       logger.i("GameOver envoyé : $finalState");
+
+      // ⭐️ après avoir déclaré la fin, on ne redémarre PAS le polling
     } catch (e) {
       logger.e("Erreur envoi GameOver : $e");
     }
@@ -222,8 +246,7 @@ class RelayNet implements ScrabbleNet {
       logger.e("Erreur lors de la déconnexion : $e");
     } finally {
       _isConnected = false;
-      _pollingTimer?.cancel();
-      _pollingTimer = null;
+      _pausePolling(); // ⭐️
     }
   }
 
