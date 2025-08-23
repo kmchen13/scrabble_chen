@@ -4,6 +4,7 @@ import 'services/settings_service.dart';
 import 'game_screen.dart';
 import 'services/game_initializer.dart';
 import 'services/utility.dart';
+import 'constants.dart';
 
 class StartScreen extends StatefulWidget {
   const StartScreen({super.key});
@@ -14,7 +15,6 @@ class StartScreen extends StatefulWidget {
 
 class _StartScreenState extends State<StartScreen> {
   String _log = "Recherche d'un joueur...";
-  bool _debug = true;
   bool _connected = false;
   bool _gameStateSent = false;
   bool _navigated = false;
@@ -25,7 +25,7 @@ class _StartScreenState extends State<StartScreen> {
   void initState() {
     super.initState();
     _net = ScrabbleNet();
-    if (_debug)
+    if (debug)
       debugPrint(
         '${logHeader('startScreen')} _net hashCode = ${_net.hashCode}',
       );
@@ -113,7 +113,7 @@ class _StartScreenState extends State<StartScreen> {
 
   @override
   void dispose() {
-    if (_debug) {
+    if (debug) {
       debugPrint('${logHeader('startScreen')} dispose() appelé');
       // debugPrintStack(label: 'Stack au moment de dispose():');
     }

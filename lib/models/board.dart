@@ -4,6 +4,7 @@ import 'package:collection/collection.dart';
 import '../models/dragged_letter.dart';
 import '../models/placed_letter.dart';
 import '../bonus.dart';
+import '../constants.dart';
 
 const int boardSize = 15;
 
@@ -20,7 +21,6 @@ Widget buildScrabbleBoard({
   onLetterPlaced,
   required void Function(String letter) onLetterReturned,
 }) {
-  bool _debug = true;
   DraggedLetter? currentlyDragged;
 
   return LayoutBuilder(
@@ -64,7 +64,7 @@ Widget buildScrabbleBoard({
                   final dragged = details.data;
                   final letter = dragged.letter;
 
-                  if (_debug) {
+                  if (debug) {
                     debugPrint('Lettre acceptée : $letter à ($row, $col)');
                   }
 

@@ -8,6 +8,7 @@ import '../models/game_state.dart';
 import '../services/settings_service.dart';
 import '../services/utility.dart';
 import 'scrabble_net.dart';
+import '../constants.dart';
 
 /*
  *  LocalNet is a class that implements the ScrabbleNet interface
@@ -25,7 +26,6 @@ class LocalNet implements ScrabbleNet {
   bool _matched = false;
   Timer? _broadcastTimer;
   List<NetworkInterface>? _localInterfaces;
-  bool _debug = true;
   bool _udpStopped = false;
   int _lastGameStateId = 0;
   final Map<int, Timer> _pendingAcks = {};
@@ -58,7 +58,7 @@ class LocalNet implements ScrabbleNet {
     final localPort = _tcpServer!.port;
     settings.localPort = localPort;
 
-    if (_debug)
+    if (debug)
       debugPrint(
         '${logHeader("LocalNet")} TCP server bound to port $localPort',
       );
@@ -81,7 +81,7 @@ class LocalNet implements ScrabbleNet {
         if (datagram == null) return;
 
         final udpMsg = utf8.decode(datagram.data);
-        if (_debug)
+        if (debug)
           debugPrint('${logHeader("LocalNet")} Message UDP reçu: $udpMsg');
 
         if (udpMsg.startsWith('SCRABBLE_CONNECT:')) {
@@ -104,7 +104,7 @@ class LocalNet implements ScrabbleNet {
             remoteExpectedName,
           );
 
-          if (_debug)
+          if (debug)
             debugPrint(
               '${logHeader("LocalNet")} $localName: partenaire détecté $remoteName',
             );
@@ -124,7 +124,7 @@ class LocalNet implements ScrabbleNet {
               String tcpMsg =
                   'SCRABBLE_ACK:$localName:$localIP:$localPort:$startTime:$remoteName:$remoteIP:$remotePort:$remoteStartTime';
               socket.writeln(tcpMsg);
-              if (_debug)
+              if (debug)
                 debugPrint(
                   '${logHeader("LocalNet")} TCP ACK envoyé sur remotePort ${socket.remotePort}: $tcpMsg',
                 );
@@ -134,7 +134,7 @@ class LocalNet implements ScrabbleNet {
                   .transform(utf8.decoder)
                   .transform(const LineSplitter())
                   .listen((tcpMsg) {
-                    if (_debug) {
+                    if (debug) {
                       debugPrint(
                         '${logHeader("LocalNet")} TCP reçu (après ACK): $tcpMsg',
                       );
@@ -146,7 +146,7 @@ class LocalNet implements ScrabbleNet {
                       final gameState = GameState.fromJson(decoded);
                       onGameStateReceived?.call(gameState);
                     } catch (_) {
-                      if (_debug)
+                      if (debug)
                         debugPrint(
                           '${logHeader("LocalNet")} Message non JSON ignoré.',
                         );
@@ -165,7 +165,7 @@ class LocalNet implements ScrabbleNet {
                 rightStartTime: remoteStartTime,
               );
             } catch (e) {
-              if (_debug)
+              if (debug)
                 debugPrint('${logHeader("LocalNet")} Erreur envoi ACK: $e');
             }
           }
@@ -192,7 +192,7 @@ class LocalNet implements ScrabbleNet {
         InternetAddress('255.255.255.255'),
         udpPort,
       );
-      if (_debug)
+      if (debug)
         debugPrint(
           '${logHeader("LocalNet")} UDP CONNECT envoyé: $udpMsg sur port $udpPort',
         );
@@ -200,7 +200,7 @@ class LocalNet implements ScrabbleNet {
   }
 
   void _closeBroadcast() {
-    if (_debug) debugPrint('${logHeader("LocalNet")} Closing broadcast');
+    if (debug) debugPrint('${logHeader("LocalNet")} Closing broadcast');
     _broadcastTimer?.cancel();
     _broadcastTimer = null;
     _udpSocket?.close();
@@ -217,7 +217,7 @@ class LocalNet implements ScrabbleNet {
         .transform(const LineSplitter())
         .listen((tcpMsg) {
           _closeBroadcast();
-          if (_debug) debugPrint('${logHeader("LocalNet")} TCP reçu: $tcpMsg');
+          if (debug) debugPrint('${logHeader("LocalNet")} TCP reçu: $tcpMsg');
 
           if (tcpMsg.trim().startsWith('SCRABBLE_ACK:')) {
             // @todo implémenter la possibilité d'envoyer des messages; switch ($startswith)
@@ -240,7 +240,7 @@ class LocalNet implements ScrabbleNet {
               final gameState = GameState.fromJson(decoded);
               onGameStateReceived?.call(gameState);
             } catch (e) {
-              if (_debug)
+              if (debug)
                 debugPrint(
                   '${logHeader("LocalNet")} Message TCP inattendu: $tcpMsg\nErreur: $e',
                 );
@@ -256,7 +256,7 @@ class LocalNet implements ScrabbleNet {
     _lastGameStateId++;
 
     if (_peerSocket == null) {
-      if (_debug) {
+      if (debug) {
         debugPrint(
           '${logHeader("LocalNet")} ⚠️ _peerSocket est null (tentative $attempt) — retry dans 300ms...',
         );
@@ -266,7 +266,7 @@ class LocalNet implements ScrabbleNet {
           sendGameState(state, attempt: attempt + 1);
         });
       } else {
-        if (_debug)
+        if (debug)
           debugPrint('${logHeader("LocalNet")} ❌ Abandon après 10 tentatives.');
 
         onError?.call(
@@ -279,13 +279,13 @@ class LocalNet implements ScrabbleNet {
     try {
       _peerSocket!.writeln(jsonString);
       _peerSocket!.flush();
-      if (_debug) {
+      if (debug) {
         debugPrint(
           '${logHeader("LocalNet")} ✅ GameState envoyé sur port TCP ${_peerSocket!.remotePort}',
         );
       }
     } catch (e) {
-      if (_debug) {
+      if (debug) {
         debugPrint(
           '${logHeader("LocalNet")} ❌ Erreur lors de l\'envoi du GameState: $e',
         );
@@ -301,7 +301,7 @@ class LocalNet implements ScrabbleNet {
     });
 
     if (_peerSocket == null) {
-      if (_debug) {
+      if (debug) {
         debugPrint(
           '${logHeader("LocalNet")} ⚠️ _peerSocket est null (tentative $attempt) — retry dans 300ms...',
         );
@@ -311,7 +311,7 @@ class LocalNet implements ScrabbleNet {
           sendGameOver(finalState, attempt: attempt + 1);
         });
       } else {
-        if (_debug)
+        if (debug)
           debugPrint('${logHeader("LocalNet")} ❌ Abandon envoi gameOver.');
 
         onError?.call('Impossible d\'envoyer le gameOver après 10 tentatives.');
@@ -322,13 +322,13 @@ class LocalNet implements ScrabbleNet {
     try {
       _peerSocket!.writeln(jsonString);
       _peerSocket!.flush();
-      if (_debug) {
+      if (debug) {
         debugPrint(
           '${logHeader("LocalNet")} ✅ gameOver envoyé sur port TCP ${_peerSocket!.remotePort}',
         );
       }
     } catch (e) {
-      if (_debug) {
+      if (debug) {
         debugPrint(
           '${logHeader("LocalNet")} ❌ Erreur lors de l\'envoi du gameOver: $e',
         );
@@ -343,7 +343,7 @@ class LocalNet implements ScrabbleNet {
     _closeBroadcast();
     _tcpServer?.close();
     _peerSocket?.destroy();
-    if (_debug) debugPrint('${logHeader("LocalNet")} Déconnecté');
+    if (debug) debugPrint('${logHeader("LocalNet")} Déconnecté');
   }
 
   void Function(String error)? onError;
