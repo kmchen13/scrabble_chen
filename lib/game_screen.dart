@@ -230,14 +230,14 @@ class _GameScreenState extends State<GameScreen> {
   void _handleUndo() {
     if (_firstLetter) return;
     setState(() {
-      _updateTitleWithProvisionalScore();
-
       for (final placed in _lettersPlacedThisTurn) {
-        _board[placed.row][placed.col] = '';
+        widget.gameState.board[placed.row][placed.col] =
+            _board[placed.row][placed.col] = '';
         widget.gameState.bag.addLetter(placed.letter); // ✅ Restaure dans le sac
       }
       _playerLetters = List.from(_initialRack);
       _lettersPlacedThisTurn.clear();
+      _updateTitleWithProvisionalScore();
     });
   }
 
@@ -568,7 +568,8 @@ class _GameScreenState extends State<GameScreen> {
       );
       if (idx != -1) {
         final removed = _lettersPlacedThisTurn.removeAt(idx);
-        _board[removed.row][removed.col] = '';
+        widget.gameState.board[removed.row][removed.col] =
+            _board[removed.row][removed.col] = '';
       }
     });
   }
@@ -595,7 +596,6 @@ class _GameScreenState extends State<GameScreen> {
       lettersPlacedThisTurn: _lettersPlacedThisTurn,
     );
     int score = result.totalScore;
-    if (_lettersPlacedThisTurn.length == 7) score += 50; // bonus scrabble
     setState(() => _appBarTitle = "Score provisoire : $score");
   }
 }
