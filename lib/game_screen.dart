@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
 import 'models/board.dart';
 import 'models/game_state.dart';
 import 'models/player_rack.dart';
@@ -7,7 +8,8 @@ import 'services/settings_service.dart';
 import 'services/game_initializer.dart';
 import 'models/placed_letter.dart';
 import 'score.dart';
-import 'services/game_storage.dart';
+import 'constants.dart';
+import 'main.dart';
 
 typedef MovePlayedCallback = void Function(GameMove move);
 
@@ -39,6 +41,8 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> {
+  static const String _defaultTitle = "$appName -v$version'";
+  String _appBarTitle = _defaultTitle;
   late ScrabbleNet _net;
   late List<String> _playerLetters;
   late List<List<String>> _board;
@@ -56,6 +60,8 @@ class _GameScreenState extends State<GameScreen> {
     _net.onGameStateReceived = (newState) {
       if (!mounted) return;
       setState(() {
+        _appBarTitle = _defaultTitle;
+
         widget.gameState.copyFrom(newState);
         _board =
             widget.gameState.board
@@ -70,6 +76,8 @@ class _GameScreenState extends State<GameScreen> {
           ..clear()
           ..addAll(widget.gameState.lettersPlacedThisTurn);
       });
+      // ✅ Revient au zoom 100% (position et échelle par défaut)
+      _boardController.value = Matrix4.identity();
       _firstLetter = true;
     };
 
@@ -143,6 +151,8 @@ class _GameScreenState extends State<GameScreen> {
       _lettersPlacedThisTurn.add(
         PlacedLetter(row: row, col: col, letter: letter, placedThisTurn: true),
       );
+
+      _updateTitleWithProvisionalScore();
     });
 
     widget.onMovePlayed?.call(GameMove(letter: letter, row: row, col: col));
@@ -205,6 +215,11 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _moveLetter(int fromIndex, int toIndex) {
+    // sécurité si les indices sont hors bornes
+    if (fromIndex < 0 || fromIndex >= _playerLetters.length) return;
+    if (toIndex < 0) toIndex = 0;
+    if (toIndex > _playerLetters.length) toIndex = _playerLetters.length;
+
     setState(() {
       final letter = _playerLetters.removeAt(fromIndex);
       final adjustedIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
@@ -214,6 +229,8 @@ class _GameScreenState extends State<GameScreen> {
 
   void _handleUndo() {
     setState(() {
+      _updateTitleWithProvisionalScore();
+
       for (final placed in _lettersPlacedThisTurn) {
         _board[placed.row][placed.col] = '';
         widget.gameState.bag.addLetter(placed.letter); // ✅ Restaure dans le sac
@@ -236,11 +253,6 @@ class _GameScreenState extends State<GameScreen> {
 
       int totalScore = result.totalScore;
 
-      // Bonus Scrabble : 7 lettres jouées
-      if (_lettersPlacedThisTurn.length == 7) {
-        totalScore += 50;
-      }
-
       // Appliquer le score au joueur actif
       if (widget.gameState.isLeft) {
         widget.gameState.leftScore += totalScore;
@@ -259,12 +271,18 @@ class _GameScreenState extends State<GameScreen> {
       );
 
       // Tirer de nouvelles lettres
-      // refillRack(7);
+      refillRack(7);
 
       // Passer au tour suivant
       widget.gameState.isLeft = !widget.gameState.isLeft;
 
+      // ⚡️ Envoyer le nouvel état de jeu
       widget.onGameStateUpdated?.call(widget.gameState);
+
+      // ✅ Réinitialiser _lettersPlacedThisTurn pour neutraliser _returnLetterToRack
+      _lettersPlacedThisTurn.clear();
+
+      _saveCurrentGame();
 
       // if (_playerLetters.isEmpty && widget.gameState.bag.remainingCount == 0) {
       if (_playerLetters.isEmpty) {
@@ -316,12 +334,23 @@ class _GameScreenState extends State<GameScreen> {
                 },
                 child: const Text("Revanche"),
               ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => const HomeScreen()),
+                    (Route<dynamic> route) => false,
+                  );
+                },
+                child: const Text("Retour à l'accueil"),
+              ),
             ],
           ),
     );
   }
 
   void _startRematch() {
+    _appBarTitle = _defaultTitle;
+
     final bool leftWon =
         widget.gameState.leftScore > widget.gameState.rightScore;
     final String newLeft =
@@ -355,6 +384,8 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   void dispose() {
+    _saveCurrentGame();
+
     ScrabbleNet().onGameStateReceived = null;
     _net.disconnect();
     super.dispose();
@@ -369,7 +400,7 @@ class _GameScreenState extends State<GameScreen> {
             widget.gameState.rightName == settings.localUserName);
 
     return Scaffold(
-      appBar: AppBar(title: const Text("scrabble_P2P ;-)")),
+      appBar: AppBar(title: Text(_appBarTitle)),
       body: Column(
         children: [
           _buildScoreBar(),
@@ -405,7 +436,30 @@ class _GameScreenState extends State<GameScreen> {
             height: 60,
             child: PlayerRack(
               letters: _playerLetters,
-              onMove: _moveLetter,
+              onMove: (fromIndex, toIndex) {
+                setState(() {
+                  final letter = _playerLetters.removeAt(fromIndex);
+                  _playerLetters.insert(toIndex, letter);
+                });
+              },
+              onAddLetter: (String letter, {int? hoveredIndex}) {
+                // Utilisez un paramètre nommé
+                setState(() {
+                  if (hoveredIndex != null) {
+                    _playerLetters.insert(hoveredIndex, letter);
+                  } else {
+                    _playerLetters.add(letter);
+                  }
+                });
+              },
+              onRemoveFromBoard: (row, col) {
+                setState(() {
+                  _board[row][col] = '';
+                  _lettersPlacedThisTurn.removeWhere(
+                    (placed) => placed.row == row && placed.col == col,
+                  );
+                });
+              },
               onRemoveLetter: (i) => setState(() => _playerLetters.removeAt(i)),
             ),
           ),
@@ -497,11 +551,6 @@ class _GameScreenState extends State<GameScreen> {
               icon: const Icon(Icons.inventory_2),
               onPressed: _showBagContents,
             ),
-            IconButton(
-              icon: const Icon(Icons.save),
-              tooltip: "Sauvegarder la partie",
-              onPressed: _saveCurrentGame,
-            ),
           ],
         ),
       ),
@@ -510,6 +559,8 @@ class _GameScreenState extends State<GameScreen> {
 
   void _returnLetterToRack(String letter) {
     setState(() {
+      _updateTitleWithProvisionalScore();
+
       _playerLetters.add(letter);
       final idx = _lettersPlacedThisTurn.indexWhere(
         (pos) => pos.letter == letter,
@@ -522,9 +573,28 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Future<void> _saveCurrentGame() async {
-    await saveGameState(widget.gameState.toMap());
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text("Partie sauvegardée")));
+    final box = Hive.box('gameBox');
+
+    // Sauvegarde du gameState dans Hive
+    await box.put('currentGame', widget.gameState.toMap());
+
+    //   if (!mounted) return; // éviter erreur si le widget est démonté
+    //   ScaffoldMessenger.of(
+    //     context,
+    //   ).showSnackBar(const SnackBar(content: Text("Partie sauvegardée")));
+  }
+
+  void _updateTitleWithProvisionalScore() {
+    if (_lettersPlacedThisTurn.isEmpty) {
+      setState(() => _appBarTitle = _defaultTitle);
+      return;
+    }
+    final result = getWordsCreatedAndScore(
+      board: widget.gameState.board,
+      lettersPlacedThisTurn: _lettersPlacedThisTurn,
+    );
+    int score = result.totalScore;
+    if (_lettersPlacedThisTurn.length == 7) score += 50; // bonus scrabble
+    setState(() => _appBarTitle = "Score provisoire : $score");
   }
 }

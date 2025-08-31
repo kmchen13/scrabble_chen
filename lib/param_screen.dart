@@ -63,7 +63,11 @@ class _ParamScreenState extends State<ParamScreen> {
       localPort: int.tryParse(_localPortController.text) ?? 4567,
       udpPort: int.tryParse(_udpPortController.text) ?? 4560,
       expectedUserName: '',
-      relayAddress: _relayAddressController.text,
+      relayAddress:
+          _relayAddressController.text.isEmpty
+              ? 'https://relay-server-3lv4.onrender.com'
+              : _relayAddressController.text,
+
       relayPort: int.tryParse(_relayPortController.text) ?? 8080,
     );
 

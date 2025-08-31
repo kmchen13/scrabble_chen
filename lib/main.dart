@@ -15,9 +15,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
+import 'package:hive_flutter/hive_flutter.dart';
 import 'services/settings_service.dart';
-import 'services/game_storage.dart';
 import 'models/game_state.dart';
 import 'network/scrabble_net.dart';
 import 'start_screen.dart';
@@ -28,6 +27,13 @@ import 'constants.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await loadSettings();
+
+  // Initialiser Hive avant de lancer l'application
+  await Hive.initFlutter();
+  Hive.registerAdapter(GameStateAdapter());
+
+  // Ouvrir la box ici pour éviter de le faire dans initState
+  await Hive.openBox('gameBox');
   runApp(const ScrabbleApp());
 }
 
@@ -59,16 +65,48 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _net = ScrabbleNet();
-    _loadSavedGame();
+    // Ne chargez pas les données ici, attendez le premier rendu
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadSavedGame();
+    });
   }
 
   Future<void> _loadSavedGame() async {
-    final savedGame = await loadLastGameState(); // Map<String, dynamic>?
-    setState(() {
-      if (savedGame != null) {
-        _savedGameState = GameState.fromJson(savedGame);
+    setState(() => _loading = true);
+    try {
+      final box = Hive.box('gameBox');
+      final data = box.get('currentGame');
+      print("Données chargées depuis Hive : $data");
+
+      if (data != null && data is Map) {
+        final convertedData = _convertMap(data);
+        _savedGameState = GameState.fromMap(convertedData);
+        print("GameState désérialisé : $_savedGameState");
+      } else {
+        print("Aucune donnée valide trouvée dans Hive.");
       }
-      _loading = false;
+    } catch (e) {
+      print("Erreur lors du chargement du jeu : $e");
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  Map<String, dynamic> _convertMap(Map<dynamic, dynamic> input) {
+    return input.map((key, value) {
+      // Convertir la clé en String
+      final String stringKey = key.toString();
+      // Convertir la valeur récursivement si c'est un Map ou une List
+      if (value is Map) {
+        return MapEntry(stringKey, _convertMap(value));
+      } else if (value is List) {
+        return MapEntry(
+          stringKey,
+          value.map((e) => e is Map ? _convertMap(e) : e).toList(),
+        );
+      } else {
+        return MapEntry(stringKey, value);
+      }
     });
   }
 

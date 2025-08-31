@@ -40,7 +40,7 @@ android {
     applicationVariants.configureEach {
         outputs.configureEach {
             val appName = "scrabble_P2P"
-            val versionName = "v1.0.0"
+            val versionName = "v1.2.0"
             (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName = "$appName-$versionName.apk"
         }
     }

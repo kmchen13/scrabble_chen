@@ -128,16 +128,9 @@ Widget buildScrabbleBoard({
                                         setState(() {});
                                       },
                                       onDragEnd: (details) {
-                                        // Si le drag est annulé (drop hors DragTarget)
                                         if (!details.wasAccepted) {
-                                          // remettre la lettre à sa place, ou autre gestion
-                                          onLetterPlaced(
-                                            cellLetter,
-                                            row,
-                                            col,
-                                            null,
-                                            null,
-                                          );
+                                          // 👉 la lettre vient du board, on ne la supprime pas
+                                          // donc on NE fait rien, elle reste en place
                                         }
                                         currentlyDragged = null;
                                         setState(() {});

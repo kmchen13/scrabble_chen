@@ -176,6 +176,8 @@ bool _inBounds(int row, int col) {
       totalScore += perpScore;
     }
   }
+  // Bonus Scrabble : 7 lettres jouées
+  if (lettersPlacedThisTurn.length == 7) totalScore += 50;
 
   return (words: words.toList(), totalScore: totalScore);
 }

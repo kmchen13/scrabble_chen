@@ -6,15 +6,20 @@ class PlayerRack extends StatelessWidget {
   final List<String> letters;
   final void Function(int fromIndex, int toIndex)? onMove;
   final void Function(int index)? onRemoveLetter;
-  final void Function(String letter)? onAddLetter;
+  final void Function(String letter, {int? hoveredIndex})?
+  onAddLetter; // Utilisez un paramètre nommé
+
+  final void Function(int row, int col)?
+  onRemoveFromBoard; // Ajoutez cette ligne
 
   const PlayerRack({
-    super.key,
+    Key? key,
     required this.letters,
     this.onMove,
     this.onRemoveLetter,
     this.onAddLetter,
-  });
+    this.onRemoveFromBoard, // Initialisez-le ici
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -23,6 +28,7 @@ class PlayerRack extends StatelessWidget {
       onMove: onMove,
       onRemoveLetter: onRemoveLetter,
       onAddLetter: onAddLetter,
+      onRemoveFromBoard: onRemoveFromBoard,
     );
   }
 }
@@ -31,13 +37,17 @@ class _PlayerRackInternal extends StatefulWidget {
   final List<String> letters;
   final void Function(int fromIndex, int toIndex)? onMove;
   final void Function(int index)? onRemoveLetter;
-  final void Function(String letter)? onAddLetter;
+  final void Function(String letter, {int? hoveredIndex})?
+  onAddLetter; // Utilisez un paramètre nommé
+
+  final void Function(int row, int col)? onRemoveFromBoard;
 
   const _PlayerRackInternal({
     required this.letters,
     this.onMove,
     this.onRemoveLetter,
     this.onAddLetter,
+    this.onRemoveFromBoard, // Initialisez-le ici
   });
 
   @override
@@ -46,10 +56,14 @@ class _PlayerRackInternal extends StatefulWidget {
 
 class _PlayerRackInternalState extends State<_PlayerRackInternal> {
   int? _hoveredIndex;
+  DraggedLetter? _dragging;
 
   @override
   Widget build(BuildContext context) {
     final tileSize = _calculateTileSize(context);
+
+    // si on survole, on construit une version temporaire du rack réordonné
+    final previewLetters = _computePreviewLetters();
 
     return Container(
       height: tileSize + 16,
@@ -57,32 +71,68 @@ class _PlayerRackInternalState extends State<_PlayerRackInternal> {
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        itemCount: widget.letters.length + 1, // +1 pour emplacement fin
+        itemCount: previewLetters.length + 1,
         itemBuilder: (context, index) {
-          return DragTarget<DraggedLetter>(
-            onWillAccept: (data) {
-              setState(() => _hoveredIndex = index);
-              return true;
-            },
-            onLeave: (_) {
-              setState(() => _hoveredIndex = null);
-            },
-            onAccept: (data) {
-              setState(() => _hoveredIndex = null);
-              if (widget.onMove != null && data.fromIndex > 0) {
-                widget.onMove!(data.fromIndex, index);
-              }
-            },
-            builder: (context, candidateData, rejectedData) {
-              if (_hoveredIndex == index) {
-                return _buildPlaceholderTile(tileSize);
-              }
-              if (index < widget.letters.length) {
-                final letter = widget.letters[index];
+          if (index < previewLetters.length) {
+            final letter = previewLetters[index];
+            return DragTarget<DraggedLetter>(
+              onWillAccept: (data) {
+                setState(() {
+                  _hoveredIndex = index;
+                  _dragging = data;
+                });
+                return true;
+              },
+              onLeave: (_) {
+                setState(() {
+                  _hoveredIndex = null;
+                  _dragging = null;
+                });
+              },
+              onAccept: (data) {
+                setState(() {
+                  _dragging = null;
+                });
+
+                // Cas 1 : la lettre vient du rack
+                if (data.fromIndex >= 0) {
+                  if (widget.onMove != null) {
+                    widget.onMove!(data.fromIndex, index);
+                  }
+                }
+                // Cas 2 : la lettre vient du board
+                else if (data.fromIndex == -1) {
+                  if (widget.onAddLetter != null) {
+                    widget.onAddLetter?.call(
+                      data.letter,
+                      hoveredIndex: _hoveredIndex,
+                    ); // Utilisez un paramètre nommé
+                  }
+                  // Signaler au board qu’on retire la lettre
+                  if (widget.onRemoveFromBoard != null &&
+                      data.row != null &&
+                      data.col != null) {
+                    widget.onRemoveFromBoard!(data.row!, data.col!);
+                  }
+                }
+              },
+              builder: (context, candidateData, rejectedData) {
                 return Draggable<DraggedLetter>(
                   data: DraggedLetter(letter: letter, fromIndex: index),
-                  onDragStarted: () {
-                    HapticFeedback.mediumImpact();
+                  onDragStarted: () => HapticFeedback.mediumImpact(),
+                  onDragEnd: (details) {
+                    // Si le drop n’a pas été accepté, on remet la tuile dans le rack
+                    if (!details.wasAccepted) {
+                      setState(() {
+                        if (!widget.letters.contains(letter)) {
+                          widget.letters.insert(index, letter);
+                        }
+                      });
+                    }
+                    setState(() {
+                      _dragging = null;
+                      _hoveredIndex = null;
+                    });
                   },
                   feedback: Material(
                     color: Colors.transparent,
@@ -94,15 +144,47 @@ class _PlayerRackInternalState extends State<_PlayerRackInternal> {
                       ),
                     ),
                   ),
+                  childWhenDragging: Opacity(
+                    opacity: 0.0,
+                    child: _buildLetterTile(letter, tileSize),
+                  ),
                   child: _buildLetterTile(letter, tileSize),
                 );
-              }
-              return SizedBox(width: tileSize); // slot vide à la fin
-            },
-          );
+              },
+            );
+          } else {
+            // slot vide à la fin
+            return SizedBox(width: tileSize);
+          }
         },
       ),
     );
+  }
+
+  /// Construit une version temporaire des lettres avec décalage
+  List<String> _computePreviewLetters() {
+    if (_hoveredIndex == null || _dragging == null) {
+      return List.of(widget.letters);
+    }
+
+    final preview = List.of(widget.letters);
+    final fromIndex = _dragging!.fromIndex;
+
+    // on déclare dragged une seule fois
+    late String dragged;
+
+    if (fromIndex >= 0 && fromIndex < preview.length) {
+      dragged = preview.removeAt(fromIndex);
+    } else {
+      // la lettre venait du plateau → on ne retire rien du rack
+      dragged = _dragging!.letter;
+    }
+
+    // insérer la lettre déplacée à l’index survolé
+    final targetIndex = _hoveredIndex!.clamp(0, preview.length);
+    preview.insert(targetIndex, dragged);
+
+    return preview;
   }
 
   double _calculateTileSize(BuildContext context) {
@@ -114,13 +196,12 @@ class _PlayerRackInternalState extends State<_PlayerRackInternal> {
 
   Widget _buildLetterTile(String letter, double size) {
     final point = letterPoints[letter.toUpperCase()] ?? 0;
-
     return Container(
       width: size,
       height: size,
       margin: const EdgeInsets.symmetric(horizontal: 2),
       decoration: BoxDecoration(
-        color: letter.isNotEmpty ? Colors.amber[200] : Colors.grey[300],
+        color: Colors.amber[200],
         border: Border.all(color: Colors.black),
         borderRadius: BorderRadius.circular(4),
       ),
@@ -135,33 +216,19 @@ class _PlayerRackInternalState extends State<_PlayerRackInternal> {
               ),
             ),
           ),
-          if (letter.isNotEmpty)
-            Positioned(
-              bottom: 2,
-              right: 4,
-              child: Text(
-                '$point',
-                style: TextStyle(
-                  fontSize: size * 0.25,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black87,
-                ),
+          Positioned(
+            bottom: 2,
+            right: 4,
+            child: Text(
+              '$point',
+              style: TextStyle(
+                fontSize: size * 0.25,
+                fontWeight: FontWeight.w500,
+                color: Colors.black87,
               ),
             ),
+          ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildPlaceholderTile(double size) {
-    return Container(
-      width: size,
-      height: size,
-      margin: const EdgeInsets.symmetric(horizontal: 2),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.blue, width: 2),
-        borderRadius: BorderRadius.circular(4),
-        color: Colors.transparent,
       ),
     );
   }

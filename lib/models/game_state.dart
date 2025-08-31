@@ -1,23 +1,52 @@
+import 'package:hive/hive.dart';
 import 'dart:convert';
 import 'placed_letter.dart';
 import 'bag.dart';
 
+part 'game_state.g.dart'; // Fichier généré par Hive
+
+@HiveType(typeId: 0) // Assurez-vous que ce typeId est unique
 class GameState {
+  @HiveField(0)
   bool isLeft;
+
+  @HiveField(1)
   final String leftName;
+
+  @HiveField(2)
   final String leftIP;
+
+  @HiveField(3)
   final int leftPort;
+
+  @HiveField(4)
   final String rightName;
+
+  @HiveField(5)
   final String rightIP;
+
+  @HiveField(6)
   final int rightPort;
+
+  @HiveField(7)
   List<List<String>> board;
+
+  @HiveField(8)
   BagModel bag;
+
+  @HiveField(9)
   List<String> leftLetters;
+
+  @HiveField(10)
   List<String> rightLetters;
+
+  @HiveField(11)
   int leftScore;
+
+  @HiveField(12)
   int rightScore;
 
-  // Lettres posées ce tour
+  @HiveField(13)
   List<PlacedLetter> lettersPlacedThisTurn;
 
   GameState({
@@ -42,6 +71,7 @@ class GameState {
     lettersPlacedThisTurn.clear();
   }
 
+  /// Méthode pour convertir en Map (optionnel, si vous voulez garder la compatibilité JSON)
   Map<String, dynamic> toMap() {
     return {
       'isLeft': isLeft,
@@ -71,6 +101,7 @@ class GameState {
     };
   }
 
+  /// Méthode pour créer un GameState à partir d'une Map (optionnel)
   factory GameState.fromMap(Map<String, dynamic> map) {
     return GameState(
       isLeft: map['isLeft'],
@@ -98,15 +129,17 @@ class GameState {
                   placedThisTurn: e['placedThisTurn'] as bool? ?? false,
                 ),
               )
-              .toList(),
+          .toList(),
     );
   }
 
+  /// Méthode pour convertir en JSON (optionnel)
   String toJson() => jsonEncode(toMap());
 
-  factory GameState.fromJson(String source) =>
-      GameState.fromMap(jsonDecode(source));
+  /// Méthode pour créer un GameState à partir d'un JSON (optionnel)
+  factory GameState.fromJson(String source) => GameState.fromMap(jsonDecode(source));
 
+  /// Méthode pour créer une copie modifiée
   GameState copyWith({
     bool? isLeft,
     List<List<String>>? board,
@@ -131,11 +164,11 @@ class GameState {
       rightLetters: rightLetters ?? this.rightLetters,
       leftScore: leftScore ?? this.leftScore,
       rightScore: rightScore ?? this.rightScore,
-      lettersPlacedThisTurn:
-          lettersPlacedThisTurn ?? this.lettersPlacedThisTurn,
+      lettersPlacedThisTurn: lettersPlacedThisTurn ?? this.lettersPlacedThisTurn,
     );
   }
 
+  /// Méthode pour copier depuis un autre GameState
   void copyFrom(GameState other) {
     isLeft = other.isLeft;
     leftScore = other.leftScore;

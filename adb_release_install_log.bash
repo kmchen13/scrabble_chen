@@ -1,6 +1,15 @@
 #!/bin/bash
 #
-NEW_NAME="scrabble_P2P-v1.1.0.apk"
+CONSTANTS_FILE="/data/flutter/scrabble_chen/lib/constants.dart"
+PARAM="const String version"
+VERSION=$(get_param "$CONSTANTS_FILE" "$PARAM")
+if [ -z "$VERSION" ]; then
+    echo "Erreur : Impossible de trouver la VALUE dans le fichier $CONSTANTS_FILE."
+    exit 1
+fi
+echo "cOMPILATION Version $VERSION"
+
+NEW_NAME="scrabble_P2P-v$VERSION.apk"
 APK_DIR="build/app/outputs/flutter-apk"
 APK_NAME="app-release.apk"
     
