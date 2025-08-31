@@ -137,13 +137,13 @@ class _GameScreenState extends State<GameScreen> {
       }
       // Nettoie l'ancienne lettre
       if (oldRow != null && oldCol != null) {
-        _board[oldRow][oldCol] = '';
+        widget.gameState.board[oldRow][oldCol] = _board[oldRow][oldCol] = '';
         _lettersPlacedThisTurn.removeWhere(
           (e) => e.row == oldRow && e.col == oldCol && e.letter == letter,
         );
       }
       // Place la lettre à la nouvelle position
-      _board[row][col] = letter;
+      widget.gameState.board[row][col] = _board[row][col] = letter;
 
       // Retire du rack uniquement si elle y est encore
       _playerLetters.remove(letter); // safe : remove ne crash pas si absente
@@ -228,6 +228,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _handleUndo() {
+    if (_firstLetter) return;
     setState(() {
       _updateTitleWithProvisionalScore();
 
