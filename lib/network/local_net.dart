@@ -75,6 +75,7 @@ class LocalNet implements ScrabbleNet {
     );
 
     _udpSocket!.listen((event) async {
+      onStatusUpdate?.call('Connection au serveur établie');
       if (_udpStopped) return;
       if (event == RawSocketEvent.read) {
         final datagram = _udpSocket!.receive();
@@ -192,6 +193,7 @@ class LocalNet implements ScrabbleNet {
         InternetAddress('255.255.255.255'),
         udpPort,
       );
+      onStatusUpdate?.call('Connection au serveur...');
       if (debug)
         debugPrint(
           '${logHeader("LocalNet")} UDP CONNECT envoyé: $udpMsg sur port $udpPort',
@@ -343,21 +345,39 @@ class LocalNet implements ScrabbleNet {
     _closeBroadcast();
     _tcpServer?.close();
     _peerSocket?.destroy();
+    onStatusUpdate?.call('Déconnecté');
     if (debug) debugPrint('${logHeader("LocalNet")} Déconnecté');
   }
 
   void Function(String error)? onError;
 
-  String _findCommonIP(remoteIP) {
-    //Recherche du réseau commun
+  String _findCommonIP(String remoteIP) {
+    // Recherche du réseau commun
     String remoteNet = remoteIP.split('.').first;
-    final address = _localInterfaces!
-        .expand((i) => i.addresses)
-        .firstWhere(
-          (addr) => !addr.isLoopback && addr.address.startsWith(remoteNet),
-          orElse: () => throw Exception('Pas de réseau commun'),
-        );
+
+    final matching =
+        _localInterfaces!
+            .expand((i) => i.addresses)
+            .where(
+              (addr) => !addr.isLoopback && addr.address.startsWith(remoteNet),
+            )
+            .toList();
+
+    if (matching.isEmpty) {
+      onStatusUpdate?.call('Pas de réseau commun');
+      return ''; // ou bien throw Exception('Pas de réseau commun');
+    }
+
+    final address = matching.first;
     settings.localIP = address.address;
     return address.address;
   }
+
+  @override
+  void startPolling(String localName) {
+    // Rien à faire ici pour LocalNet
+  }
+
+  @override
+  void Function(String message)? onStatusUpdate;
 }

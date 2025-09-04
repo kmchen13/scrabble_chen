@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'services/settings_service.dart';
+import 'services/game_storage.dart';
 import 'models/game_state.dart';
 import 'network/scrabble_net.dart';
 import 'start_screen.dart';
@@ -27,13 +28,14 @@ import 'constants.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await loadSettings();
-
-  // Initialiser Hive avant de lancer l'application
   await Hive.initFlutter();
+
+  // Enregistrement des adapters générés
   Hive.registerAdapter(GameStateAdapter());
 
-  // Ouvrir la box ici pour éviter de le faire dans initState
-  await Hive.openBox('gameBox');
+  // Ouverture de la box via ton wrapper
+  await gameStorage.init();
+
   runApp(const ScrabbleApp());
 }
 
@@ -67,29 +69,12 @@ class _HomeScreenState extends State<HomeScreen> {
     _net = ScrabbleNet();
     // Ne chargez pas les données ici, attendez le premier rendu
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadSavedGame();
+      _savedGameState = gameStorage.load();
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+      });
     });
-  }
-
-  Future<void> _loadSavedGame() async {
-    setState(() => _loading = true);
-    try {
-      final box = Hive.box('gameBox');
-      final data = box.get('currentGame');
-      print("Données chargées depuis Hive : $data");
-
-      if (data != null && data is Map) {
-        final convertedData = _convertMap(data);
-        _savedGameState = GameState.fromMap(convertedData);
-        print("GameState désérialisé : $_savedGameState");
-      } else {
-        print("Aucune donnée valide trouvée dans Hive.");
-      }
-    } catch (e) {
-      print("Erreur lors du chargement du jeu : $e");
-    } finally {
-      setState(() => _loading = false);
-    }
   }
 
   Map<String, dynamic> _convertMap(Map<dynamic, dynamic> input) {
@@ -135,22 +120,39 @@ class _HomeScreenState extends State<HomeScreen> {
               if (_savedGameState != null)
                 ElevatedButton(
                   onPressed: () {
+                    final saved = _savedGameState!;
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder:
-                            (_) => GameScreen(
-                              net: _net,
-                              gameState: _savedGameState!,
-                              onGameStateUpdated: (updatedState) {
-                                _net.sendGameState(updatedState);
-                              },
-                            ),
+                        builder: (_) {
+                          final gameScreen = GameScreen(
+                            net: _net,
+                            gameState: saved,
+                            onGameStateUpdated: (updatedState) {
+                              _net.sendGameState(updatedState);
+                            },
+                          );
+
+                          // Utiliser WidgetsBinding pour exécuter le code après que le widget soit construit
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            String myName = settings.localUserName;
+                            if (saved.isMyTurn(myName)) {
+                              // C’est au joueur local de jouer → on injecte l’état sauvegardé
+                              _net.onGameStateReceived?.call(saved);
+                            } else {
+                              // C’est à l’adversaire de jouer → on lance le polling
+                              _net.startPolling(myName);
+                            }
+                          });
+
+                          return gameScreen;
+                        },
                       ),
                     );
                   },
                   child: const Text("Reprendre la dernière partie"),
                 ),
+
               ElevatedButton(
                 onPressed: () {
                   Navigator.push(

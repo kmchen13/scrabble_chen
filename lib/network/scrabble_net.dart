@@ -56,6 +56,11 @@ abstract class ScrabbleNet {
   // Réception d'un GameOver
   void Function(GameState)? onGameOverReceived;
 
+  // Spécifique au mode web (RelayNet)
+  void startPolling(String localName) {}
+
+  void Function(String message)? onStatusUpdate;
+
   void disconnect();
 
   void Function(String message)? onError;

@@ -25,6 +25,12 @@ class _StartScreenState extends State<StartScreen> {
   void initState() {
     super.initState();
     _net = ScrabbleNet();
+    _net.onStatusUpdate = (msg) {
+      if (!mounted) return;
+      setState(() {
+        _log = msg;
+      });
+    };
     if (debug)
       debugPrint(
         '${logHeader('startScreen')} _net hashCode = ${_net.hashCode}',
@@ -47,7 +53,7 @@ class _StartScreenState extends State<StartScreen> {
       setState(() => _navigated = true);
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        Navigator.push(
+        Navigator.pushReplacement(
           context,
           MaterialPageRoute(
             builder:
@@ -87,10 +93,11 @@ class _StartScreenState extends State<StartScreen> {
           rightIP: rightIP,
           rightPort: rightPort,
         );
+        if (!mounted) return;
         setState(() => _navigated = true);
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          Navigator.push(
+          Navigator.pushReplacement(
             context,
             MaterialPageRoute(
               builder:
@@ -104,7 +111,7 @@ class _StartScreenState extends State<StartScreen> {
             ),
           );
         });
-      } else
+      } else if (mounted)
         setState(() {
           _log = 'Partenaire trouvé. A lui de jouer';
         });
@@ -117,8 +124,8 @@ class _StartScreenState extends State<StartScreen> {
       debugPrint('${logHeader('startScreen')} dispose() appelé');
       // debugPrintStack(label: 'Stack au moment de dispose():');
     }
-    _net.disconnect();
     _net.onMatched = null;
+    // _net.disconnect();
     //    _net.onGameStateReceived = null;
     super.dispose();
   }

@@ -81,10 +81,10 @@ class GameState {
       'rightName': rightName,
       'rightIP': rightIP,
       'rightPort': rightPort,
-      'board': board,
+      'board': board.map((row) => row.toList()).toList(),
       'bag': bag.toMap(),
-      'leftLetters': leftLetters,
-      'rightLetters': rightLetters,
+      'leftLetters': leftLetters.toList(),
+      'rightLetters': rightLetters.toList(),
       'leftScore': leftScore,
       'rightScore': rightScore,
       'lettersPlacedThisTurn':
@@ -101,26 +101,24 @@ class GameState {
     };
   }
 
-  /// Méthode pour créer un GameState à partir d'une Map (optionnel)
   factory GameState.fromMap(Map<String, dynamic> map) {
     return GameState(
-      isLeft: map['isLeft'],
-      leftName: map['leftName'],
-      leftIP: map['leftIP'],
-      leftPort: map['leftPort'],
-      rightName: map['rightName'],
-      rightIP: map['rightIP'],
-      rightPort: map['rightPort'],
-      board: List<List<String>>.from(
-        map['board'].map<List<String>>((row) => List<String>.from(row)),
-      ),
-      bag: BagModel.fromMap(map['bag']),
+      isLeft: map['isLeft'] as bool,
+      leftName: map['leftName'] as String,
+      leftIP: map['leftIP'] as String,
+      leftPort: map['leftPort'] as int,
+      rightName: map['rightName'] as String,
+      rightIP: map['rightIP'] as String,
+      rightPort: map['rightPort'] as int,
+      board:
+          (map['board'] as List).map((row) => List<String>.from(row)).toList(),
+      bag: BagModel.fromMap(Map<String, dynamic>.from(map['bag'])),
       leftLetters: List<String>.from(map['leftLetters']),
       rightLetters: List<String>.from(map['rightLetters']),
-      leftScore: map['leftScore'],
-      rightScore: map['rightScore'],
+      leftScore: map['leftScore'] as int,
+      rightScore: map['rightScore'] as int,
       lettersPlacedThisTurn:
-          (map['lettersPlacedThisTurn'] as List<dynamic>)
+          (map['lettersPlacedThisTurn'] as List<dynamic>? ?? [])
               .map(
                 (e) => PlacedLetter(
                   row: e['row'] as int,
@@ -129,7 +127,7 @@ class GameState {
                   placedThisTurn: e['placedThisTurn'] as bool? ?? false,
                 ),
               )
-          .toList(),
+              .toList(),
     );
   }
 
@@ -137,7 +135,8 @@ class GameState {
   String toJson() => jsonEncode(toMap());
 
   /// Méthode pour créer un GameState à partir d'un JSON (optionnel)
-  factory GameState.fromJson(String source) => GameState.fromMap(jsonDecode(source));
+  factory GameState.fromJson(String source) =>
+      GameState.fromMap(jsonDecode(source));
 
   /// Méthode pour créer une copie modifiée
   GameState copyWith({
@@ -164,7 +163,8 @@ class GameState {
       rightLetters: rightLetters ?? this.rightLetters,
       leftScore: leftScore ?? this.leftScore,
       rightScore: rightScore ?? this.rightScore,
-      lettersPlacedThisTurn: lettersPlacedThisTurn ?? this.lettersPlacedThisTurn,
+      lettersPlacedThisTurn:
+          lettersPlacedThisTurn ?? this.lettersPlacedThisTurn,
     );
   }
 
@@ -178,5 +178,24 @@ class GameState {
     board = other.board.map((row) => List<String>.from(row)).toList();
     bag.copyFrom(other.bag);
     lettersPlacedThisTurn = List.from(other.lettersPlacedThisTurn);
+  }
+
+  bool isMyTurn(myName) {
+    if (this.isLeft && this.leftName == myName ||
+        !this.isLeft && this.rightName == myName)
+      return true;
+    else
+      return false;
+  }
+}
+
+extension GameStateRack on GameState {
+  /// Retourne les lettres du joueur local
+  List<String> localRack(String localUserName) {
+    if (leftName == localUserName) {
+      return List<String>.from(leftLetters);
+    } else {
+      return List<String>.from(rightLetters);
+    }
   }
 }

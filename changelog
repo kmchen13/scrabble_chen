@@ -11,3 +11,7 @@ Refonte mode web en polling
 1.3.1
 1.3.2 Correction retour lettre du board vers le rack
 1.3.1 Correction double lettre après déplacement 
+1.3.4 Version stable OK
+1.3.5 Ajout son notification
+1.3.6 Ajout scrabbleNet.startPolling et onStatusUpdate. Stable
+1.3.7 class gameStore avec Hive

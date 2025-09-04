@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:hive/hive.dart';
 import 'models/board.dart';
 import 'models/game_state.dart';
 import 'models/player_rack.dart';
 import 'network/scrabble_net.dart';
 import 'services/settings_service.dart';
 import 'services/game_initializer.dart';
+import 'services/game_storage.dart';
 import 'models/placed_letter.dart';
 import 'score.dart';
 import 'constants.dart';
@@ -50,7 +50,6 @@ class _GameScreenState extends State<GameScreen> {
   final List<PlacedLetter> _lettersPlacedThisTurn = [];
   final TransformationController _boardController = TransformationController();
   bool _firstLetter = true;
-
   @override
   void initState() {
     super.initState();
@@ -67,10 +66,7 @@ class _GameScreenState extends State<GameScreen> {
             widget.gameState.board
                 .map((row) => List<String>.from(row))
                 .toList();
-        _playerLetters =
-            widget.gameState.isLeft
-                ? widget.gameState.leftLetters
-                : widget.gameState.rightLetters;
+        _playerLetters = widget.gameState.localRack(settings.localUserName);
         _initialRack = List.from(_playerLetters);
         _lettersPlacedThisTurn
           ..clear()
@@ -91,10 +87,8 @@ class _GameScreenState extends State<GameScreen> {
 
     _board =
         widget.gameState.board.map((row) => List<String>.from(row)).toList();
-    _playerLetters =
-        widget.gameState.isLeft
-            ? widget.gameState.leftLetters
-            : widget.gameState.rightLetters;
+
+    _playerLetters = widget.gameState.localRack(settings.localUserName);
     _initialRack = List.from(_playerLetters);
 
     _net.onError = (message) {
@@ -132,12 +126,12 @@ class _GameScreenState extends State<GameScreen> {
 
       if (_firstLetter) {
         // Premier coup joué ce tour => on vide les coups précédents
-        _lettersPlacedThisTurn.clear();
+        clearLettersPlacedThisTurn();
         _firstLetter = false;
       }
       // Nettoie l'ancienne lettre
       if (oldRow != null && oldCol != null) {
-        widget.gameState.board[oldRow][oldCol] = _board[oldRow][oldCol] = '';
+        clearBoard(oldRow, oldCol);
         _lettersPlacedThisTurn.removeWhere(
           (e) => e.row == oldRow && e.col == oldCol && e.letter == letter,
         );
@@ -231,12 +225,11 @@ class _GameScreenState extends State<GameScreen> {
     if (_firstLetter) return;
     setState(() {
       for (final placed in _lettersPlacedThisTurn) {
-        widget.gameState.board[placed.row][placed.col] =
-            _board[placed.row][placed.col] = '';
+        clearBoard(placed.row, placed.col);
         widget.gameState.bag.addLetter(placed.letter); // ✅ Restaure dans le sac
       }
       _playerLetters = List.from(_initialRack);
-      _lettersPlacedThisTurn.clear();
+      clearLettersPlacedThisTurn();
       _updateTitleWithProvisionalScore();
     });
   }
@@ -281,9 +274,9 @@ class _GameScreenState extends State<GameScreen> {
       widget.onGameStateUpdated?.call(widget.gameState);
 
       // ✅ Réinitialiser _lettersPlacedThisTurn pour neutraliser _returnLetterToRack
-      _lettersPlacedThisTurn.clear();
+      clearLettersPlacedThisTurn();
 
-      _saveCurrentGame();
+      gameStorage.save(widget.gameState);
 
       // if (_playerLetters.isEmpty && widget.gameState.bag.remainingCount == 0) {
       if (_playerLetters.isEmpty) {
@@ -368,16 +361,13 @@ class _GameScreenState extends State<GameScreen> {
       rightIP: '',
       rightPort: 0,
     );
-
+    if (!mounted) return;
     setState(() {
       widget.gameState.copyFrom(newGameState);
       _board = newGameState.board.map((r) => List<String>.from(r)).toList();
-      _playerLetters =
-          newGameState.isLeft
-              ? newGameState.leftLetters
-              : newGameState.rightLetters;
+      _playerLetters = widget.gameState.localRack(settings.localUserName);
       _initialRack = List.from(_playerLetters);
-      _lettersPlacedThisTurn.clear();
+      clearLettersPlacedThisTurn();
     });
 
     widget.onGameStateUpdated?.call(widget.gameState);
@@ -385,7 +375,7 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   void dispose() {
-    _saveCurrentGame();
+    gameStorage.save(widget.gameState);
 
     ScrabbleNet().onGameStateReceived = null;
     _net.disconnect();
@@ -455,7 +445,7 @@ class _GameScreenState extends State<GameScreen> {
               },
               onRemoveFromBoard: (row, col) {
                 setState(() {
-                  _board[row][col] = '';
+                  clearBoard(row, col);
                   _lettersPlacedThisTurn.removeWhere(
                     (placed) => placed.row == row && placed.col == col,
                   );
@@ -568,22 +558,9 @@ class _GameScreenState extends State<GameScreen> {
       );
       if (idx != -1) {
         final removed = _lettersPlacedThisTurn.removeAt(idx);
-        widget.gameState.board[removed.row][removed.col] =
-            _board[removed.row][removed.col] = '';
+        clearBoard(removed.row, removed.col);
       }
     });
-  }
-
-  Future<void> _saveCurrentGame() async {
-    final box = Hive.box('gameBox');
-
-    // Sauvegarde du gameState dans Hive
-    await box.put('currentGame', widget.gameState.toMap());
-
-    //   if (!mounted) return; // éviter erreur si le widget est démonté
-    //   ScaffoldMessenger.of(
-    //     context,
-    //   ).showSnackBar(const SnackBar(content: Text("Partie sauvegardée")));
   }
 
   void _updateTitleWithProvisionalScore() {
@@ -597,5 +574,18 @@ class _GameScreenState extends State<GameScreen> {
     );
     int score = result.totalScore;
     setState(() => _appBarTitle = "Score provisoire : $score");
+  }
+
+  void clearBoard(row, col) {
+    setState(() {
+      widget.gameState.board[row][col] = _board[row][col] = '';
+    });
+  }
+
+  void clearLettersPlacedThisTurn() {
+    setState(() {
+      _lettersPlacedThisTurn.clear();
+      widget.gameState.lettersPlacedThisTurn.clear();
+    });
   }
 }
