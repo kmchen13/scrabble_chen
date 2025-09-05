@@ -12,36 +12,68 @@ class gameStorage {
 
   /// Doit être appelé au démarrage (dans main.dart) **après avoir enregistré les adapters**
   static Future<void> init() async {
-    if (!Hive.isBoxOpen(_boxName)) {
-      _box = await Hive.openBox(_boxName);
-    } else {
-      _box = Hive.box(_boxName);
+    try {
+      if (!Hive.isBoxOpen(_boxName)) {
+        _box = await Hive.openBox(_boxName);
+      } else {
+        _box = Hive.box(_boxName);
+      }
+      if (debug) print("✅ gameStorage initialisé");
+    } catch (e) {
+      print("❌ Erreur lors de l'initialisation de Hive: $e");
     }
   }
 
   /// Sauvegarde le GameState courant
   static Future<void> save(GameState gameState) async {
     if (_box == null) throw Exception("GameStorage not initialized");
-    await _box!.put(_gameKey, gameState.toMap());
-    if (debug)
-      print(
-        "GameState sauvegardé ${gameState.leftLetters}-${gameState.rightLetters}",
-      );
+    try {
+      await _box!.put(_gameKey, gameState.toMap());
+      await _box!.flush(); // force l’écriture immédiate
+      if (debug) {
+        print(
+          "💾 GameState sauvegardé "
+          "${gameState.leftLetters}-${gameState.rightLetters}",
+        );
+      }
+    } catch (e) {
+      print("❌ Erreur lors de la sauvegarde du GameState: $e");
+    }
   }
 
   /// Charge un GameState (ou null si absent)
   static GameState? load() {
     if (_box == null) throw Exception("GameStorage not initialized");
-    final data = _box!.get(_gameKey);
-    if (data == null) return null;
-    return GameState.fromMap(Map<String, dynamic>.from(data));
-    if (debug)
-      print("GameState restauré ${data.leftLetters}-${data.rightLetters}");
+    try {
+      final data = _box!.get(_gameKey);
+      if (data != null) {
+        final gameState = GameState.fromMap(Map<String, dynamic>.from(data));
+        if (debug) {
+          print(
+            "📂 GameState restauré "
+            "${gameState.leftLetters}-${gameState.rightLetters}",
+          );
+        }
+        return gameState;
+      } else {
+        if (debug) print("📂 Aucun GameState sauvegardé");
+        return null;
+      }
+    } catch (e) {
+      print("❌ Erreur lors du chargement du GameState: $e");
+      return null;
+    }
   }
 
   /// Efface la sauvegarde
   static Future<void> clear() async {
     if (_box == null) throw Exception("GameStorage not initialized");
-    await _box!.delete(_gameKey);
+    try {
+      await _box!.delete(_gameKey);
+      await _box!.flush(); // force la suppression sur disque
+      if (debug) print("🗑️ GameState effacé");
+    } catch (e) {
+      print("❌ Erreur lors de l’effacement du GameState: $e");
+    }
   }
 }

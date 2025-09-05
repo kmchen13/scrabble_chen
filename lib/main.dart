@@ -67,13 +67,17 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _net = ScrabbleNet();
-    // Ne chargez pas les données ici, attendez le premier rendu
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _savedGameState = gameStorage.load();
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-      });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Recharge l’état du jeu à chaque fois que HomeScreen redevient actif
+    final saved = gameStorage.load();
+    if (!mounted) return;
+    setState(() {
+      _savedGameState = saved;
+      _loading = false;
     });
   }
 
@@ -97,6 +101,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    _savedGameState = gameStorage.load();
+    if (_savedGameState == null && !kIsWeb) {
+      print('gameState restauré null');
+      // Si pas de partie sauvegardée, on efface toute trace d’une éventuelle
+      // ancienne partie (utile si on a changé de mode de connexion)
+      gameStorage.clear();
+    }
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }

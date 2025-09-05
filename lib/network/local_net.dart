@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../models/game_state.dart';
 import '../services/settings_service.dart';
 import '../services/utility.dart';
+import '../services/game_storage.dart';
 import 'scrabble_net.dart';
 import '../constants.dart';
 
@@ -236,6 +237,11 @@ class LocalNet implements ScrabbleNet {
               rightPort: int.tryParse(parts[7]) ?? 0,
               rightStartTime: int.tryParse(parts[8]) ?? 0,
             );
+          } else if (tcpMsg.trim().startsWith('SCRABBLE_QUIT:')) {
+            if (debug) print("[localNet] 🛑 Le partenaire a abandonné");
+            gameStorage.clear();
+            disconnect();
+            onConnectionClosed?.call();
           } else {
             try {
               final decoded = jsonDecode(tcpMsg);
@@ -374,10 +380,32 @@ class LocalNet implements ScrabbleNet {
   }
 
   @override
+  Future<void> quit() async {
+    // Prévenir le partenaire via TCP
+    final quitMessage = jsonEncode({'type': 'quit'});
+    _peerSocket?.writeln(quitMessage);
+
+    if (debug)
+      print("[localNet] 🛑 Partie abandonnée par ${settings.localUserName}");
+
+    // Supprimer l’état de jeu local
+    await gameStorage.clear();
+
+    // Fermer la socket
+    disconnect();
+
+    // Notifier l’UI
+    onConnectionClosed?.call();
+  }
+
+  @override
   void startPolling(String localName) {
     // Rien à faire ici pour LocalNet
   }
 
   @override
   void Function(String message)? onStatusUpdate;
+
+  @override
+  void Function()? onConnectionClosed;
 }

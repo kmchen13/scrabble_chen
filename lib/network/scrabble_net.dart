@@ -59,9 +59,15 @@ abstract class ScrabbleNet {
   // Spécifique au mode web (RelayNet)
   void startPolling(String localName) {}
 
+  /// Quitte la partie en cours
+  Future<void> quit();
+
   void Function(String message)? onStatusUpdate;
 
   void disconnect();
+
+  /// La connexion est fermée (par quit ou déconnexion)
+  void Function()? onConnectionClosed;
 
   void Function(String message)? onError;
 }

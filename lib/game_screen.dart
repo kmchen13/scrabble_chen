@@ -109,7 +109,14 @@ class _GameScreenState extends State<GameScreen> {
         );
       }
     };
-
+    widget.net.onConnectionClosed = () {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Votre partenaire a quitté la partie")),
+        );
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    };
     saveSettings();
   }
 
@@ -378,7 +385,7 @@ class _GameScreenState extends State<GameScreen> {
     gameStorage.save(widget.gameState);
 
     ScrabbleNet().onGameStateReceived = null;
-    _net.disconnect();
+    // _net.disconnect();
     super.dispose();
   }
 
@@ -499,13 +506,29 @@ class _GameScreenState extends State<GameScreen> {
         borderRadius: BorderRadius.circular(32),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
-      child: Text(
-        "$name: $score",
-        style: TextStyle(
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-          color: active ? Colors.white : Colors.black,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // On limite la largeur du nom pour éviter qu’il déborde
+          SizedBox(
+            width: 80, // ajuste la valeur si nécessaire
+            child: Text(
+              "$name",
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            "$score",
+            style: const TextStyle(
+              color: Colors.yellow,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -538,6 +561,28 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               ),
             ),
+            IconButton(
+              icon: const Icon(Icons.exit_to_app),
+              onPressed: () async {
+                try {
+                  await widget.net.quit();
+                  if (context.mounted) {
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  }
+                } catch (e) {
+                  print("⛔ Erreur abandon: $e");
+                }
+
+                // Supprime le GameState local
+                gameStorage.clear();
+
+                // Retourne à l'écran d’accueil
+                if (context.mounted) {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                }
+              },
+            ),
+
             IconButton(
               icon: const Icon(Icons.inventory_2),
               onPressed: _showBagContents,

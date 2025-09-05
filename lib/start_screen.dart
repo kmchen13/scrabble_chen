@@ -124,7 +124,7 @@ class _StartScreenState extends State<StartScreen> {
       debugPrint('${logHeader('startScreen')} dispose() appelé');
       // debugPrintStack(label: 'Stack au moment de dispose():');
     }
-    _net.onMatched = null;
+    // _net.onMatched = null;
     // _net.disconnect();
     //    _net.onGameStateReceived = null;
     super.dispose();
