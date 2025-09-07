@@ -25,6 +25,8 @@ import 'game_screen.dart';
 import 'param_screen.dart';
 import 'constants.dart';
 
+final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await loadSettings();
@@ -36,15 +38,16 @@ void main() async {
   // Ouverture de la box via ton wrapper
   await gameStorage.init();
 
-  runApp(const ScrabbleApp());
+  runApp(ScrabbleApp());
 }
 
 class ScrabbleApp extends StatelessWidget {
-  const ScrabbleApp({super.key});
+  ScrabbleApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
+      navigatorObservers: [routeObserver],
       home: HomeScreen(),
       debugShowCheckedModeBanner: false,
     );
@@ -58,7 +61,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with RouteAware {
   GameState? _savedGameState;
   bool _loading = true;
   late ScrabbleNet _net;
@@ -67,14 +70,37 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _net = ScrabbleNet();
+
+    // Charger l’état sauvegardé au démarrage
+    final saved = gameStorage.load();
+    setState(() {
+      _savedGameState = saved;
+      _loading = false; // très important !
+    });
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Recharge l’état du jeu à chaque fois que HomeScreen redevient actif
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      routeObserver.subscribe(this, route);
+    }
+  }
+
+  @override
+  void dispose() {
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      routeObserver.unsubscribe(this);
+    }
+    super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    // appelé quand on revient de GameScreen
     final saved = gameStorage.load();
-    if (!mounted) return;
     setState(() {
       _savedGameState = saved;
       _loading = false;
@@ -101,15 +127,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    _savedGameState = gameStorage.load();
-    if (_savedGameState == null && !kIsWeb) {
-      print('gameState restauré null');
-      // Si pas de partie sauvegardée, on efface toute trace d’une éventuelle
-      // ancienne partie (utile si on a changé de mode de connexion)
-      gameStorage.clear();
-    }
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    if (_savedGameState == null && !kIsWeb) {
+      print('gameState restauré null');
+      gameStorage.clear();
     }
 
     return Scaffold(

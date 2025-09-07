@@ -57,6 +57,7 @@ abstract class ScrabbleNet {
   void Function(GameState)? onGameOverReceived;
 
   // Spécifique au mode web (RelayNet)
+  // @todo ne devrait pas être ici.
   void startPolling(String localName) {}
 
   /// Quitte la partie en cours
@@ -64,6 +65,7 @@ abstract class ScrabbleNet {
 
   void Function(String message)? onStatusUpdate;
 
+  /// En mode local déconnecte TDP ert UDP. En mode WEB rien à faire
   void disconnect();
 
   /// La connexion est fermée (par quit ou déconnexion)

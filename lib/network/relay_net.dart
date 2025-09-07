@@ -316,10 +316,7 @@ class RelayNet implements ScrabbleNet {
   Future<void> disconnect() async {
     try {
       _pausePolling();
-      final String localName = settings.localUserName;
-      await http.get(
-        Uri.parse("$_relayServerUrl/disconnect?userName=$localName&partner="),
-      );
+      onStatusUpdate?.call('Déconnecté');
     } catch (e) {
       logger.e("Erreur lors de la déconnexion : $e");
     } finally {

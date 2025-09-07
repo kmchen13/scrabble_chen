@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:scrabble_P2P/constants.dart';
 
 import '../models/game_state.dart';
@@ -18,7 +20,15 @@ class gameStorage {
       } else {
         _box = Hive.box(_boxName);
       }
-      if (debug) print("✅ gameStorage initialisé");
+
+      Directory dir = await getApplicationDocumentsDirectory();
+      final gameBoxDir = Directory('${dir.path}/$_boxName');
+      if (debug) {
+        print("✅ gameStorage initialisé dans ${_box?.path}");
+      }
+      if (!await gameBoxDir.exists()) {
+        await gameBoxDir.create(recursive: true);
+      }
     } catch (e) {
       print("❌ Erreur lors de l'initialisation de Hive: $e");
     }

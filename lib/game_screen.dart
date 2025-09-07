@@ -57,6 +57,7 @@ class _GameScreenState extends State<GameScreen> {
     _net = widget.net;
 
     _net.onGameStateReceived = (newState) {
+      gameStorage.save(newState);
       if (!mounted) return;
       setState(() {
         _appBarTitle = _defaultTitle;
@@ -385,7 +386,7 @@ class _GameScreenState extends State<GameScreen> {
     gameStorage.save(widget.gameState);
 
     ScrabbleNet().onGameStateReceived = null;
-    // _net.disconnect();
+    _net.disconnect();
     super.dispose();
   }
 

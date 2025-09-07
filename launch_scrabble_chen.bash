@@ -3,7 +3,7 @@
 set -e
 
 # Nom du package (adapter si besoin)
-PACKAGE="com.example.scrabble_chen"
+PACKAGE="com.scrabble_P2P"
 
 # Nom de l'activité principale
 ACTIVITY="$PACKAGE/.MainActivity"
