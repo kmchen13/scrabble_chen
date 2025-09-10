@@ -5,7 +5,7 @@ import 'dart:convert';
 
 import '../models/user_settings.dart';
 
-late final UserSettings settings;
+late UserSettings settings;
 
 Future<void> loadSettings() async {
   final prefs = await SharedPreferences.getInstance();

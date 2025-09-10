@@ -32,6 +32,7 @@ class RelayNet implements ScrabbleNet {
 
   RelayNet() {
     _relayServerUrl = settings.relayServerUrl;
+    print('[relayNet] constructor called id=${identityHashCode(this)}');
   }
 
   @override
@@ -53,10 +54,17 @@ class RelayNet implements ScrabbleNet {
     required String expectedName,
     required int startTime,
   }) async {
+    if (_isConnected) {
+      if (debug)
+        print(
+          "${logHeader("relayNet")} Déjà connecté, nouvelle tentative de connexion ignorée",
+        );
+      return;
+    }
     onStatusUpdate?.call("Connexion au serveur relai...");
     try {
       final res = await http.post(
-        Uri.parse("$_relayServerUrl/register"),
+        Uri.parse("$_relayServerUrl/connect"),
         body: jsonEncode({
           'userName': localName,
           'expectedName': expectedName,
@@ -102,7 +110,7 @@ class RelayNet implements ScrabbleNet {
       } else {
         if (debug)
           print(
-            "${logHeader("relayNet")} Pas de match ni attente → retry dans $_retryDelay s",
+            "${logHeader("relayNet")} Pas de réponse du serveur → retry dans $_retryDelay s",
           );
         Future.delayed(Duration(seconds: _retryDelay), () {
           connect(
@@ -158,10 +166,6 @@ class RelayNet implements ScrabbleNet {
     startPolling(localName);
   }
 
-  String partnerFromGameState(GameState state, String userName) {
-    return state.leftName == userName ? state.rightName : state.leftName;
-  }
-
   @override
   Future<void> sendGameState(GameState state) async {
     if (_gameIsOver) {
@@ -170,7 +174,7 @@ class RelayNet implements ScrabbleNet {
     }
     final String userName = settings.localUserName;
     try {
-      final String to = partnerFromGameState(state, userName);
+      final String to = state.partnerFromGameState(state, userName);
       final res = await http.post(
         Uri.parse("$_relayServerUrl/gamestate"),
         body: jsonEncode({
@@ -196,8 +200,43 @@ class RelayNet implements ScrabbleNet {
     }
   }
 
+  // Implémentation du getter pour satisfaire l'interface
   @override
-  void Function(GameState)? onGameStateReceived;
+  void Function(GameState state)? get onGameStateReceived =>
+      _onGameStateReceived;
+
+  void Function(GameState state)? _onGameStateReceived;
+  GameState? _pendingState; // <--- buffer
+
+  @override
+  set onGameStateReceived(void Function(GameState state)? callback) {
+    _onGameStateReceived = callback;
+    print(
+      "${logHeader("relayNet")} onGameStateReceived setter called (newHash=${callback.hashCode}) for net=${hashCode}",
+    );
+
+    if (callback != null && _pendingState != null) {
+      print(
+        "${logHeader("relayNet")} Chargement GameState en attente (hash=${_pendingState.hashCode})",
+      );
+      callback(_pendingState!);
+      _pendingState = null; // vidé après lecture
+    }
+  }
+
+  void _handleIncomingGameState(GameState state) {
+    print(
+      "${logHeader('relayNet')} GameState reçu in net instance $hashCode; about to call onGameStateReceived (hash=${_onGameStateReceived?.hashCode})",
+    );
+    if (_onGameStateReceived != null) {
+      _onGameStateReceived!(state);
+    } else {
+      print(
+        "${logHeader("relayNet")} No callback yet, buffering state (hash=${state.hashCode})",
+      );
+      _pendingState = state;
+    }
+  }
 
   Future<void> pollMessages(String localName) async {
     // if (debug) print('${logHeader("relayNet")} Poll de $localName');
@@ -211,13 +250,19 @@ class RelayNet implements ScrabbleNet {
         case 'gameState':
           _playNotificationSound();
           if (debug)
-            print('${logHeader("relayNet")} GameState reçu pour $localName');
+            print(
+              '${logHeader("relayNet")} GameState reçu pour $localName in net instance ${identityHashCode(this)}; about to call onGameStateReceived (hash=${onGameStateReceived?.hashCode})',
+            );
           final dynamic msg = json['message'];
           final gameState = GameState.fromJson(msg);
-          onGameStateReceived?.call(gameState);
-
-          // ⭐️ stoppe le polling (on attend que le joueur joue)
           _pausePolling();
+          if (debug) {
+            print(
+              "[relayNet] about to call onGameStateReceived "
+              "(hash=${onGameStateReceived.hashCode})",
+            );
+          }
+          onGameStateReceived?.call(gameState);
           break;
 
         case 'message':
@@ -274,7 +319,7 @@ class RelayNet implements ScrabbleNet {
           break;
       }
     } catch (e, st) {
-      logger.e("Erreur pollMessages : $e\n$st");
+      if (debug) logger.e("Erreur pollMessages : $e\n$st");
     }
   }
 
@@ -286,7 +331,7 @@ class RelayNet implements ScrabbleNet {
         Uri.parse("$_relayServerUrl/gameover"), // ⭐️ endpoint dédié
         body: jsonEncode({
           'from': userName,
-          'to': partnerFromGameState(finalState, userName),
+          'to': finalState.partnerFromGameState(finalState, userName),
           'type': 'gameOver',
           'message': finalState.toJson(),
         }),
@@ -315,6 +360,8 @@ class RelayNet implements ScrabbleNet {
   @override
   Future<void> disconnect() async {
     try {
+      _pendingState = null; // <--- vider le buffer
+      _onGameStateReceived = null;
       _pausePolling();
       onStatusUpdate?.call('Déconnecté');
     } catch (e) {
@@ -326,25 +373,31 @@ class RelayNet implements ScrabbleNet {
   }
 
   @override
-  Future<void> quit() async {
+  Future<void> quit(me, partner) async {
     try {
       final url = Uri.parse("$_relayServerUrl/quit");
-      await http.post(
+      final res = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'userName': settings.localUserName}),
+        body: jsonEncode({'userName': me, 'partner': partner}),
       );
-      if (debug)
-        print("[relayNet] 🛑 Partie abandonnée par ${settings.localUserName}");
+      if (res.statusCode == 200) {
+        final json = jsonDecode(res.body);
+        if (json['status'] == 'quit_success') {
+          onStatusUpdate?.call('Vous avez quitté la partie avec $partner');
+          if (debug)
+            print("[relayNet] 🛑 Quit successful for $me (partner=$partner)");
+        } else {
+          if (debug)
+            print("[relayNet] ⛔ Quit failed for $me (partner=$partner): $json");
+        }
+      }
     } catch (e) {
       if (debug) print("[relayNet] ⛔ Erreur abandon: $e");
     }
 
-    // Supprimer l’état de jeu local
     await gameStorage.clear();
-
-    // Fermer proprement la connexion
-    disconnect();
+    disconnect(); //en mode web désamorce seulement le polling
 
     // Notifier l’UI
     onConnectionClosed?.call();

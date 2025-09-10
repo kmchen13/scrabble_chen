@@ -1,5 +1,5 @@
 class UserSettings {
-  final String localUserName;
+  String localUserName;
   String communicationMode;
   bool soundEnabled;
   String localIP;
@@ -8,7 +8,7 @@ class UserSettings {
   String expectedUserName;
   String relayAddress;
   int relayPort;
-  final DateTime? startTime;
+  DateTime? startTime;
 
   UserSettings({
     required this.localUserName,

@@ -16,3 +16,5 @@ Refonte mode web en polling
 1.3.6 Ajout scrabbleNet.startPolling et onStatusUpdate. Stable
 1.3.7 class gameStore avec Hive
 1.4.0 Ajout abandon de partie
+1.4.1 game_storage OK
+1.4.6 Buffurisation gamestate en cours mais commit avant modularisation du gamescreen

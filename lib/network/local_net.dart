@@ -76,7 +76,7 @@ class LocalNet implements ScrabbleNet {
     );
 
     _udpSocket!.listen((event) async {
-      onStatusUpdate?.call('Connection au serveur établie');
+      onStatusUpdate?.call('Connection au serveur établie mode local');
       if (_udpStopped) return;
       if (event == RawSocketEvent.read) {
         final datagram = _udpSocket!.receive();
@@ -380,7 +380,7 @@ class LocalNet implements ScrabbleNet {
   }
 
   @override
-  Future<void> quit() async {
+  Future<void> quit(userName, partner) async {
     // Prévenir le partenaire via TCP
     final quitMessage = jsonEncode({'type': 'quit'});
     _peerSocket?.writeln(quitMessage);

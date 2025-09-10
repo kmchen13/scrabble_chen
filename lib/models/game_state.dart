@@ -187,6 +187,10 @@ class GameState {
     else
       return false;
   }
+
+  String partnerFromGameState(GameState state, String userName) {
+    return state.leftName == userName ? state.rightName : state.leftName;
+  }
 }
 
 extension GameStateRack on GameState {
