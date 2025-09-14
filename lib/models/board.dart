@@ -1,25 +1,23 @@
-import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
-import '../models/dragged_letter.dart';
-import '../models/placed_letter.dart';
-import '../bonus.dart';
-import '../constants.dart';
+import 'package:flutter/services.dart';
 
-const int boardSize = 15;
+import 'package:scrabble_P2P/models/placed_letter.dart';
+import '../bonus.dart';
+import 'package:scrabble_P2P/models/dragged_letter.dart';
+
+const boardSize = 15;
+
+typedef OnLetterPlacedCallback =
+    void Function(String letter, int row, int col, int? oldRow, int? oldCol);
+
+typedef OnLetterReturnedCallback = void Function(String letter);
 
 Widget buildScrabbleBoard({
   required List<List<String>> board,
   required List<PlacedLetter> lettersPlacedThisTurn,
-  required void Function(
-    String letter,
-    int row,
-    int col,
-    int? oldRow,
-    int? oldCol,
-  )
-  onLetterPlaced,
-  required void Function(String letter) onLetterReturned,
+  required OnLetterPlacedCallback onLetterPlaced,
+  required OnLetterReturnedCallback onLetterReturned,
 }) {
   DraggedLetter? currentlyDragged;
 
@@ -28,6 +26,7 @@ Widget buildScrabbleBoard({
       final tileSize = _calculateTileSize(context);
 
       return GridView.builder(
+        physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: boardSize,
         ),
@@ -57,20 +56,13 @@ Widget buildScrabbleBoard({
                   }
                   return false;
                 },
-                onLeave: (_) {
-                  setState(() => isHovered = false);
-                },
+                onLeave: (_) => setState(() => isHovered = false),
                 onAcceptWithDetails: (details) {
                   final dragged = details.data;
                   final letter = dragged.letter;
 
-                  if (debug) {
-                    debugPrint('Lettre acceptée : $letter à ($row, $col)');
-                  }
-
                   if (board[row][col].isEmpty) {
                     setState(() => isHovered = false);
-
                     onLetterPlaced(letter, row, col, dragged.row, dragged.col);
                   }
                 },
@@ -100,10 +92,8 @@ Widget buildScrabbleBoard({
                         color:
                             cellLetter.isNotEmpty
                                 ? (isPlacedThisTurn
-                                    ? Colors
-                                        .amber[400] // Surbrillance des lettres posées ce tour
-                                    : Colors
-                                        .amber[200]) // Lettres posées avant ce tour
+                                    ? Colors.amber[400]
+                                    : Colors.amber[200])
                                 : bgColor,
                       ),
                       child: Center(
@@ -128,10 +118,6 @@ Widget buildScrabbleBoard({
                                         setState(() {});
                                       },
                                       onDragEnd: (details) {
-                                        if (!details.wasAccepted) {
-                                          // 👉 la lettre vient du board, on ne la supprime pas
-                                          // donc on NE fait rien, elle reste en place
-                                        }
                                         currentlyDragged = null;
                                         setState(() {});
                                       },
@@ -150,7 +136,7 @@ Widget buildScrabbleBoard({
                                         opacity: 0.3,
                                         child: _buildLetterTile(
                                           cellLetter,
-                                          size: tileSize * 3,
+                                          size: tileSize,
                                           highlight: isPlacedThisTurn,
                                         ),
                                       ),

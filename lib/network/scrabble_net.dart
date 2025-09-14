@@ -1,5 +1,5 @@
-import '../services/settings_service.dart';
-import '../models/game_state.dart';
+import 'package:scrabble_P2P/services/settings_service.dart';
+import 'package:scrabble_P2P/models/game_state\.dart';
 import 'local_net.dart';
 import 'relay_net.dart';
 

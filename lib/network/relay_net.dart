@@ -4,13 +4,13 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:audioplayers/audioplayers.dart';
 
-import '../models/game_state.dart';
-import '../services/settings_service.dart';
-import '../services/log.dart';
-import '../services/game_storage.dart';
+import 'package:scrabble_P2P/models/game_state\.dart';
+import 'package:scrabble_P2P/services/settings_service.dart';
+import 'package:scrabble_P2P/services/log.dart';
+import 'package:scrabble_P2P/services/game_storage.dart';
 import 'scrabble_net.dart';
 import '../constants.dart';
-import '../services/utility.dart';
+import 'package:scrabble_P2P/services/utility.dart';
 
 class RelayNet implements ScrabbleNet {
   late final String _relayServerUrl;

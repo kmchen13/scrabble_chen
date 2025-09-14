@@ -20,3 +20,5 @@ Refonte mode web en polling
 1.4.6 commit avant modularisation du gamescreen
     création dossier screen 
     Bufferisation gamestate en cours
+1.5.0 Modularisation de game_screen.dart
+1.5.1 Nombreux problèmes de timing entre l'initialisation de hive et,mêmela lecture des paramètres pour finir. commit pour trace mais abandon

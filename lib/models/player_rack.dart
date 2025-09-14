@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../models/dragged_letter.dart';
+import 'package:scrabble_P2P/models/dragged_letter.dart';
 
 class PlayerRack extends StatelessWidget {
   final List<String> letters;

@@ -4,10 +4,10 @@ import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 
-import '../models/game_state.dart';
-import '../services/settings_service.dart';
-import '../services/utility.dart';
-import '../services/game_storage.dart';
+import 'package:scrabble_P2P/models/game_state\.dart';
+import 'package:scrabble_P2P/services/settings_service.dart';
+import 'package:scrabble_P2P/services/utility.dart';
+import 'package:scrabble_P2P/services/game_storage.dart';
 import 'scrabble_net.dart';
 import '../constants.dart';
 

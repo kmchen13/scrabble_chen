@@ -1,6 +1,6 @@
 import 'bonus.dart';
-import 'models/dragged_letter.dart';
-import 'models/placed_letter.dart';
+import 'package:scrabble_P2P/models/dragged_letter.dart';
+import 'package:scrabble_P2P/models/placed_letter.dart';
 
 /* Fonctions utilitaires pour calcul score */
 bool _isLikelyHorizontal(List<PlacedLetter> letters, List<List<String>> board) {

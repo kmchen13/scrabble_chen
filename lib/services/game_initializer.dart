@@ -1,5 +1,5 @@
-import '../models/game_state.dart';
-import '../models/bag.dart';
+import 'package:scrabble_P2P/models/game_state\.dart';
+import 'package:scrabble_P2P/models/bag.dart';
 
 class GameInitializer {
   static GameState createGame({
