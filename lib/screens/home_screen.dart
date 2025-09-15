@@ -120,9 +120,6 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                           final gameScreen = GameScreen(
                             net: _net,
                             gameState: saved,
-                            onGameStateUpdated: (updatedState) {
-                              _net.sendGameState(updatedState);
-                            },
                           );
 
                           WidgetsBinding.instance.addPostFrameCallback((_) {

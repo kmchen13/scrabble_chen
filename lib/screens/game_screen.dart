@@ -1,20 +1,27 @@
-// lib/screens/game_screen.dart
 import 'package:flutter/material.dart';
 import 'package:scrabble_P2P/models/board.dart';
-import 'package:scrabble_P2P/models/game_state\.dart';
+import 'package:scrabble_P2P/models/game_state.dart';
 import 'package:scrabble_P2P/models/player_rack.dart';
-import 'package:scrabble_P2P/models/placed_letter.dart';
-import 'package:scrabble_P2P/models/move.dart';
 import 'package:scrabble_P2P/network/scrabble_net.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
+import 'package:scrabble_P2P/services/game_initializer.dart';
 import 'package:scrabble_P2P/services/game_storage.dart';
-import 'package:scrabble_P2P/services/game_end.dart';
-import 'package:scrabble_P2P/services/game_update.dart';
-import 'package:scrabble_P2P/services/game_controller.dart';
-import 'score_bar.dart';
-import 'bottom_bar.dart';
-import '../constants.dart';
+import 'package:scrabble_P2P/models/placed_letter.dart';
+import 'package:scrabble_P2P/screens/home_screen.dart';
 import '../score.dart';
+import '../constants.dart';
+import '../main.dart';
+
+typedef MovePlayedCallback = void Function(GameMove move);
+
+/// Structure représentant un coup joué.
+class GameMove {
+  final String letter;
+  final int row;
+  final int col;
+
+  GameMove({required this.letter, required this.row, required this.col});
+}
 
 class GameScreen extends StatefulWidget {
   final ScrabbleNet net;
@@ -35,98 +42,84 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> {
-  static const String _defaultTitle = "$appName -v$version";
+  static const String _defaultTitle = "$appName -v$version'";
   String _appBarTitle = _defaultTitle;
-
   late ScrabbleNet _net;
-  late GameState _gameState;
   late List<String> _playerLetters;
+  late List<List<String>> _board;
+  late List<String> _initialRack;
+  final List<PlacedLetter> _lettersPlacedThisTurn = [];
   final TransformationController _boardController = TransformationController();
   bool _firstLetter = true;
-  late GameController _controller;
-
-  _loadSavedGame() async {
-    final saved = await gameStorage.load();
-    setState(() {
-      _gameState = saved ?? _gameState;
-    });
-  }
-
   @override
   void initState() {
     super.initState();
 
-    _loadSavedGame();
     _net = widget.net;
-    _gameState = _gameState;
 
-    // initialize local arrays from initial state (will be overwritten by _applyIncomingState)
-    _gameState.board =
-        _gameState.board.map((r) => List<String>.from(r)).toList();
-    _playerLetters = _gameState.localRack(settings.localUserName);
+    _net.onGameStateReceived = (newState) {
+      gameStorage.save(newState);
+      if (!mounted) return;
+      setState(() {
+        _appBarTitle = _defaultTitle;
 
-    _controller = GameController(
-      net: _net,
-      onStateChanged: () {
-        if (mounted) setState(() {});
-      },
-      onGameOver: (state) => onShowEndGameRequested(state),
-    );
+        widget.gameState.copyFrom(newState);
+        _board =
+            widget.gameState.board
+                .map((row) => List<String>.from(row))
+                .toList();
+        _playerLetters = widget.gameState.localRack(settings.localUserName);
+        _initialRack = List.from(_playerLetters);
+        _lettersPlacedThisTurn
+          ..clear()
+          ..addAll(widget.gameState.lettersPlacedThisTurn);
+      });
+      // ✅ Revient au zoom 100% (position et échelle par défaut)
+      _boardController.value = Matrix4.identity();
+      _firstLetter = true;
+    };
 
-    final handler = GameUpdateHandler(
-      net: _net,
-      context: context,
-      applyIncomingState: _applyIncomingState,
-      showEndGamePopup: () => onShowEndGameRequested(_gameState),
-      mounted: mounted,
-    );
-    handler.attach();
+    _net.onGameOverReceived = (finalState) {
+      if (!mounted) return;
+      setState(() {
+        widget.gameState.copyFrom(finalState); // si tu as une méthode update
+      });
+      _showEndGamePopup();
+    };
 
+    _board =
+        widget.gameState.board.map((row) => List<String>.from(row)).toList();
+
+    _playerLetters = widget.gameState.localRack(settings.localUserName);
+    _initialRack = List.from(_playerLetters);
+
+    _net.onError = (message) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder:
+              (_) => AlertDialog(
+                title: const Text('Erreur réseau'),
+                content: Text(message),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Fermer'),
+                  ),
+                ],
+              ),
+        );
+      }
+    };
+    widget.net.onConnectionClosed = () {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Votre partenaire a quitté la partie")),
+        );
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    };
     saveSettings();
-  }
-
-  void onShowEndGameRequested(GameState finalState) {
-    GameEndService.showEndGamePopup(
-      context: context,
-      finalState: finalState,
-      net: _net,
-      onRematchStarted: (newGameState) {
-        if (!mounted) return;
-        setState(() {
-          _gameState = newGameState;
-          _gameState.lettersPlacedThisTurn.clear();
-          _gameState.board =
-              newGameState.board.map((r) => List<String>.from(r)).toList();
-          _playerLetters = newGameState.localRack(settings.localUserName);
-        });
-        // Inform parent that game state changed (if desired)
-        widget.onGameStateUpdated?.call(_gameState);
-      },
-    );
-  }
-
-  void _applyIncomingState(GameState newState, {required bool updateUI}) {
-    // copy into the _gameState to keep shared model consistent
-    _gameState.copyFrom(newState);
-
-    // update local UI copies
-    _gameState = _gameState;
-    _gameState.board =
-        _gameState.board.map((r) => List<String>.from(r)).toList();
-    _playerLetters = _gameState.localRack(settings.localUserName);
-
-    // lettersPlacedThisTurn is déjà dans _gameState
-    _gameState.lettersPlacedThisTurn
-      ..clear()
-      ..addAll(_gameState.lettersPlacedThisTurn);
-
-    // reset zoom and flags
-    _boardController.value = Matrix4.identity();
-    _firstLetter = true;
-
-    if (updateUI && mounted) {
-      setState(() => _appBarTitle = _defaultTitle);
-    }
   }
 
   void onLetterPlaced(
@@ -137,31 +130,28 @@ class _GameScreenState extends State<GameScreen> {
     int? oldCol,
   ) {
     setState(() {
-      // protect against overwriting an occupied cell
-      if (_gameState.board[row][col].isNotEmpty) return;
+      // Évite d’écraser une lettre déjà sur la case (par erreur externe)
+      if (_board[row][col].isNotEmpty) return;
 
       if (_firstLetter) {
-        // first letter placed this turn: clear any previous turn placements
+        // Premier coup joué ce tour => on vide les coups précédents
         clearLettersPlacedThisTurn();
         _firstLetter = false;
       }
-
-      // remove from previous position if moved on board
+      // Nettoie l'ancienne lettre
       if (oldRow != null && oldCol != null) {
         clearBoard(oldRow, oldCol);
-        _gameState.lettersPlacedThisTurn.removeWhere(
+        _lettersPlacedThisTurn.removeWhere(
           (e) => e.row == oldRow && e.col == oldCol && e.letter == letter,
         );
       }
+      // Place la lettre à la nouvelle position
+      widget.gameState.board[row][col] = _board[row][col] = letter;
 
-      // place letter visually & in shared state
-      _gameState.board[row][col] = _gameState.board[row][col] = letter;
+      // Retire du rack uniquement si elle y est encore
+      _playerLetters.remove(letter); // safe : remove ne crash pas si absente
 
-      // remove from local rack if present
-      _playerLetters.remove(letter);
-
-      // record placement for this turn
-      _gameState.lettersPlacedThisTurn.add(
+      _lettersPlacedThisTurn.add(
         PlacedLetter(row: row, col: col, letter: letter, placedThisTurn: true),
       );
 
@@ -173,6 +163,40 @@ class _GameScreenState extends State<GameScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _zoomOnArea(row, col);
     });
+  }
+
+  void _showBagContents() {
+    final bag = widget.gameState.bag;
+    final remaining = bag.remainingLetters;
+
+    showDialog(
+      context: context,
+      builder:
+          (_) => AlertDialog(
+            title: const Text("Lettres restantes dans le sac"),
+            content: SizedBox(
+              width: 200,
+              height: 300,
+              child: GridView.count(
+                crossAxisCount: 3,
+                childAspectRatio: 3.5, // Ajuste hauteur/largeur
+                children:
+                    remaining.entries.map((entry) {
+                      return Text(
+                        "${entry.key} : ${entry.value}",
+                        style: const TextStyle(fontSize: 16),
+                      );
+                    }).toList(),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Fermer"),
+              ),
+            ],
+          ),
+    );
   }
 
   void _zoomOnArea(int row, int col) {
@@ -193,68 +217,193 @@ class _GameScreenState extends State<GameScreen> {
           ..translate(-targetX, -targetY);
   }
 
-  void _updateTitleWithProvisionalScore() {
-    if (_gameState.lettersPlacedThisTurn.isEmpty) {
-      setState(() => _appBarTitle = _defaultTitle);
-      return;
-    }
-    final result = getWordsCreatedAndScore(
-      board: _gameState.board,
-      lettersPlacedThisTurn: _gameState.lettersPlacedThisTurn,
-    );
-    final int score = result.totalScore;
-    setState(() => _appBarTitle = "Score provisoire : $score");
-  }
+  void _moveLetter(int fromIndex, int toIndex) {
+    // sécurité si les indices sont hors bornes
+    if (fromIndex < 0 || fromIndex >= _playerLetters.length) return;
+    if (toIndex < 0) toIndex = 0;
+    if (toIndex > _playerLetters.length) toIndex = _playerLetters.length;
 
-  void clearBoard(int row, int col) {
     setState(() {
-      _gameState.board[row][col] = _gameState.board[row][col] = '';
+      final letter = _playerLetters.removeAt(fromIndex);
+      final adjustedIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
+      _playerLetters.insert(adjustedIndex, letter);
     });
   }
 
-  void clearLettersPlacedThisTurn() {
+  void _handleUndo() {
+    if (_firstLetter) return;
     setState(() {
-      _gameState.lettersPlacedThisTurn.clear();
-      _gameState.lettersPlacedThisTurn.clear();
-    });
-  }
-
-  void _returnLetterToRack(String letter) {
-    setState(() {
+      for (final placed in _lettersPlacedThisTurn) {
+        clearBoard(placed.row, placed.col);
+        widget.gameState.bag.addLetter(placed.letter); // ✅ Restaure dans le sac
+      }
+      _playerLetters = List.from(_initialRack);
+      clearLettersPlacedThisTurn();
       _updateTitleWithProvisionalScore();
-      _playerLetters.add(letter);
-      final idx = _gameState.lettersPlacedThisTurn.indexWhere(
-        (pos) => pos.letter == letter,
+    });
+  }
+
+  void _handleSubmit() {
+    // Fusionne les lettres posées ce tour dans le plateau
+    for (final placed in _lettersPlacedThisTurn) {
+      _board[placed.row][placed.col] = placed.letter;
+    }
+    setState(() {
+      final result = getWordsCreatedAndScore(
+        board: widget.gameState.board,
+        lettersPlacedThisTurn: _lettersPlacedThisTurn,
       );
-      if (idx != -1) {
-        final removed = _gameState.lettersPlacedThisTurn.removeAt(idx);
-        clearBoard(removed.row, removed.col);
+
+      int totalScore = result.totalScore;
+
+      // Appliquer le score au joueur actif
+      if (widget.gameState.isLeft) {
+        widget.gameState.leftScore += totalScore;
+      } else {
+        widget.gameState.rightScore += totalScore;
+      }
+
+      // Placer définitivement les lettres sur le plateau et les retirer du sac
+      for (final placed in _lettersPlacedThisTurn) {
+        widget.gameState.board[placed.row][placed.col] = placed.letter;
+        widget.gameState.bag.removeLetter(placed.letter);
+      }
+      // Transmettre les _lettersPlacedThisTurn pour surbrillance
+      widget.gameState.lettersPlacedThisTurn = List.from(
+        _lettersPlacedThisTurn,
+      );
+
+      // Tirer de nouvelles lettres
+      refillRack(7);
+
+      // Passer au tour suivant
+      widget.gameState.isLeft = !widget.gameState.isLeft;
+
+      // ⚡️ Envoyer le nouvel état de jeu
+      widget.onGameStateUpdated?.call(widget.gameState);
+
+      // ✅ Réinitialiser _lettersPlacedThisTurn pour neutraliser _returnLetterToRack
+      clearLettersPlacedThisTurn();
+
+      gameStorage.save(widget.gameState);
+
+      // if (_playerLetters.isEmpty && widget.gameState.bag.remainingCount == 0) {
+      if (_playerLetters.isEmpty) {
+        _showEndGamePopup();
+        _net.sendGameOver(widget.gameState);
       }
     });
   }
 
+  void refillRack(int rackSize) {
+    int missing = rackSize - _playerLetters.length;
+    if (missing > 0) {
+      final drawn = widget.gameState.bag.drawLetters(missing);
+      _playerLetters.addAll(drawn);
+
+      // ✅ MISE À JOUR du GameState avec les nouvelles lettres
+      if (widget.gameState.isLeft) {
+        widget.gameState.leftLetters = List.from(_playerLetters);
+      } else {
+        widget.gameState.rightLetters = List.from(_playerLetters);
+      }
+    }
+  }
+
+  void _showEndGamePopup() {
+    String winner =
+        widget.gameState.leftScore == widget.gameState.rightScore
+            ? "Égalité !"
+            : (widget.gameState.leftScore > widget.gameState.rightScore
+                ? widget.gameState.leftName
+                : widget.gameState.rightName);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (_) => AlertDialog(
+            title: const Text("Fin de la partie"),
+            content: Text(
+              "Le gagnant est : $winner\n\nScore final :\n"
+              "${widget.gameState.leftName}: ${widget.gameState.leftScore}\n"
+              "${widget.gameState.rightName}: ${widget.gameState.rightScore}",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _startRematch();
+                },
+                child: const Text("Revanche"),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => const HomeScreen()),
+                    (Route<dynamic> route) => false,
+                  );
+                },
+                child: const Text("Retour à l'accueil"),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _startRematch() {
+    _appBarTitle = _defaultTitle;
+
+    final bool leftWon =
+        widget.gameState.leftScore > widget.gameState.rightScore;
+    final String newLeft =
+        leftWon ? widget.gameState.rightName : widget.gameState.leftName;
+    final String newRight =
+        leftWon ? widget.gameState.leftName : widget.gameState.rightName;
+
+    final newGameState = GameInitializer.createGame(
+      isLeft: true,
+      leftName: newLeft,
+      leftIP: '',
+      leftPort: 0,
+      rightName: newRight,
+      rightIP: '',
+      rightPort: 0,
+    );
+    if (!mounted) return;
+    setState(() {
+      widget.gameState.copyFrom(newGameState);
+      _board = newGameState.board.map((r) => List<String>.from(r)).toList();
+      _playerLetters = widget.gameState.localRack(settings.localUserName);
+      _initialRack = List.from(_playerLetters);
+      clearLettersPlacedThisTurn();
+    });
+
+    widget.onGameStateUpdated?.call(widget.gameState);
+  }
+
   @override
   void dispose() {
-    _net.onGameStateReceived = null;
-    _net.onGameOverReceived = null;
-    _net.onError = null;
-    _net.onConnectionClosed = null;
+    gameStorage.save(widget.gameState);
+
+    ScrabbleNet().onGameStateReceived = null;
     _net.disconnect();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // compute whether it's the local player's turn
     final bool isCurrentTurn =
-        (_gameState.isLeft && _gameState.leftName == settings.localUserName) ||
-        (!_gameState.isLeft && _gameState.rightName == settings.localUserName);
+        (widget.gameState.isLeft &&
+            widget.gameState.leftName == settings.localUserName) ||
+        (!widget.gameState.isLeft &&
+            widget.gameState.rightName == settings.localUserName);
 
     return Scaffold(
       appBar: AppBar(title: Text(_appBarTitle)),
       body: Column(
         children: [
-          ScoreBar(gameState: _gameState),
+          _buildScoreBar(),
           Expanded(
             flex: 5,
             child: GestureDetector(
@@ -265,9 +414,9 @@ class _GameScreenState extends State<GameScreen> {
                 minScale: 1.0,
                 maxScale: 15 / 12,
                 child: buildScrabbleBoard(
-                  board: _gameState.board,
+                  board: _board,
                   lettersPlacedThisTurn:
-                      _gameState.lettersPlacedThisTurn
+                      _lettersPlacedThisTurn
                           .map(
                             (e) => PlacedLetter(
                               row: e.row,
@@ -294,6 +443,7 @@ class _GameScreenState extends State<GameScreen> {
                 });
               },
               onAddLetter: (String letter, {int? hoveredIndex}) {
+                // Utilisez un paramètre nommé
                 setState(() {
                   if (hoveredIndex != null) {
                     _playerLetters.insert(hoveredIndex, letter);
@@ -305,7 +455,7 @@ class _GameScreenState extends State<GameScreen> {
               onRemoveFromBoard: (row, col) {
                 setState(() {
                   clearBoard(row, col);
-                  _gameState.lettersPlacedThisTurn.removeWhere(
+                  _lettersPlacedThisTurn.removeWhere(
                     (placed) => placed.row == row && placed.col == col,
                   );
                 });
@@ -315,40 +465,181 @@ class _GameScreenState extends State<GameScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: BottomBar(
-        canSubmit: _gameState.lettersPlacedThisTurn.isNotEmpty && isCurrentTurn,
-        canUndo: _gameState.lettersPlacedThisTurn.isNotEmpty && isCurrentTurn,
-        onQuit: () async {
-          final userName = settings.localUserName;
-          final partner = _gameState.partnerFromGameState(_gameState, userName);
-          // ensure quit completes before clearing / navigating
-          await widget.net.quit(userName, partner);
-          await gameStorage.clear();
-          if (context.mounted) {
-            Navigator.popUntil(context, (route) => route.isFirst);
-          }
-        },
-        onSubmit: () async {
-          // call controller to handle game logic; then notify parent & refresh UI
-          _controller.handleSubmit(
-            state: _gameState,
-            lettersThisTurn: _gameState.lettersPlacedThisTurn,
-            playerRack: _playerLetters,
-          );
-          // ensure parent is notified (network already sent by controller)
-          widget.onGameStateUpdated?.call(_gameState);
-        },
-        onUndo: () {
-          _controller.handleUndo(
-            state: _gameState,
-            lettersThisTurn: _gameState.lettersPlacedThisTurn,
-            playerRack: _playerLetters,
-          );
-          // update provisional title
-          _updateTitleWithProvisionalScore();
-        },
-        onShowBag: () => _controller.handleShowBag(context, _gameState),
+      bottomNavigationBar: _buildBottomBar(isCurrentTurn),
+    );
+  }
+
+  Widget _buildScoreBar() {
+    return Container(
+      color: const Color.fromARGB(255, 167, 156, 13),
+      padding: const EdgeInsets.all(8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _scoreContainer(
+            widget.gameState.leftName,
+            widget.gameState.leftScore,
+            widget.gameState.isLeft,
+          ),
+          const SizedBox(width: 12),
+          const CircleAvatar(
+            radius: 20,
+            backgroundColor: Colors.deepPurple,
+            child: Text("vs", style: TextStyle(color: Colors.white)),
+          ),
+          const SizedBox(width: 12),
+          _scoreContainer(
+            widget.gameState.rightName,
+            widget.gameState.rightScore,
+            !widget.gameState.isLeft,
+          ),
+        ],
       ),
     );
+  }
+
+  Widget _scoreContainer(String name, int score, bool active) {
+    return Container(
+      decoration: BoxDecoration(
+        color:
+            active
+                ? const Color.fromARGB(255, 141, 23, 15)
+                : Colors.transparent,
+        borderRadius: BorderRadius.circular(32),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // On limite la largeur du nom pour éviter qu’il déborde
+          SizedBox(
+            width: 80, // ajuste la valeur si nécessaire
+            child: Text(
+              "$name",
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            "$score",
+            style: const TextStyle(
+              color: Colors.yellow,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomBar(bool isCurrentTurn) {
+    return BottomAppBar(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            IconButton(icon: const Icon(Icons.undo), onPressed: _handleUndo),
+            ElevatedButton(
+              onPressed: isCurrentTurn ? _handleSubmit : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color.fromARGB(255, 141, 23, 15),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
+              ),
+              child: const Text(
+                "Envoyer",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.exit_to_app),
+              onPressed: () async {
+                try {
+                  final userName = settings.localUserName;
+                  final partner = widget.gameState.partnerFromGameState(
+                    widget.gameState,
+                    userName,
+                  );
+                  // ensure quit completes before clearing / navigating
+                  await widget.net.quit(userName, partner);
+                  await gameStorage.clear();
+                  if (context.mounted) {
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  }
+                } catch (e) {
+                  print("⛔ Erreur abandon: $e");
+                }
+
+                // Supprime le GameState local
+                gameStorage.clear();
+
+                // Retourne à l'écran d’accueil
+                if (context.mounted) {
+                  Navigator.of(context).popUntil((route) => route.isFirst);
+                }
+              },
+            ),
+
+            IconButton(
+              icon: const Icon(Icons.inventory_2),
+              onPressed: _showBagContents,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _returnLetterToRack(String letter) {
+    setState(() {
+      _updateTitleWithProvisionalScore();
+
+      _playerLetters.add(letter);
+      final idx = _lettersPlacedThisTurn.indexWhere(
+        (pos) => pos.letter == letter,
+      );
+      if (idx != -1) {
+        final removed = _lettersPlacedThisTurn.removeAt(idx);
+        clearBoard(removed.row, removed.col);
+      }
+    });
+  }
+
+  void _updateTitleWithProvisionalScore() {
+    if (_lettersPlacedThisTurn.isEmpty) {
+      setState(() => _appBarTitle = _defaultTitle);
+      return;
+    }
+    final result = getWordsCreatedAndScore(
+      board: widget.gameState.board,
+      lettersPlacedThisTurn: _lettersPlacedThisTurn,
+    );
+    int score = result.totalScore;
+    setState(() => _appBarTitle = "Score provisoire : $score");
+  }
+
+  void clearBoard(row, col) {
+    setState(() {
+      widget.gameState.board[row][col] = _board[row][col] = '';
+    });
+  }
+
+  void clearLettersPlacedThisTurn() {
+    setState(() {
+      _lettersPlacedThisTurn.clear();
+      widget.gameState.lettersPlacedThisTurn.clear();
+    });
   }
 }

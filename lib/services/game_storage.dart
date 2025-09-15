@@ -34,6 +34,7 @@ class GameStorage {
   }
 
   Future<void> save(GameState gameState) async {
+    print("${logHeader('GameStorage')} save() appelé");
     if (_box == null) throw Exception("GameStorage not initialized");
     try {
       await _box!.put(_gameKey, gameState.toMap());

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
 import 'package:scrabble_P2P/models/user_settings.dart';
+import 'package:scrabble_P2P/services/settings_service.dart';
 
 class ParamScreen extends StatefulWidget {
   const ParamScreen({super.key});
@@ -11,6 +11,8 @@ class ParamScreen extends StatefulWidget {
 }
 
 class _ParamScreenState extends State<ParamScreen> {
+  static const String settingsKey = 'user_settings';
+
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _localIPController = TextEditingController();
   final TextEditingController _localPortController = TextEditingController();
@@ -22,21 +24,15 @@ class _ParamScreenState extends State<ParamScreen> {
   String? _communicationMode;
   DateTime? _startTime;
 
-  static const String settingsKey = 'user_settings';
-
   @override
   void initState() {
     super.initState();
-    _loadSettings();
+    _initializeControllers();
   }
 
-  Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    final jsonString = prefs.getString(settingsKey);
-    final settings =
-        jsonString != null
-            ? UserSettings.fromJson(json.decode(jsonString))
-            : UserSettings.defaultSettings();
+  Future<void> _initializeControllers() async {
+    // Charge les settings globaux
+    await loadSettings();
 
     setState(() {
       _nameController.text = settings.localUserName;
@@ -67,14 +63,19 @@ class _ParamScreenState extends State<ParamScreen> {
           _relayAddressController.text.isEmpty
               ? 'https://relay-server-3lv4.onrender.com'
               : _relayAddressController.text,
-
       relayPort: int.tryParse(_relayPortController.text) ?? 8080,
     );
 
+    await saveSettings();
+
     if (!context.mounted) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(settingsKey, json.encode(settings.toJson()));
     Navigator.pop(context);
+  }
+
+  Future<void> clearSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(settingsKey);
+    await loadSettings();
   }
 
   @override
@@ -93,7 +94,7 @@ class _ParamScreenState extends State<ParamScreen> {
             _buildTextField(
               "Nom du joueur :",
               _nameController,
-              hintText: "Veuillez entrer votre pseudo", // Ajout de hintText ici
+              hintText: "Veuillez entrer votre pseudo",
             ),
             const SizedBox(height: 20),
             Row(
@@ -112,16 +113,18 @@ class _ParamScreenState extends State<ParamScreen> {
                       }
                     },
                     items:
-                        ['local', 'web'].map((String value) {
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(
-                              value == 'local'
-                                  ? 'Local (Wi-Fi)'
-                                  : 'En ligne (Web)',
-                            ),
-                          );
-                        }).toList(),
+                        ['local', 'web']
+                            .map(
+                              (value) => DropdownMenuItem<String>(
+                                value: value,
+                                child: Text(
+                                  value == 'local'
+                                      ? 'Local (Wi-Fi)'
+                                      : 'En ligne (Web)',
+                                ),
+                              ),
+                            )
+                            .toList(),
                   ),
                 ),
               ],
@@ -191,9 +194,8 @@ class _ParamScreenState extends State<ParamScreen> {
             const SizedBox(height: 30),
             ElevatedButton(
               onPressed: () async {
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.remove(settingsKey);
-                await _loadSettings();
+                await clearSettings();
+                await _initializeControllers();
               },
               child: const Text("Recharger les paramètres d'usine"),
             ),

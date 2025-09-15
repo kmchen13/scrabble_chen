@@ -2,11 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'services/settings_service.dart';
 import 'services/game_storage.dart';
-import 'services/utility.dart';
-import 'package:scrabble_P2P/models/game_state.dart';
+import 'models/game_state.dart';
 import 'screens/home_screen.dart';
 import 'screens/param_screen.dart';
-import 'constants.dart';
 
 final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
@@ -18,9 +16,6 @@ void main() async {
   Hive.registerAdapter(GameStateAdapter());
   // Ouverture de la box via ton wrapper
   await gameStorage.init();
-  if (debug) {
-    print("${logHeader('main')} Application démarrée");
-  }
   runApp(ScrabbleApp());
 }
 
@@ -32,7 +27,7 @@ class ScrabbleApp extends StatelessWidget {
     return MaterialApp(
       navigatorObservers: [routeObserver],
       home: FutureBuilder(
-        future: loadSettings(),
+        future: Future.value(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done) {
             // Rediriger vers ParamScreen si le userName est vide
