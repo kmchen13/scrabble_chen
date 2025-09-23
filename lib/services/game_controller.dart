@@ -97,9 +97,9 @@ void refillRack(List<String> rack, int maxLetters, dynamic gameState) {
 
     // ✅ MISE À JOUR du GameState avec les nouvelles lettres
     if (gameState.isLeft) {
-      gameState.leftLetters = List.from(rack);
+      gameState.leftLetters = List<String>.from(rack);
     } else {
-      gameState.rightLetters = List.from(rack);
+      gameState.rightLetters = List<String>.from(rack);
     }
   }
 }

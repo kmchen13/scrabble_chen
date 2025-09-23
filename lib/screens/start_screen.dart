@@ -23,7 +23,7 @@ class _StartScreenState extends State<StartScreen> {
   @override
   void initState() {
     super.initState();
-    _net = ScrabbleNet();
+    _net = widget.net;
     if (mounted) {
       _net.onStatusUpdate = (msg) {
         setState(() {

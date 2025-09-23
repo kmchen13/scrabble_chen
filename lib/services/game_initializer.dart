@@ -35,6 +35,7 @@ class GameInitializer {
       leftScore: 0,
       rightScore: 0,
       lettersPlacedThisTurn: [],
+      gameId: '', // Initialisé plus tard
     );
   }
 }

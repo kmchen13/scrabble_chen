@@ -11,3 +11,18 @@ var logger = Logger(
     printTime: true,
   ),
 );
+
+void logProjectStack([String msg = ""]) {
+  final trace = StackTrace.current
+      .toString()
+      .split('\n')
+      .where(
+        (line) => line.contains('scrabble_P2P/'),
+      ) // filtre les frames de ton projet
+      .join('\n');
+
+  if (msg.isNotEmpty) {
+    print("[$msg]");
+  }
+  print(trace);
+}

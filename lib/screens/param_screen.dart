@@ -51,7 +51,7 @@ class _ParamScreenState extends State<ParamScreen> {
   }
 
   Future<void> _saveSettings() async {
-    final settings = UserSettings(
+    settings = UserSettings(
       localUserName: _nameController.text,
       communicationMode: _communicationMode ?? 'local',
       soundEnabled: _soundEnabled,

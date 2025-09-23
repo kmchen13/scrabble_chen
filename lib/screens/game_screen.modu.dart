@@ -46,7 +46,7 @@ class _GameScreenState extends State<GameScreen> {
   late GameController _controller;
 
   _loadSavedGame() async {
-    final saved = await gameStorage.load();
+    final saved = await gameStorage.load(widget.gameState.gameId);
     setState(() {
       _gameState = saved ?? _gameState;
     });
@@ -58,7 +58,7 @@ class _GameScreenState extends State<GameScreen> {
 
     _loadSavedGame();
     _net = widget.net;
-    _gameState = _gameState;
+    _gameState = widget.gameState;
 
     // initialize local arrays from initial state (will be overwritten by _applyIncomingState)
     _gameState.board =
@@ -327,9 +327,10 @@ class _GameScreenState extends State<GameScreen> {
         onQuit: () async {
           final userName = settings.localUserName;
           final partner = _gameState.partnerFromGameState(_gameState, userName);
+          final gameId = _gameState.gameId;
           // ensure quit completes before clearing / navigating
-          await widget.net.quit(userName, partner);
-          await gameStorage.clear();
+          await widget.net.quit(userName, partner, gameId);
+          await gameStorage.clear(gameId);
           if (context.mounted) {
             Navigator.popUntil(context, (route) => route.isFirst);
           }

@@ -175,6 +175,8 @@ class RelayNet implements ScrabbleNet {
     final String userName = settings.localUserName;
     try {
       final String to = state.partnerFromGameState(state, userName);
+      if (debug)
+        print("${logHeader("relayNet")} ▶️ Envoi gameState de $userName à $to");
       final res = await http.post(
         Uri.parse("$_relayServerUrl/gamestate"),
         body: jsonEncode({
@@ -188,7 +190,8 @@ class RelayNet implements ScrabbleNet {
 
       final json = jsonDecode(res.body);
       if (json['status'] == 'sent') {
-        print("${logHeader("relayNet")} ✅ GameState envoyé : $state");
+        if (debug)
+          print("${logHeader("relayNet")} ✅ GameState envoyé : $state");
         _resumePolling(userName);
       } else {
         logger.w(
@@ -293,8 +296,6 @@ class RelayNet implements ScrabbleNet {
           break;
 
         case 'quit':
-          if (debug) print("[relayNet] 🛑 Le partenaire a abandonné");
-          await gameStorage.clear();
           disconnect();
           onConnectionClosed?.call();
           break;
@@ -368,12 +369,11 @@ class RelayNet implements ScrabbleNet {
       logger.e("Erreur lors de la déconnexion : $e");
     } finally {
       _isConnected = false;
-      onStatusUpdate?.call("Déconnecté");
     }
   }
 
   @override
-  Future<void> quit(me, partner) async {
+  Future<void> quit(me, partner, gameId) async {
     try {
       final url = Uri.parse("$_relayServerUrl/quit");
       final res = await http.post(
@@ -396,11 +396,8 @@ class RelayNet implements ScrabbleNet {
       if (debug) print("[relayNet] ⛔ Erreur abandon: $e");
     }
 
-    await gameStorage.clear();
+    await gameStorage.clear(gameId);
     disconnect(); //en mode web désamorce seulement le polling
-
-    // Notifier l’UI
-    onConnectionClosed?.call();
   }
 
   void Function(String error)? onError;

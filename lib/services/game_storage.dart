@@ -4,12 +4,11 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:scrabble_P2P/constants.dart';
 import 'package:scrabble_P2P/models/game_state.dart';
+import 'package:scrabble_P2P/services/log.dart';
 import 'utility.dart';
 
 class GameStorage {
   static const String _boxName = 'gameBox';
-  static const String _gameKey = 'gameState';
-
   static Box? _box;
 
   Future<void> init() async {
@@ -19,14 +18,8 @@ class GameStorage {
       } else {
         _box = Hive.box(_boxName);
       }
-
-      Directory dir = await getApplicationDocumentsDirectory();
-      final gameBoxDir = Directory('${dir.path}/$_boxName');
       if (debug) {
         print("${logHeader('GameStorage')} initialisé dans ${_box?.path}");
-      }
-      if (!await gameBoxDir.exists()) {
-        await gameBoxDir.create(recursive: true);
       }
     } catch (e) {
       print("${logHeader('GameStorage')} Erreur init Hive: $e");
@@ -34,34 +27,28 @@ class GameStorage {
   }
 
   Future<void> save(GameState gameState) async {
-    print("${logHeader('GameStorage')} save() appelé");
     if (_box == null) throw Exception("GameStorage not initialized");
     try {
-      await _box!.put(_gameKey, gameState.toMap());
+      final key = "game_${gameState.gameId}";
+      await _box!.put(key, gameState.toMap());
       await _box!.flush();
       if (debug) {
-        print(
-          "${logHeader('GameStorage')} sauvegardé ${gameState.leftLetters}-${gameState.rightLetters}",
-        );
+        print("${logHeader('GameStorage')} sauvegardé sous $key");
       }
     } catch (e) {
       print("${logHeader('GameStorage')} Erreur save: $e");
     }
   }
 
-  Future<GameState?> load() async {
-    if (debug) {
-      print("${logHeader('GameStorage')} load() appelé");
-    }
+  Future<GameState?> load(String gameId) async {
     if (_box == null) throw Exception("GameStorage not initialized");
     try {
-      final data = _box!.get(_gameKey);
+      final key = "game_$gameId";
+      final data = _box!.get(key);
       if (data != null) {
         final gameState = GameState.fromMap(Map<String, dynamic>.from(data));
         if (debug) {
-          print(
-            "${logHeader('GameStorage')} restauré ${gameState.leftLetters}-${gameState.rightLetters}",
-          );
+          print("${logHeader('GameStorage')} restauré sous $key");
         }
         return gameState;
       } else {
@@ -75,13 +62,13 @@ class GameStorage {
     }
   }
 
-  Future<void> clear() async {
+  Future<void> clear(String gameId) async {
     if (_box == null) throw Exception("GameStorage not initialized");
     try {
-      await _box!.delete(_gameKey);
+      final key = "game_$gameId";
+      await _box!.delete(key);
       await _box!.flush();
-      if (debug) print("${logHeader('GameStorage')} effacé");
-      debugDump();
+      if (debug) print("${logHeader('GameStorage')} effacé $key");
     } catch (e) {
       print("${logHeader('GameStorage')} Erreur clear: $e");
     }
@@ -92,11 +79,26 @@ class GameStorage {
       print("${logHeader('GameStorage')} debugDump: box == null");
       return;
     }
-    print("${logHeader('GameStorage')} debugDump: box.path=${_box?.path}");
     print("${logHeader('GameStorage')} debugDump: keys=${_box!.keys.toList()}");
-    print(
-      "${logHeader('GameStorage')} debugDump: value=${_box!.get(_gameKey)}",
-    );
+    for (final key in _box!.keys) {
+      print("$key => ${_box!.get(key)}");
+    }
+  }
+
+  /// Retourne la liste des gameId sauvegardés
+  Future<List<String>> listSavedGames() async {
+    if (_box == null) throw Exception("GameStorage not initialized");
+    try {
+      final keys =
+          _box!.keys
+              .whereType<String>()
+              .where((k) => k.startsWith("game_"))
+              .toList();
+      return keys.map((k) => k.substring(5)).toList(); // retire "game_"
+    } catch (e) {
+      print("${logHeader('GameStorage')} Erreur listSavedGames: $e");
+      return [];
+    }
   }
 }
 

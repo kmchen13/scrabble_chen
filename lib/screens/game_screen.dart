@@ -111,8 +111,10 @@ class _GameScreenState extends State<GameScreen> {
         );
       }
     };
-    widget.net.onConnectionClosed = () {
+    widget.net.onConnectionClosed = () async {
       if (mounted) {
+        if (debug) print("[relayNet] 🛑 Le partenaire a abandonné");
+        await gameStorage.clear(widget.gameState.gameId);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Votre partenaire a quitté la partie")),
         );
@@ -384,8 +386,6 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   void dispose() {
-    gameStorage.save(widget.gameState);
-
     ScrabbleNet().onGameStateReceived = null;
     _net.disconnect();
     super.dispose();
@@ -572,9 +572,10 @@ class _GameScreenState extends State<GameScreen> {
                     widget.gameState,
                     userName,
                   );
+                  final gameId = widget.gameState.gameId;
                   // ensure quit completes before clearing / navigating
-                  await widget.net.quit(userName, partner);
-                  await gameStorage.clear();
+                  await widget.net.quit(userName, partner, gameId);
+                  await gameStorage.clear(gameId);
                   if (context.mounted) {
                     Navigator.of(context).popUntil((route) => route.isFirst);
                   }
@@ -583,7 +584,7 @@ class _GameScreenState extends State<GameScreen> {
                 }
 
                 // Supprime le GameState local
-                gameStorage.clear();
+                gameStorage.clear(widget.gameState.gameId);
 
                 // Retourne à l'écran d’accueil
                 if (context.mounted) {
