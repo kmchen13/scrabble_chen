@@ -414,4 +414,7 @@ class LocalNet implements ScrabbleNet {
 
   @override
   void Function()? onConnectionClosed;
+
+  @override
+  void flushPending() {}
 }

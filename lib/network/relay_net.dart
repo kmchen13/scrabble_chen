@@ -191,7 +191,9 @@ class RelayNet implements ScrabbleNet {
       final json = jsonDecode(res.body);
       if (json['status'] == 'sent') {
         if (debug)
-          print("${logHeader("relayNet")} ✅ GameState envoyé : $state");
+          print(
+            "${logHeader("relayNet")} ✅ GameState envoyé : ${state.toString()}",
+          );
         _resumePolling(userName);
       } else {
         logger.w(
@@ -219,11 +221,14 @@ class RelayNet implements ScrabbleNet {
     );
 
     if (callback != null && _pendingState != null) {
-      print(
-        "${logHeader("relayNet")} Chargement GameState en attente (hash=${_pendingState.hashCode})",
-      );
-      callback(_pendingState!);
-      _pendingState = null; // vidé après lecture
+      final state = _pendingState!;
+      _pendingState = null; // vidé immédiatement
+      Future.microtask(() {
+        print(
+          "${logHeader("relayNet")} Chargement GameState en attente (hash=${state.hashCode})",
+        );
+        _onGameStateReceived?.call(state);
+      });
     }
   }
 
@@ -235,20 +240,31 @@ class RelayNet implements ScrabbleNet {
       _onGameStateReceived!(state);
     } else {
       print(
-        "${logHeader("relayNet")} No callback yet, buffering state (hash=${state.hashCode})",
+        "${logHeader("relayNet")} Pas de callBack défini. Mise en buffer du gameState reçu (hash=${state.hashCode})",
       );
       _pendingState = state;
     }
   }
 
+  /// Permet de vider manuellement le buffer si un état était en attente
+  void flushPending() {
+    if (_pendingState != null && _onGameStateReceived != null) {
+      final state = _pendingState!;
+      _pendingState = null;
+      print(
+        "${logHeader("relayNet")} Flush manuel du GameState en attente (hash=${state.hashCode})",
+      );
+      _onGameStateReceived?.call(state);
+    }
+  }
+
   Future<void> pollMessages(String localName) async {
     // if (debug) print('${logHeader("relayNet")} Poll de $localName');
+    final res = await http.get(
+      Uri.parse("$_relayServerUrl/poll?userName=$localName"),
+    );
+    final json = jsonDecode(res.body);
     try {
-      final res = await http.get(
-        Uri.parse("$_relayServerUrl/poll?userName=$localName"),
-      );
-      final json = jsonDecode(res.body);
-
       switch (json['type']) {
         case 'gameState':
           _playNotificationSound();
@@ -259,13 +275,14 @@ class RelayNet implements ScrabbleNet {
           final dynamic msg = json['message'];
           final gameState = GameState.fromJson(msg);
           _pausePolling();
+          _handleIncomingGameState(gameState);
+
           if (debug) {
             print(
               "[relayNet] about to call onGameStateReceived "
               "(hash=${onGameStateReceived.hashCode})",
             );
           }
-          onGameStateReceived?.call(gameState);
           break;
 
         case 'message':
@@ -320,7 +337,11 @@ class RelayNet implements ScrabbleNet {
           break;
       }
     } catch (e, st) {
-      if (debug) logger.e("Erreur pollMessages : $e\n$st");
+      if (debug) {
+        logger.e("Erreur pollMessages : $e\n$st");
+        print("message reçu: ${json}");
+        print("type reçu: ${json['type']}");
+      }
     }
   }
 
@@ -361,8 +382,6 @@ class RelayNet implements ScrabbleNet {
   @override
   Future<void> disconnect() async {
     try {
-      _pendingState = null; // <--- vider le buffer
-      _onGameStateReceived = null;
       _pausePolling();
       onStatusUpdate?.call('Déconnecté');
     } catch (e) {

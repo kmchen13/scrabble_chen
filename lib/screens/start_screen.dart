@@ -59,7 +59,14 @@ class _StartScreenState extends State<StartScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-            builder: (_) => GameScreen(net: _net, gameState: newState),
+            builder:
+                (_) => GameScreen(
+                  net: _net,
+                  gameState: newState,
+                  onGameStateUpdated: (newState) {
+                    _net.sendGameState(newState);
+                  },
+                ),
           ),
         );
       });
@@ -97,7 +104,13 @@ class _StartScreenState extends State<StartScreen> {
             context,
             MaterialPageRoute(
               builder:
-                  (_) => GameScreen(net: _net, gameState: initialGameState),
+                  (_) => GameScreen(
+                    net: _net,
+                    gameState: initialGameState,
+                    onGameStateUpdated: (initialGameState) {
+                      _net.sendGameState(initialGameState);
+                    },
+                  ),
             ),
           );
         });
@@ -117,7 +130,6 @@ class _StartScreenState extends State<StartScreen> {
     }
     _net.onStatusUpdate = null;
     _net.onMatched = null;
-    _net.onGameStateReceived = null;
     _net.disconnect();
     super.dispose();
   }

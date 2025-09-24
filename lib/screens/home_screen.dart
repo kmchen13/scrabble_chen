@@ -71,7 +71,11 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         final ids = await gameStorage.listSavedGames();
         if (mounted) {
           setState(() {
-            _savedGameIds = ids;
+            if (ids.isEmpty) {
+              _savedGameIds = [];
+            } else {
+              _savedGameIds = ids;
+            }
             _loading = false;
           });
         }
@@ -127,6 +131,9 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                                 final gameScreen = GameScreen(
                                   net: _net,
                                   gameState: saved,
+                                  onGameStateUpdated: (saved) {
+                                    _net.sendGameState(saved);
+                                  },
                                 );
                                 WidgetsBinding.instance.addPostFrameCallback((
                                   _,

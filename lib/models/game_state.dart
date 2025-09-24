@@ -102,6 +102,7 @@ class GameState {
                 },
               )
               .toList(),
+      'gameId': gameId, // <--- sérialisation
     };
   }
 
@@ -114,7 +115,8 @@ class GameState {
       rightName: map['rightName'] as String,
       rightIP: map['rightIP'] as String,
       rightPort: map['rightPort'] as int,
-      board: (map['board'] as List).map((row) => List<String>.from(row)).toList(),
+      board:
+          (map['board'] as List).map((row) => List<String>.from(row)).toList(),
       bag: BagModel.fromMap(Map<String, dynamic>.from(map['bag'])),
       leftLetters: List<String>.from(map['leftLetters']),
       rightLetters: List<String>.from(map['rightLetters']),
@@ -130,7 +132,7 @@ class GameState {
                   placedThisTurn: e['placedThisTurn'] as bool? ?? false,
                 ),
               )
-          .toList(),
+              .toList(),
       gameId: map['gameId'] as String, // <--- désérialisation
     );
   }
@@ -168,7 +170,8 @@ class GameState {
       rightLetters: rightLetters ?? this.rightLetters,
       leftScore: leftScore ?? this.leftScore,
       rightScore: rightScore ?? this.rightScore,
-      lettersPlacedThisTurn: lettersPlacedThisTurn ?? this.lettersPlacedThisTurn,
+      lettersPlacedThisTurn:
+          lettersPlacedThisTurn ?? this.lettersPlacedThisTurn,
       gameId: gameId ?? this.gameId, // <--- copie du gameId
     );
   }

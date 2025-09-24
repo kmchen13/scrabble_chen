@@ -20,6 +20,8 @@ class GameInitializer {
       (_) => List.generate(15, (_) => ''),
     );
 
+    final gameId = DateTime.now().millisecondsSinceEpoch.toString();
+
     return GameState(
       isLeft: isLeft, //Gauche joue le premier coup
       leftName: leftName,
@@ -35,7 +37,7 @@ class GameInitializer {
       leftScore: 0,
       rightScore: 0,
       lettersPlacedThisTurn: [],
-      gameId: '', // Initialisé plus tard
+      gameId: gameId,
     );
   }
 }

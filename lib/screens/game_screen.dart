@@ -10,7 +10,6 @@ import 'package:scrabble_P2P/models/placed_letter.dart';
 import 'package:scrabble_P2P/screens/home_screen.dart';
 import '../score.dart';
 import '../constants.dart';
-import '../main.dart';
 
 typedef MovePlayedCallback = void Function(GameMove move);
 
@@ -42,7 +41,8 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> {
-  static const String _defaultTitle = "$appName -v$version'";
+  static String _defaultTitle =
+      "$appName -v$version' ${settings.localUserName}";
   String _appBarTitle = _defaultTitle;
   late ScrabbleNet _net;
   late List<String> _playerLetters;
@@ -51,6 +51,24 @@ class _GameScreenState extends State<GameScreen> {
   final List<PlacedLetter> _lettersPlacedThisTurn = [];
   final TransformationController _boardController = TransformationController();
   bool _firstLetter = true;
+
+  void _applyGameState(GameState newState) {
+    _appBarTitle = _defaultTitle;
+
+    widget.gameState.copyFrom(newState);
+
+    _board =
+        widget.gameState.board.map((row) => List<String>.from(row)).toList();
+
+    _playerLetters = widget.gameState.localRack(settings.localUserName);
+
+    _initialRack = List.from(_playerLetters);
+
+    _lettersPlacedThisTurn
+      ..clear()
+      ..addAll(widget.gameState.lettersPlacedThisTurn);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -61,31 +79,17 @@ class _GameScreenState extends State<GameScreen> {
       gameStorage.save(newState);
       if (!mounted) return;
       setState(() {
-        _appBarTitle = _defaultTitle;
-
-        widget.gameState.copyFrom(newState);
-        _board =
-            widget.gameState.board
-                .map((row) => List<String>.from(row))
-                .toList();
-        _playerLetters = widget.gameState.localRack(settings.localUserName);
-        _initialRack = List.from(_playerLetters);
-        _lettersPlacedThisTurn
-          ..clear()
-          ..addAll(widget.gameState.lettersPlacedThisTurn);
+        _applyGameState(newState);
       });
       // ✅ Revient au zoom 100% (position et échelle par défaut)
       _boardController.value = Matrix4.identity();
       _firstLetter = true;
     };
 
-    _net.onGameOverReceived = (finalState) {
-      if (!mounted) return;
-      setState(() {
-        widget.gameState.copyFrom(finalState); // si tu as une méthode update
-      });
-      _showEndGamePopup();
-    };
+    // Flush immédiat après avoir attaché le callback
+    Future.microtask(() {
+      _net.flushPending();
+    });
 
     _board =
         widget.gameState.board.map((row) => List<String>.from(row)).toList();
@@ -111,6 +115,7 @@ class _GameScreenState extends State<GameScreen> {
         );
       }
     };
+
     widget.net.onConnectionClosed = () async {
       if (mounted) {
         if (debug) print("[relayNet] 🛑 Le partenaire a abandonné");
