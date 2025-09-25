@@ -1,7 +1,5 @@
 // services/settings_service.dart
 
-import 'package:scrabble_P2P/constants.dart';
-import 'package:scrabble_P2P/services/utility.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 

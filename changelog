@@ -24,3 +24,4 @@ Refonte mode web en polling
 1.5.1 Nombreux problèmes de timing entre l'initialisation de hive et,mêmela lecture des paramètres pour finir. commit pour trace mais abandon
 1.5.2 Reprise dugameState monolithique et corrections de bugs loadSettings et game_storage
 1.6.0 Ajout de gameId dans GameState, enregistrement/reprise de plusieurs gameState
+1.6.1 Corrections game_storage

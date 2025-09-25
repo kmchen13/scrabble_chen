@@ -41,21 +41,19 @@ class GameStorage {
   }
 
   Future<GameState?> load(String gameId) async {
+    if (gameId.isEmpty) return null; // safeguard
     if (_box == null) throw Exception("GameStorage not initialized");
     try {
       final key = "game_$gameId";
       final data = _box!.get(key);
-      if (data != null) {
-        final gameState = GameState.fromMap(Map<String, dynamic>.from(data));
-        if (debug) {
-          print("${logHeader('GameStorage')} restauré sous $key");
-        }
-        return gameState;
-      } else {
-        if (debug)
-          print("${logHeader('GameStorage')} Aucun GameState sauvegardé");
+      if (data == null) return null;
+      if (data is! Map) {
+        print("${logHeader('GameStorage')} Donnée invalide pour $key");
         return null;
       }
+      final gameState = GameState.fromMap(Map<String, dynamic>.from(data));
+      if (debug) print("${logHeader('GameStorage')} restauré sous $key");
+      return gameState;
     } catch (e) {
       print("${logHeader('GameStorage')} Erreur load: $e");
       return null;
