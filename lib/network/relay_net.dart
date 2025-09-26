@@ -74,7 +74,9 @@ class RelayNet implements ScrabbleNet {
       );
 
       if (res.statusCode == 200) {
-        onStatusUpdate?.call("Connecté...");
+        onStatusUpdate?.call(
+          "Connecté au serveur WEB relais $_relayServerUrl, en attente d'un joueur",
+        );
       } else {
         onStatusUpdate?.call("Erreur serveur (${res.statusCode})");
       }
@@ -174,7 +176,7 @@ class RelayNet implements ScrabbleNet {
     }
     final String userName = settings.localUserName;
     try {
-      final String to = state.partnerFromGameState(state, userName);
+      final String to = state.partnerFrom(userName);
       if (debug)
         print("${logHeader("relayNet")} ▶️ Envoi gameState de $userName à $to");
       final res = await http.post(
@@ -353,7 +355,7 @@ class RelayNet implements ScrabbleNet {
         Uri.parse("$_relayServerUrl/gameover"), // ⭐️ endpoint dédié
         body: jsonEncode({
           'from': userName,
-          'to': finalState.partnerFromGameState(finalState, userName),
+          'to': finalState.partnerFrom(userName),
           'type': 'gameOver',
           'message': finalState.toJson(),
         }),
@@ -392,7 +394,7 @@ class RelayNet implements ScrabbleNet {
   }
 
   @override
-  Future<void> quit(me, partner, gameId) async {
+  Future<void> quit(me, partner) async {
     try {
       final url = Uri.parse("$_relayServerUrl/quit");
       final res = await http.post(
@@ -415,7 +417,6 @@ class RelayNet implements ScrabbleNet {
       if (debug) print("[relayNet] ⛔ Erreur abandon: $e");
     }
 
-    await gameStorage.clear(gameId);
     disconnect(); //en mode web désamorce seulement le polling
   }
 

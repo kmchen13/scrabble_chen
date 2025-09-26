@@ -25,3 +25,4 @@ Refonte mode web en polling
 1.5.2 Reprise dugameState monolithique et corrections de bugs loadSettings et game_storage
 1.6.0 Ajout de gameId dans GameState, enregistrement/reprise de plusieurs gameState
 1.6.1 Corrections game_storage
+1.7.0 Utilisation de partner comme clé de game_storage, abandon de gameId et affichage liste des game sauvegardés au démarrage. Fonctionne avec relay_server 1.4.0

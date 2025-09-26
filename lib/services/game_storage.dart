@@ -1,17 +1,23 @@
-import 'dart:io';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:scrabble_P2P/constants.dart';
 import 'package:scrabble_P2P/models/game_state.dart';
-import 'package:scrabble_P2P/services/log.dart';
+import 'package:scrabble_P2P/services/settings_service.dart';
 import 'utility.dart';
 
 class GameStorage {
   static const String _boxName = 'gameBox';
   static Box? _box;
 
+  static String buildKey(String partner) => "game_$partner";
+
   Future<void> init() async {
+    if (_box != null && _box!.isOpen) {
+      if (debug) {
+        print("${logHeader('GameStorage')} déjà initialisé");
+      }
+      return;
+    }
     try {
       if (!Hive.isBoxOpen(_boxName)) {
         _box = await Hive.openBox(_boxName);
@@ -29,9 +35,10 @@ class GameStorage {
   Future<void> save(GameState gameState) async {
     if (_box == null) throw Exception("GameStorage not initialized");
     try {
-      final key = "game_${gameState.gameId}";
+      final key = buildKey(gameState.partnerFrom(settings.localUserName));
       await _box!.put(key, gameState.toMap());
       await _box!.flush();
+      await gameStorage.debugDump();
       if (debug) {
         print("${logHeader('GameStorage')} sauvegardé sous $key");
       }
@@ -40,11 +47,12 @@ class GameStorage {
     }
   }
 
-  Future<GameState?> load(String gameId) async {
-    if (gameId.isEmpty) return null; // safeguard
+  Future<GameState?> load(String partner) async {
+    await gameStorage.debugDump();
+    if (partner.isEmpty) return null; // safeguard
     if (_box == null) throw Exception("GameStorage not initialized");
     try {
-      final key = "game_$gameId";
+      final key = GameStorage.buildKey(partner);
       final data = _box!.get(key);
       if (data == null) return null;
       if (data is! Map) {
@@ -60,30 +68,18 @@ class GameStorage {
     }
   }
 
-  Future<void> clear(String gameId) async {
-    if (_box == null) throw Exception("GameStorage not initialized");
-    try {
-      final key = "game_$gameId";
-      await _box!.delete(key);
-      await _box!.flush();
-      if (debug) print("${logHeader('GameStorage')} effacé $key");
-    } catch (e) {
-      print("${logHeader('GameStorage')} Erreur clear: $e");
-    }
-  }
-
   Future<void> debugDump() async {
     if (_box == null) {
       print("${logHeader('GameStorage')} debugDump: box == null");
       return;
     }
-    print("${logHeader('GameStorage')} debugDump: keys=${_box!.keys.toList()}");
-    for (final key in _box!.keys) {
-      print("$key => ${_box!.get(key)}");
-    }
+    // print("${logHeader('GameStorage')} debugDump: keys=${_box!.keys.toList()}");
+    // for (final key in _box!.keys) {
+    //   print("$key => ${_box!.get(key)}");
+    // }
   }
 
-  /// Retourne la liste des gameId sauvegardés
+  /// Retourne la liste des partner sauvegardés
   Future<List<String>> listSavedGames() async {
     if (_box == null) throw Exception("GameStorage not initialized");
     try {
@@ -96,6 +92,37 @@ class GameStorage {
     } catch (e) {
       print("${logHeader('GameStorage')} Erreur listSavedGames: $e");
       return [];
+    }
+  }
+
+  /// Supprime une entrée par clé complète (ex: "game_partnerName")
+  Future<void> delete(String partner) async {
+    if (_box == null) throw Exception("GameStorage not initialized");
+    final key = buildKey(partner);
+    try {
+      await _box!.delete(key);
+      await _box!.flush();
+      if (debug) print("${logHeader('GameStorage')} supprimé $key");
+    } catch (e) {
+      print("${logHeader('GameStorage')} Erreur delete: $e");
+    }
+  }
+
+  ///Supprime toutes les parties sauvegardées
+  Future<void> deleteAllGames() async {
+    if (_box == null) throw Exception("GameStorage not initialized");
+
+    final gameKeys = _box!.keys.whereType<String>().where(
+      (k) => k.startsWith("game_"),
+    );
+
+    for (final key in gameKeys) {
+      await _box!.delete(key);
+    }
+    await _box!.flush();
+
+    if (debug) {
+      print("${logHeader('GameStorage')} toutes les parties supprimées");
     }
   }
 }

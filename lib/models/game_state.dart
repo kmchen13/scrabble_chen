@@ -196,8 +196,8 @@ class GameState {
       return false;
   }
 
-  String partnerFromGameState(GameState state, String userName) {
-    return state.leftName == userName ? state.rightName : state.leftName;
+  String partnerFrom(String userName) {
+    return leftName == userName ? rightName : leftName;
   }
 }
 

@@ -119,7 +119,11 @@ class _GameScreenState extends State<GameScreen> {
     widget.net.onConnectionClosed = () async {
       if (mounted) {
         if (debug) print("[relayNet] 🛑 Le partenaire a abandonné");
-        await gameStorage.clear(widget.gameState.gameId);
+        await gameStorage.delete(
+          GameStorage.buildKey(
+            widget.gameState.partnerFrom(settings.localUserName),
+          ),
+        );
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Votre partenaire a quitté la partie")),
         );
@@ -571,16 +575,12 @@ class _GameScreenState extends State<GameScreen> {
             IconButton(
               icon: const Icon(Icons.exit_to_app),
               onPressed: () async {
+                final userName = settings.localUserName;
+                final partner = widget.gameState.partnerFrom(userName);
                 try {
-                  final userName = settings.localUserName;
-                  final partner = widget.gameState.partnerFromGameState(
-                    widget.gameState,
-                    userName,
-                  );
-                  final gameId = widget.gameState.gameId;
                   // ensure quit completes before clearing / navigating
-                  await widget.net.quit(userName, partner, gameId);
-                  await gameStorage.clear(gameId);
+                  await widget.net.quit(userName, partner);
+                  await gameStorage.delete(partner);
                   if (context.mounted) {
                     Navigator.of(context).popUntil((route) => route.isFirst);
                   }
@@ -589,7 +589,7 @@ class _GameScreenState extends State<GameScreen> {
                 }
 
                 // Supprime le GameState local
-                gameStorage.clear(widget.gameState.gameId);
+                gameStorage.delete(GameStorage.buildKey(partner));
 
                 // Retourne à l'écran d’accueil
                 if (context.mounted) {

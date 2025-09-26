@@ -46,7 +46,11 @@ class _GameScreenState extends State<GameScreen> {
   late GameController _controller;
 
   _loadSavedGame() async {
-    final saved = await gameStorage.load(widget.gameState.gameId);
+    final saved = await gameStorage.load(
+      GameStorage.buildKey(
+        widget.gameState.partnerFrom(settings.localUserName),
+      ),
+    );
     setState(() {
       _gameState = saved ?? _gameState;
     });
@@ -326,11 +330,10 @@ class _GameScreenState extends State<GameScreen> {
         canUndo: _gameState.lettersPlacedThisTurn.isNotEmpty && isCurrentTurn,
         onQuit: () async {
           final userName = settings.localUserName;
-          final partner = _gameState.partnerFromGameState(_gameState, userName);
-          final gameId = _gameState.gameId;
+          final partner = _gameState.partnerFrom(userName);
           // ensure quit completes before clearing / navigating
-          await widget.net.quit(userName, partner, gameId);
-          await gameStorage.clear(gameId);
+          await widget.net.quit(userName, partner);
+          await gameStorage.delete(partner);
           if (context.mounted) {
             Navigator.popUntil(context, (route) => route.isFirst);
           }

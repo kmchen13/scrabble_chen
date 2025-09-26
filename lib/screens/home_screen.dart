@@ -22,10 +22,9 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> with RouteAware {
   late final ScrabbleNet _net = ScrabbleNet();
-  GameState? _savedGameState;
   bool _loading = true;
   late ModalRoute? _route;
-  List<String> _savedGameIds = [];
+  List<String> _savedGames = [];
 
   @override
   void didChangeDependencies() {
@@ -72,9 +71,9 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
         if (mounted) {
           setState(() {
             if (ids.isEmpty) {
-              _savedGameIds = [];
+              _savedGames = [];
             } else {
-              _savedGameIds = ids;
+              _savedGames = ids;
             }
             _loading = false;
           });
@@ -91,9 +90,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    if (_savedGameState == null && !kIsWeb) {
-      print('${logHeader("homeScreen")} gameState restauré null');
-    }
+
     String myName = settings.localUserName;
 
     return Scaffold(
@@ -112,9 +109,9 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                 },
                 child: const Text("Commencer une partie"),
               ),
-              if (_savedGameIds.isNotEmpty) ...[
+              if (_savedGames.isNotEmpty) ...[
                 const Text("Reprendre une partie :"),
-                for (final id in _savedGameIds)
+                for (final id in _savedGames)
                   FutureBuilder<GameState?>(
                     future: gameStorage.load(id),
                     builder: (context, snapshot) {
@@ -122,36 +119,57 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                         return const CircularProgressIndicator();
                       }
                       final saved = snapshot.data!;
-                      return ElevatedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) {
-                                final gameScreen = GameScreen(
-                                  net: _net,
-                                  gameState: saved,
-                                  onGameStateUpdated: (saved) {
-                                    _net.sendGameState(saved);
-                                  },
+
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) {
+                                      final gameScreen = GameScreen(
+                                        net: _net,
+                                        gameState: saved,
+                                        onGameStateUpdated: (saved) {
+                                          _net.sendGameState(saved);
+                                        },
+                                      );
+                                      WidgetsBinding.instance
+                                          .addPostFrameCallback((_) {
+                                            if (saved.isMyTurn(myName)) {
+                                              _net.onGameStateReceived?.call(
+                                                saved,
+                                              );
+                                            } else {
+                                              _net.startPolling(myName);
+                                            }
+                                          });
+                                      return gameScreen;
+                                    },
+                                  ),
                                 );
-                                WidgetsBinding.instance.addPostFrameCallback((
-                                  _,
-                                ) {
-                                  if (saved.isMyTurn(myName)) {
-                                    _net.onGameStateReceived?.call(saved);
-                                  } else {
-                                    _net.startPolling(myName);
-                                  }
-                                });
-                                return gameScreen;
                               },
+                              child: Text("Partie avec $id"),
                             ),
-                          );
-                        },
-                        child: Text(
-                          "Partie avec ${saved.partnerFromGameState(saved, myName)}",
-                        ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () async {
+                              // suppression Hive
+                              await gameStorage.delete(id);
+
+                              // envoi /quit au serveur
+                              _net.quit(myName, id);
+
+                              // rafraîchit la liste locale
+                              setState(() {
+                                _savedGames.remove(id);
+                              });
+                            },
+                          ),
+                        ],
                       );
                     },
                   ),
