@@ -1,5 +1,5 @@
 #!/bin/bash
-
+./version_update.bash
 set -e
 
 # Nom du package (adapter si besoin)

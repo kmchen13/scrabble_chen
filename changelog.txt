@@ -26,3 +26,7 @@ Refonte mode web en polling
 1.6.0 Ajout de gameId dans GameState, enregistrement/reprise de plusieurs gameState
 1.6.1 Corrections game_storage
 1.7.0 Utilisation de partner comme clé de game_storage, abandon de gameId et affichage liste des game sauvegardés au démarrage. Fonctionne avec relay_server 1.4.0
+1.7.1 Ajout possibilité d'entrer USER_NAME au lancement. Introduction de buildSettingKey. Mise àjour automatique des versions
+1.7.2 Correction affichage liste des parties dans homeScreen quand on fait un retour
+1.7.3 Affichage des 5 premières lettres des joueurs seulement dans les scores
+    Mutijoueur, multiparties en mode WEB OK sauf quelques perte du tour lors des reprises de parties.

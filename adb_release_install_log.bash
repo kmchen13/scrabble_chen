@@ -1,8 +1,9 @@
 #!/bin/bash
 #
+./version_update.bash
 CONSTANTS_FILE="/data/flutter/scrabble_chen/lib/constants.dart"
 PARAM="const String version"
-VERSION=$(get_param "$CONSTANTS_FILE" "$PARAM")
+VERSION=$(./version_last.bash)
 if [ -z "$VERSION" ]; then
     echo "Erreur : Impossible de trouver la VALUE dans le fichier $CONSTANTS_FILE."
     exit 1

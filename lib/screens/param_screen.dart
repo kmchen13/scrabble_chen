@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:scrabble_P2P/models/user_settings.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
+import 'package:scrabble_P2P/screens/home_screen.dart';
 
 class ParamScreen extends StatefulWidget {
   const ParamScreen({super.key});
@@ -19,6 +20,8 @@ class _ParamScreenState extends State<ParamScreen> {
   final TextEditingController _udpPortController = TextEditingController();
   final TextEditingController _relayAddressController = TextEditingController();
   final TextEditingController _relayPortController = TextEditingController();
+  final TextEditingController _nameLimitController = TextEditingController();
+  int _nameDisplayLimit = 5; // valeur par défaut
 
   bool _soundEnabled = true;
   String? _communicationMode;
@@ -47,6 +50,8 @@ class _ParamScreenState extends State<ParamScreen> {
               : 'local';
       _soundEnabled = settings.soundEnabled;
       _startTime = settings.startTime;
+      _nameDisplayLimit = settings.nameDisplayLimit;
+      _nameLimitController.text = _nameDisplayLimit.toString();
     });
   }
 
@@ -63,13 +68,16 @@ class _ParamScreenState extends State<ParamScreen> {
           _relayAddressController.text.isEmpty
               ? 'https://relay-server-3lv4.onrender.com'
               : _relayAddressController.text,
-      relayPort: int.tryParse(_relayPortController.text) ?? 8080,
+      relayPort:
+          _relayPortController.text.isEmpty
+              ? 0
+              : int.tryParse(_relayPortController.text) ?? 0,
+      nameDisplayLimit: int.tryParse(_nameLimitController.text) ?? 5,
     );
 
     await saveSettings();
-
     if (!context.mounted) return;
-    Navigator.pop(context);
+    Navigator.push(context, MaterialPageRoute(builder: (_) => HomeScreen()));
   }
 
   Future<void> clearSettings() async {
@@ -172,6 +180,14 @@ class _ParamScreenState extends State<ParamScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 20),
+            _buildTextField(
+              "Nombre de lettres affichées :",
+              _nameLimitController,
+              keyboardType: TextInputType.number,
+              hintText: "Nombre de lettres à afficher dans le score",
+            ),
+
             const SizedBox(height: 20),
             if (_startTime != null)
               Row(

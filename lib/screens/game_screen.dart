@@ -479,6 +479,33 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Widget _buildScoreBar() {
+    final nameDspl = settings.nameDisplayLimit;
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    // Ajustement de la taille de police en fonction de la largeur de l'écran
+    double nameFontSize;
+    double scoreFontSize;
+    if (screenWidth < 350) {
+      nameFontSize = 12;
+      scoreFontSize = 14;
+    } else if (screenWidth < 500) {
+      nameFontSize = 14;
+      scoreFontSize = 16;
+    } else {
+      nameFontSize = 16;
+      scoreFontSize = 18;
+    }
+
+    // Limite les noms à nameDspl caractères
+    String shortLeftName =
+        widget.gameState.leftName.length > nameDspl
+            ? widget.gameState.leftName.substring(0, nameDspl)
+            : widget.gameState.leftName;
+    String shortRightName =
+        widget.gameState.rightName.length > nameDspl
+            ? widget.gameState.rightName.substring(0, nameDspl)
+            : widget.gameState.rightName;
+
     return Container(
       color: const Color.fromARGB(255, 167, 156, 13),
       padding: const EdgeInsets.all(8),
@@ -486,9 +513,11 @@ class _GameScreenState extends State<GameScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _scoreContainer(
-            widget.gameState.leftName,
+            shortLeftName,
             widget.gameState.leftScore,
             widget.gameState.isLeft,
+            nameFontSize: nameFontSize,
+            scoreFontSize: scoreFontSize,
           ),
           const SizedBox(width: 12),
           const CircleAvatar(
@@ -498,49 +527,44 @@ class _GameScreenState extends State<GameScreen> {
           ),
           const SizedBox(width: 12),
           _scoreContainer(
-            widget.gameState.rightName,
+            shortRightName,
             widget.gameState.rightScore,
             !widget.gameState.isLeft,
+            nameFontSize: nameFontSize,
+            scoreFontSize: scoreFontSize,
           ),
         ],
       ),
     );
   }
 
-  Widget _scoreContainer(String name, int score, bool active) {
-    return Container(
-      decoration: BoxDecoration(
-        color:
-            active
-                ? const Color.fromARGB(255, 141, 23, 15)
-                : Colors.transparent,
-        borderRadius: BorderRadius.circular(32),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // On limite la largeur du nom pour éviter qu’il déborde
-          SizedBox(
-            width: 80, // ajuste la valeur si nécessaire
-            child: Text(
-              "$name",
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white, fontSize: 14),
-            ),
+  // Exemple de _scoreContainer modifié pour accepter des tailles de police
+  Widget _scoreContainer(
+    String name,
+    int score,
+    bool isCurrentTurn, {
+    double nameFontSize = 16,
+    double scoreFontSize = 18,
+  }) {
+    return Column(
+      children: [
+        Text(
+          name,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: nameFontSize,
+            color: isCurrentTurn ? Colors.white : Colors.black,
           ),
-          const SizedBox(width: 6),
-          Text(
-            "$score",
-            style: const TextStyle(
-              color: Colors.yellow,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          "$score",
+          style: TextStyle(
+            fontSize: scoreFontSize,
+            color: isCurrentTurn ? Colors.white : Colors.black,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

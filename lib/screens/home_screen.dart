@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:scrabble_P2P/models/game_state.dart';
 import 'package:scrabble_P2P/services/game_storage.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
-import 'package:scrabble_P2P/services/utility.dart';
 import 'package:scrabble_P2P/network/scrabble_net.dart';
 import '../constants.dart';
 import 'start_screen.dart';
@@ -111,67 +110,53 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
               ),
               if (_savedGames.isNotEmpty) ...[
                 const Text("Reprendre une partie :"),
-                for (final id in _savedGames)
-                  FutureBuilder<GameState?>(
-                    future: gameStorage.load(id),
-                    builder: (context, snapshot) {
-                      if (!snapshot.hasData) {
-                        return const CircularProgressIndicator();
-                      }
-                      final saved = snapshot.data!;
+                for (final partner in _savedGames)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            // Charge le GameState **au moment du clic**
+                            final saved = await gameStorage.load(partner);
+                            if (saved == null) return;
 
-                      return Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) {
-                                      final gameScreen = GameScreen(
-                                        net: _net,
-                                        gameState: saved,
-                                        onGameStateUpdated: (saved) {
-                                          _net.sendGameState(saved);
-                                        },
-                                      );
-                                      WidgetsBinding.instance
-                                          .addPostFrameCallback((_) {
-                                            if (saved.isMyTurn(myName)) {
-                                              _net.onGameStateReceived?.call(
-                                                saved,
-                                              );
-                                            } else {
-                                              _net.startPolling(myName);
-                                            }
-                                          });
-                                      return gameScreen;
-                                    },
-                                  ),
-                                );
-                              },
-                              child: Text("Partie avec $id"),
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () async {
-                              // suppression Hive
-                              await gameStorage.delete(id);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (_) => GameScreen(
+                                      net: _net,
+                                      gameState: saved,
+                                      onGameStateUpdated: (saved) {
+                                        _net.sendGameState(saved);
+                                      },
+                                    ),
+                              ),
+                            );
 
-                              // envoi /quit au serveur
-                              _net.quit(myName, id);
-
-                              // rafraîchit la liste locale
-                              setState(() {
-                                _savedGames.remove(id);
-                              });
-                            },
-                          ),
-                        ],
-                      );
-                    },
+                            // Gestion du tour après le push
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (saved.isMyTurn(myName)) {
+                                _net.onGameStateReceived?.call(saved);
+                              } else {
+                                _net.startPolling(myName);
+                              }
+                            });
+                          },
+                          child: Text("Partie avec $partner"),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () async {
+                          await gameStorage.delete(partner);
+                          _net.quit(myName, partner);
+                          setState(() {
+                            _savedGames.remove(partner);
+                          });
+                        },
+                      ),
+                    ],
                   ),
               ],
 

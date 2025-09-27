@@ -1,10 +1,10 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-   {
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
       "name": "Scrabble linux (linux)",
       "request": "launch",
       "type": "dart",
@@ -21,18 +21,24 @@
       "toolArgs": [
         "--dart-define=USER_NAME=test"
       ]
+    },
+    {
+      "name": "scrabble_chen (debug mode)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "debug"
+    },
+    {
+      "name": "scrabble_chen (profile mode)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "profile"
+    },
+    {
+      "name": "scrabble_chen (release mode)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release"
     }
-        {
-            "name": "scrabble_chen (profile mode)",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "profile"
-        },
-        {
-            "name": "scrabble_chen (release mode)",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "release"
-        }
-    ]
+  ]
 }

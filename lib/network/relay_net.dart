@@ -7,7 +7,6 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:scrabble_P2P/models/game_state\.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
 import 'package:scrabble_P2P/services/log.dart';
-import 'package:scrabble_P2P/services/game_storage.dart';
 import 'scrabble_net.dart';
 import '../constants.dart';
 import 'package:scrabble_P2P/services/utility.dart';
@@ -27,6 +26,7 @@ class RelayNet implements ScrabbleNet {
 
   Timer? _pollingTimer;
   bool _isConnected = false;
+  bool _retrying = false;
   final int _timerFrequency = 2; // fréquence de polling en secondes
   final int _retryDelay = 2; // délai de retry si "waiting" ou erreur
 
@@ -61,7 +61,7 @@ class RelayNet implements ScrabbleNet {
         );
       return;
     }
-    onStatusUpdate?.call("Connexion au serveur relai...");
+    onStatusUpdate?.call("Connexion au serveur relai $_relayServerUrl...");
     try {
       final res = await http.post(
         Uri.parse("$_relayServerUrl/connect"),
@@ -115,11 +115,14 @@ class RelayNet implements ScrabbleNet {
             "${logHeader("relayNet")} Pas de réponse du serveur → retry dans $_retryDelay s",
           );
         Future.delayed(Duration(seconds: _retryDelay), () {
-          connect(
-            localName: localName,
-            expectedName: expectedName,
-            startTime: startTime,
-          );
+          if (!_isConnected && !_retrying) {
+            _retrying = true;
+            connect(
+              localName: localName,
+              expectedName: expectedName,
+              startTime: startTime,
+            ).whenComplete(() => _retrying = false);
+          }
         });
       }
     } on SocketException {
@@ -294,6 +297,7 @@ class RelayNet implements ScrabbleNet {
           break;
 
         case 'matched':
+          _isConnected = true;
           if (debug)
             print('${logHeader("relayNet")} Match trouvé pour $localName');
           _isConnected = true;

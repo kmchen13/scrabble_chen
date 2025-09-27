@@ -9,6 +9,7 @@ class UserSettings {
   String relayAddress;
   int relayPort;
   DateTime? startTime;
+  int nameDisplayLimit;
 
   UserSettings({
     required this.localUserName,
@@ -21,6 +22,7 @@ class UserSettings {
     this.relayAddress = '',
     this.relayPort = 0,
     this.startTime,
+    this.nameDisplayLimit = 5, // valeur par défaut
   });
 
   factory UserSettings.defaultSettings() {
@@ -32,9 +34,10 @@ class UserSettings {
       localPort: 4567,
       udpPort: 4560,
       expectedUserName: '',
-      relayAddress: 'relay-server-3lv4.onrender.com',
-      relayPort: 0,
+      relayAddress: 'https://relay-server-3lv4.onrender.com',
+      relayPort: 8080,
       startTime: null,
+      nameDisplayLimit: 5,
     );
   }
 
@@ -50,6 +53,7 @@ class UserSettings {
       'relayAddress': relayAddress,
       'relayPort': relayPort,
       'startTime': startTime?.toIso8601String(),
+      'nameDisplayLimit': nameDisplayLimit,
     };
   }
 
@@ -76,11 +80,12 @@ class UserSettings {
           json['startTime'] != null
               ? DateTime.tryParse(json['startTime'])
               : null,
+      nameDisplayLimit: json['nameDisplayLimit'] ?? 5,
     );
   }
 
   // Méthode utilitaire pour copier l’objet avec une nouvelle startTime
-  UserSettings copyWith({DateTime? startTime}) {
+  UserSettings copyWith({DateTime? startTime, int? nameDisplayLimit}) {
     return UserSettings(
       localUserName: localUserName,
       communicationMode: communicationMode,
@@ -92,6 +97,7 @@ class UserSettings {
       relayAddress: relayAddress,
       relayPort: relayPort,
       startTime: startTime ?? this.startTime,
+      nameDisplayLimit: nameDisplayLimit ?? this.nameDisplayLimit,
     );
   }
 }

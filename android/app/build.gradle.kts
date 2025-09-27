@@ -24,9 +24,6 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        ndk {
-            abiFilters += listOf("armeabi-v7a", "arm64-v8a")
-        }
     }
 
     buildTypes {
@@ -37,13 +34,23 @@ android {
         }
     }
 
-    applicationVariants.configureEach {
-        outputs.configureEach {
-            val appName = "scrabble_P2P"
-            val versionName = "v1.2.0"
-            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName = "$appName-$versionName.apk"
-        }
+applicationVariants.configureEach {
+    outputs.configureEach {
+        val appName = "scrabble_P2P"
+        val versionName = "v1.7.0"
+
+        // Ajoute l’ABI dans le nom de fichier pour éviter les conflits
+        val abiFilter = (this as? com.android.build.gradle.internal.api.BaseVariantOutputImpl)
+            ?.filters
+            ?.find { it.filterType == com.android.build.OutputFile.ABI }
+            ?.identifier
+
+        val suffix = if (abiFilter != null) "-$abiFilter" else ""
+        (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName =
+            "$appName-$versionName$suffix.apk"
     }
+}
+
 }
 
 flutter {
