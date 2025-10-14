@@ -30,3 +30,8 @@ Refonte mode web en polling
 1.7.2 Correction affichage liste des parties dans homeScreen quand on fait un retour
 1.7.3 Affichage des 5 premières lettres des joueurs seulement dans les scores
     Mutijoueur, multiparties en mode WEB OK sauf quelques perte du tour lors des reprises de parties.
+1.7.4 Correction bug affichage score petits écrans sur une ligne.
+    Correction sauvegarde gameState dès première réception de gameState
+    Correction fermeture game_storage proprement.
+    Finalisation procédure quit
+1.8.0 Finalisation gameOver avec nombre égal de tour

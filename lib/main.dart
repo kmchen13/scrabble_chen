@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'services/settings_service.dart';
@@ -16,6 +17,11 @@ void main() async {
   Hive.registerAdapter(GameStateAdapter());
   // Ouverture de la box via ton wrapper
   await gameStorage.init();
+  // Intercepter la fermeture de l'app
+  ProcessSignal.sigint.watch().listen((_) async {
+    await gameStorage.close();
+    exit(0);
+  });
   runApp(ScrabbleApp());
 }
 

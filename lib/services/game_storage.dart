@@ -3,7 +3,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:scrabble_P2P/constants.dart';
 import 'package:scrabble_P2P/models/game_state.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
-import 'utility.dart';
+import 'package:scrabble_P2P/services/utility.dart';
 
 class GameStorage {
   static const String _boxName = 'gameBox';
@@ -38,7 +38,7 @@ class GameStorage {
       final key = buildKey(gameState.partnerFrom(settings.localUserName));
       await _box!.put(key, gameState.toMap());
       await _box!.flush();
-      await gameStorage.debugDump();
+      // await gameStorage.debugDump();
       if (debug) {
         print("${logHeader('GameStorage')} sauvegardé sous $key");
       }
@@ -73,10 +73,10 @@ class GameStorage {
       print("${logHeader('GameStorage')} debugDump: box == null");
       return;
     }
-    // print("${logHeader('GameStorage')} debugDump: keys=${_box!.keys.toList()}");
-    // for (final key in _box!.keys) {
-    //   print("$key => ${_box!.get(key)}");
-    // }
+    print("${logHeader('GameStorage')} debugDump: keys=${_box!.keys.toList()}");
+    for (final key in _box!.keys) {
+      print("$key => ${_box!.get(key)}");
+    }
   }
 
   /// Retourne la liste des partner sauvegardés
@@ -123,6 +123,17 @@ class GameStorage {
 
     if (debug) {
       print("${logHeader('GameStorage')} toutes les parties supprimées");
+    }
+  }
+
+  /// Ferme la box proprement
+  Future<void> close() async {
+    if (_box != null && _box!.isOpen) {
+      await _box!.close();
+      _box = null;
+      if (debug) {
+        print("${logHeader('GameStorage')} box fermée proprement");
+      }
     }
   }
 }

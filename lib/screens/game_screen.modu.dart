@@ -35,8 +35,8 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> {
-  static const String _defaultTitle = "$appName -v$version";
-  String _appBarTitle = _defaultTitle;
+  static const String defaultTitle = "$appName -v$version";
+  String _appBarTitle = defaultTitle;
 
   late ScrabbleNet _net;
   late GameState _gameState;
@@ -135,7 +135,7 @@ class _GameScreenState extends State<GameScreen> {
     _firstLetter = true;
 
     if (updateUI && mounted) {
-      setState(() => _appBarTitle = _defaultTitle);
+      setState(() => _appBarTitle = defaultTitle);
     }
   }
 
@@ -205,7 +205,7 @@ class _GameScreenState extends State<GameScreen> {
 
   void _updateTitleWithProvisionalScore() {
     if (_gameState.lettersPlacedThisTurn.isEmpty) {
-      setState(() => _appBarTitle = _defaultTitle);
+      setState(() => _appBarTitle = defaultTitle);
       return;
     }
     final result = getWordsCreatedAndScore(

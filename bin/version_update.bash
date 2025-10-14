@@ -5,7 +5,7 @@ set -e
 CONSTANTS_FILE="/data/flutter/scrabble_chen/lib/constants.dart"
 
 # Récupération de la dernière version via ton script
-VERSION=$(./version_last.bash)
+VERSION=$(bin/version_last.bash)
 
 if [ -z "$VERSION" ]; then
   echo "❌ ERREUR : last_version.bash n'a retourné aucune version."
@@ -15,4 +15,4 @@ fi
 # Mise à jour de la constante dans constants.dart
 sed -i "s/^const String version = \".*\";/const String version = \"$VERSION\";/" "$CONSTANTS_FILE"
 
-echo "✅ constants.dart mis à jour avec version = $VERSION"
+echo "✅ $CONSTANTS_FILE mis à jour avec version = $VERSION"

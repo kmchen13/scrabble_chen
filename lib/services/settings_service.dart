@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 
 import 'package:scrabble_P2P/models/user_settings.dart';
-import 'package:scrabble_P2P/constants.dart';
 
 UserSettings settings = UserSettings.defaultSettings();
 
@@ -44,3 +43,5 @@ Future<void> saveSettings() async {
 
   await prefs.setString(key, json.encode(settings.toJson()));
 }
+
+String defaultTitle = "$appName -v$version' ${settings.localUserName}";

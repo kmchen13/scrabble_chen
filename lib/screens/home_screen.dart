@@ -1,7 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:scrabble_P2P/models/game_state.dart';
 import 'package:scrabble_P2P/services/game_storage.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
 import 'package:scrabble_P2P/network/scrabble_net.dart';
@@ -31,6 +30,15 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     _route = ModalRoute.of(context);
     if (_route is PageRoute) {
       routeObserver.subscribe(this, _route as PageRoute);
+    }
+    _refreshSavedGames(); // relit la liste à chaque retour visuel sur l’écran
+  }
+
+  Future<void> _refreshSavedGames() async {
+    await gameStorage.init();
+    final ids = await gameStorage.listSavedGames();
+    if (mounted) {
+      setState(() => _savedGames = ids);
     }
   }
 

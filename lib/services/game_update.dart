@@ -26,68 +26,75 @@ class GameUpdateHandler {
   });
 
   void attach() {
-    // 🔥 Différer l’attachement du handler
+    // 🔥 Différer l’attachement du handler à quand le screen est affiché
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      net.onGameStateReceived = (newState) {
-        print('${logHeader("GameUpdateHandler")} onGameStateReceived appelé');
-        applyIncomingState(newState, updateUI: mounted);
-      };
-    });
-
-    net.onGameOverReceived = (finalState) {
       if (debug) {
         print(
-          '${logHeader("GameUpdateHandler")} onGameOverReceived (mounted=$mounted)',
+          '${logHeader("GameUpdateHandler")} net hashCode = ${net.hashCode} mounted=$mounted',
         );
       }
+      net.onGameStateReceived = (newState) {
+        applyIncomingState(newState, updateUI: mounted);
+      };
+      net.onGameOverReceived = (finalState) {
+        gameStorage.save(finalState);
 
-      gameStorage.save(finalState);
+        if (mounted) {
+          // Appliquer l’état final reçu
+          applyIncomingState(finalState, updateUI: mounted);
 
-      // Appliquer l’état final reçu
-      applyIncomingState(finalState, updateUI: mounted);
+          GameEndService.showEndGamePopup(
+            context: context,
+            finalState: finalState,
+            net: net,
+            onRematchStarted: (newGameState) {
+              // Utilise à nouveau applyIncomingState pour mettre à jour
+              applyIncomingState(newGameState, updateUI: true);
 
+              // Puis déclenche la popup de revanche
+              showEndGamePopup();
+            },
+          );
+        } else {
+          print('${logHeader("GameUpdateHandler")} ignoré car non monté');
+        }
+      };
       if (mounted) {
-        GameEndService.showEndGamePopup(
-          context: context,
-          finalState: finalState,
-          net: net,
-          onRematchStarted: (newGameState) {
-            // Utilise à nouveau applyIncomingState pour mettre à jour
-            applyIncomingState(newGameState, updateUI: true);
-
-            // Puis déclenche la popup de revanche
-            showEndGamePopup();
-          },
-        );
+        Future.microtask(() => net.flushPending());
       }
-    };
 
-    net.onError = (message) {
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder:
-              (_) => AlertDialog(
-                title: const Text('Erreur réseau'),
-                content: Text(message),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Fermer'),
-                  ),
-                ],
-              ),
-        );
-      }
-    };
+      net.onError = (message) {
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder:
+                (_) => AlertDialog(
+                  title: const Text('Erreur réseau'),
+                  content: Text(message),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Fermer'),
+                    ),
+                  ],
+                ),
+          );
+        }
+      };
 
-    net.onConnectionClosed = () {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Votre partenaire s'est déconnecté")),
-        );
-        Navigator.of(context).popUntil((route) => route.isFirst);
-      }
-    };
+      net.onConnectionClosed = () {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Votre partenaire s'est déconnecté")),
+          );
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        }
+      };
+    });
+  }
+
+  void detach() {
+    net.onGameStateReceived = null;
+    net.onGameOverReceived = null;
   }
 }

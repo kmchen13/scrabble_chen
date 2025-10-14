@@ -6,10 +6,12 @@ import 'package:scrabble_P2P/network/scrabble_net.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
 import 'package:scrabble_P2P/services/game_initializer.dart';
 import 'package:scrabble_P2P/services/game_storage.dart';
+import 'package:scrabble_P2P/services/utility.dart';
+import 'package:scrabble_P2P/services/game_update.dart';
 import 'package:scrabble_P2P/models/placed_letter.dart';
 import 'package:scrabble_P2P/screens/home_screen.dart';
-import '../score.dart';
-import '../constants.dart';
+import 'package:scrabble_P2P/score.dart';
+import 'package:scrabble_P2P/constants.dart';
 
 typedef MovePlayedCallback = void Function(GameMove move);
 
@@ -41,9 +43,7 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> {
-  static String _defaultTitle =
-      "$appName -v$version' ${settings.localUserName}";
-  String _appBarTitle = _defaultTitle;
+  String _appBarTitle = defaultTitle;
   late ScrabbleNet _net;
   late List<String> _playerLetters;
   late List<List<String>> _board;
@@ -51,9 +51,10 @@ class _GameScreenState extends State<GameScreen> {
   final List<PlacedLetter> _lettersPlacedThisTurn = [];
   final TransformationController _boardController = TransformationController();
   bool _firstLetter = true;
+  late final GameUpdateHandler _updateHandler;
 
   void _applyGameState(GameState newState) {
-    _appBarTitle = _defaultTitle;
+    _appBarTitle = defaultTitle;
 
     widget.gameState.copyFrom(newState);
 
@@ -67,6 +68,9 @@ class _GameScreenState extends State<GameScreen> {
     _lettersPlacedThisTurn
       ..clear()
       ..addAll(widget.gameState.lettersPlacedThisTurn);
+
+    _boardController.value = Matrix4.identity();
+    _firstLetter = true;
   }
 
   @override
@@ -75,21 +79,19 @@ class _GameScreenState extends State<GameScreen> {
 
     _net = widget.net;
 
-    _net.onGameStateReceived = (newState) {
-      gameStorage.save(newState);
-      if (!mounted) return;
-      setState(() {
+    _updateHandler = GameUpdateHandler(
+      net: _net,
+      context: context,
+      applyIncomingState: (newState, {required bool updateUI}) {
         _applyGameState(newState);
-      });
-      // ✅ Revient au zoom 100% (position et échelle par défaut)
-      _boardController.value = Matrix4.identity();
-      _firstLetter = true;
-    };
-
-    // Flush immédiat après avoir attaché le callback
-    Future.microtask(() {
-      _net.flushPending();
-    });
+        if (updateUI) {
+          setState(() {});
+        }
+      },
+      showEndGamePopup: _showEndGamePopup,
+      mounted: mounted,
+    );
+    _updateHandler.attach();
 
     _board =
         widget.gameState.board.map((row) => List<String>.from(row)).toList();
@@ -118,15 +120,23 @@ class _GameScreenState extends State<GameScreen> {
 
     widget.net.onConnectionClosed = () async {
       if (mounted) {
-        if (debug) print("[relayNet] 🛑 Le partenaire a abandonné");
-        await gameStorage.delete(
-          GameStorage.buildKey(
-            widget.gameState.partnerFrom(settings.localUserName),
+        if (debug)
+          print("${logHeader('GameScreen')} Le partenaire a abandonné");
+        final partner = widget.gameState.partnerFrom(settings.localUserName);
+        await gameStorage.delete(partner);
+
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text("$partner a quitté la partie"),
+            action: SnackBarAction(
+              label: 'Fermer',
+              onPressed: () => messenger.hideCurrentSnackBar(),
+            ),
+            duration: const Duration(hours: 1),
           ),
         );
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Votre partenaire a quitté la partie")),
-        );
+
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
     };
@@ -298,11 +308,15 @@ class _GameScreenState extends State<GameScreen> {
 
       gameStorage.save(widget.gameState);
 
-      // if (_playerLetters.isEmpty && widget.gameState.bag.remainingCount == 0) {
-      if (_playerLetters.isEmpty) {
+      // La partie prend fin lorsqu'il n'y a plus de lettres dans le sac et queles 2 joueurs ont joué le même nombre de tours
+      if (widget.gameState.bag.remainingCount == 0 &&
+          (widget.gameState.isLeft &&
+              (settings.localUserName == widget.gameState.rightName))) {
         _showEndGamePopup();
         _net.sendGameOver(widget.gameState);
       }
+
+      setState(() => _appBarTitle = defaultTitle);
     });
   }
 
@@ -363,7 +377,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _startRematch() {
-    _appBarTitle = _defaultTitle;
+    _appBarTitle = defaultTitle;
 
     final bool leftWon =
         widget.gameState.leftScore > widget.gameState.rightScore;
@@ -395,8 +409,9 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   void dispose() {
-    ScrabbleNet().onGameStateReceived = null;
-    _net.disconnect();
+    _updateHandler.detach();
+    _net.onError = null;
+    _net.onConnectionClosed = null;
     super.dispose();
   }
 
@@ -484,16 +499,12 @@ class _GameScreenState extends State<GameScreen> {
 
     // Ajustement de la taille de police en fonction de la largeur de l'écran
     double nameFontSize;
-    double scoreFontSize;
     if (screenWidth < 350) {
       nameFontSize = 12;
-      scoreFontSize = 14;
     } else if (screenWidth < 500) {
       nameFontSize = 14;
-      scoreFontSize = 16;
     } else {
       nameFontSize = 16;
-      scoreFontSize = 18;
     }
 
     // Limite les noms à nameDspl caractères
@@ -513,11 +524,9 @@ class _GameScreenState extends State<GameScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _scoreContainer(
-            shortLeftName,
-            widget.gameState.leftScore,
+            "$shortLeftName: ${widget.gameState.leftScore}",
             widget.gameState.isLeft,
-            nameFontSize: nameFontSize,
-            scoreFontSize: scoreFontSize,
+            fontSize: nameFontSize,
           ),
           const SizedBox(width: 12),
           const CircleAvatar(
@@ -527,44 +536,34 @@ class _GameScreenState extends State<GameScreen> {
           ),
           const SizedBox(width: 12),
           _scoreContainer(
-            shortRightName,
-            widget.gameState.rightScore,
+            "$shortRightName: ${widget.gameState.rightScore}",
             !widget.gameState.isLeft,
-            nameFontSize: nameFontSize,
-            scoreFontSize: scoreFontSize,
+            fontSize: nameFontSize,
           ),
         ],
       ),
     );
   }
 
-  // Exemple de _scoreContainer modifié pour accepter des tailles de police
   Widget _scoreContainer(
-    String name,
-    int score,
-    bool isCurrentTurn, {
-    double nameFontSize = 16,
-    double scoreFontSize = 18,
+    String text,
+    bool isActive, {
+    required double fontSize,
   }) {
-    return Column(
-      children: [
-        Text(
-          name,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: nameFontSize,
-            color: isCurrentTurn ? Colors.white : Colors.black,
-          ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: isActive ? Colors.green[700] : Colors.grey[800],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: fontSize,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
         ),
-        const SizedBox(height: 4),
-        Text(
-          "$score",
-          style: TextStyle(
-            fontSize: scoreFontSize,
-            color: isCurrentTurn ? Colors.white : Colors.black,
-          ),
-        ),
-      ],
+      ),
     );
   }
 
@@ -604,7 +603,6 @@ class _GameScreenState extends State<GameScreen> {
                 try {
                   // ensure quit completes before clearing / navigating
                   await widget.net.quit(userName, partner);
-                  await gameStorage.delete(partner);
                   if (context.mounted) {
                     Navigator.of(context).popUntil((route) => route.isFirst);
                   }
@@ -613,7 +611,7 @@ class _GameScreenState extends State<GameScreen> {
                 }
 
                 // Supprime le GameState local
-                gameStorage.delete(GameStorage.buildKey(partner));
+                gameStorage.delete(partner);
 
                 // Retourne à l'écran d’accueil
                 if (context.mounted) {
@@ -649,7 +647,7 @@ class _GameScreenState extends State<GameScreen> {
 
   void _updateTitleWithProvisionalScore() {
     if (_lettersPlacedThisTurn.isEmpty) {
-      setState(() => _appBarTitle = _defaultTitle);
+      setState(() => _appBarTitle = defaultTitle);
       return;
     }
     final result = getWordsCreatedAndScore(

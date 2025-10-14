@@ -27,8 +27,8 @@ class RelayNet implements ScrabbleNet {
   Timer? _pollingTimer;
   bool _isConnected = false;
   bool _retrying = false;
-  final int _timerFrequency = 2; // fréquence de polling en secondes
-  final int _retryDelay = 2; // délai de retry si "waiting" ou erreur
+  int _timerFrequency = 2; // fréquence de polling en secondes
+  int _retryDelay = 2; // fré&quence de retry connect si "waiting" ou erreur
 
   RelayNet() {
     _relayServerUrl = settings.relayServerUrl;
@@ -115,7 +115,7 @@ class RelayNet implements ScrabbleNet {
             "${logHeader("relayNet")} Pas de réponse du serveur → retry dans $_retryDelay s",
           );
         Future.delayed(Duration(seconds: _retryDelay), () {
-          if (!_isConnected && !_retrying) {
+          if (!_isConnected && _retrying) {
             _retrying = true;
             connect(
               localName: localName,
@@ -127,7 +127,7 @@ class RelayNet implements ScrabbleNet {
       }
     } on SocketException {
       onStatusUpdate?.call(
-        "Attente réponse serveur...Vérifiez que vous n'êtes pas en mode Avion",
+        "Attente réponse serveur $_relayServerUrl...Vérifiez que vous n'êtes pas en mode Avion",
       );
     } catch (e) {
       logger.e("Erreur lors de la connexion : $e\nurl: $_relayServerUrl");
@@ -171,6 +171,12 @@ class RelayNet implements ScrabbleNet {
     startPolling(localName);
   }
 
+  void _pauseConnecting() {
+    if (debug) print("${logHeader("relayNet")} 🛑 Connecting suspendu");
+    _retryDelay = 5;
+    _retrying = false;
+  }
+
   @override
   Future<void> sendGameState(GameState state) async {
     if (_gameIsOver) {
@@ -197,7 +203,8 @@ class RelayNet implements ScrabbleNet {
       if (json['status'] == 'sent') {
         if (debug)
           print(
-            "${logHeader("relayNet")} ✅ GameState envoyé : ${state.toString()}",
+            "${logHeader("relayNet")} ✅ GameState envoyé de $userName à $to (hash=${state.hashCode})",
+            // "${logHeader("relayNet")} ✅ GameState envoyé : ${state.toString()}",
           );
         _resumePolling(userName);
       } else {
@@ -216,7 +223,9 @@ class RelayNet implements ScrabbleNet {
       _onGameStateReceived;
 
   void Function(GameState state)? _onGameStateReceived;
-  GameState? _pendingState; // <--- buffer
+
+  //bufferisation des derniers états reçus si pas de callback défini
+  GameState? _pendingState;
 
   @override
   set onGameStateReceived(void Function(GameState state)? callback) {
@@ -251,6 +260,26 @@ class RelayNet implements ScrabbleNet {
     }
   }
 
+  //Attachement similaire à GameState pour GameOver
+  @override
+  void Function(GameState state)? get onGameOverReceived => _onGameOverReceived;
+  GameState? _pendingGameOver;
+  void Function(GameState state)? _onGameOverReceived;
+  @override
+  set onGameOverReceived(void Function(GameState state)? callback) {
+    _onGameOverReceived = callback;
+    print(
+      "${logHeader("relayNet")} onGameOverReceived setter called (newHash=${callback?.hashCode}) for net=${hashCode}",
+    );
+
+    if (callback != null && _pendingGameOver != null) {
+      if (debug)
+        print(
+          "${logHeader("relayNet")} ⚡ GameOver en attente détecté, exécution différée",
+        );
+    }
+  }
+
   /// Permet de vider manuellement le buffer si un état était en attente
   void flushPending() {
     if (_pendingState != null && _onGameStateReceived != null) {
@@ -260,6 +289,15 @@ class RelayNet implements ScrabbleNet {
         "${logHeader("relayNet")} Flush manuel du GameState en attente (hash=${state.hashCode})",
       );
       _onGameStateReceived?.call(state);
+    }
+
+    if (_pendingGameOver != null && _onGameOverReceived != null) {
+      final state = _pendingGameOver!;
+      _pendingGameOver = null;
+      print(
+        "${logHeader("relayNet")} Flush manuel du GameOver en attente (hash=${state.hashCode})",
+      );
+      _onGameOverReceived?.call(state);
     }
   }
 
@@ -300,17 +338,33 @@ class RelayNet implements ScrabbleNet {
           _isConnected = true;
           if (debug)
             print('${logHeader("relayNet")} Match trouvé pour $localName');
-          _isConnected = true;
-          onMatched?.call(
-            leftName: localName,
-            leftIP: '',
-            leftPort: 0,
-            leftStartTime: json['startTime'] ?? 0,
-            rightName: json['partner'],
-            rightIP: '',
-            rightPort: 0,
-            rightStartTime: json['partnerStartTime'] ?? 0,
-          );
+          final localTime = json['startTime'] ?? 0;
+          final partnerTime = json['partnerStartTime'] ?? 0;
+          if (localTime > partnerTime) {
+            _isConnected = true;
+            onMatched?.call(
+              leftName: localName,
+              leftIP: '',
+              leftPort: 0,
+              leftStartTime: json['startTime'] ?? 0,
+              rightName: json['partner'],
+              rightIP: '',
+              rightPort: 0,
+              rightStartTime: json['partnerStartTime'] ?? 0,
+            );
+          } else {
+            _isConnected = true;
+            onMatched?.call(
+              leftName: json['partner'],
+              leftIP: '',
+              leftPort: 0,
+              leftStartTime: json['partnerStartTime'] ?? 0,
+              rightName: localName,
+              rightIP: '',
+              rightPort: 0,
+              rightStartTime: json['startTime'] ?? 0,
+            );
+          }
           break;
 
         case 'no_message':
@@ -324,12 +378,20 @@ class RelayNet implements ScrabbleNet {
           break;
 
         case 'gameOver':
+          if (debug)
+            print(
+              '${logHeader("relayNet")} onGameOverReceived? = ${onGameOverReceived != null}, net hashCode = ${this.hashCode}, GameOver reçu pour $localName',
+            );
           _playNotificationSound();
           _gameIsOver = true;
+
           final gameState = GameState.fromJson(json['message']);
-          if (debug)
-            print('${logHeader("relayNet")} GameOver reçu pour $localName');
-          onGameOverReceived?.call(gameState);
+
+          if (_onGameOverReceived != null) {
+            _onGameOverReceived!(gameState);
+          } else {
+            _pendingGameOver = gameState; // stocke si callback non attaché
+          }
 
           // ⭐️ fin de partie → plus de polling
           _pausePolling();
@@ -383,12 +445,10 @@ class RelayNet implements ScrabbleNet {
   }
 
   @override
-  void Function(GameState)? onGameOverReceived;
-
-  @override
   Future<void> disconnect() async {
     try {
       _pausePolling();
+      _pauseConnecting();
       onStatusUpdate?.call('Déconnecté');
     } catch (e) {
       logger.e("Erreur lors de la déconnexion : $e");

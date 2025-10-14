@@ -2,7 +2,7 @@
 #
 # v1.0.0
 #
-./version_update.bash
+bin/version_update.bash
 
 if [[ $# -eq 0 || "$1" == "?" || "$1" == "h" ]]; then
     echo "

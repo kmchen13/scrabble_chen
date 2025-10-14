@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:scrabble_P2P/network/scrabble_net.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
-import 'game_screen.dart';
+import 'package:scrabble_P2P/screens/game_screen.dart';
 import 'package:scrabble_P2P/services/game_initializer.dart';
 import 'package:scrabble_P2P/services/utility.dart';
-import '../constants.dart';
+import 'package:scrabble_P2P/services/settings_service.dart';
+import 'package:scrabble_P2P/services/game_storage.dart';
+import 'package:scrabble_P2P/constants.dart';
 
 class StartScreen extends StatefulWidget {
   final ScrabbleNet net;
@@ -15,6 +17,7 @@ class StartScreen extends StatefulWidget {
 }
 
 class _StartScreenState extends State<StartScreen> {
+  String _appBarTitle = defaultTitle;
   String _log = "Recherche d'un joueur...";
   bool _navigated = false;
   late ScrabbleNet _net;
@@ -45,13 +48,25 @@ class _StartScreenState extends State<StartScreen> {
       startTime: _startTimestamp,
     );
 
-    _net.onGameStateReceived = (newState) {
+    _net.onGameStateReceived = (newState) async {
       if (debug)
         print(
           '${logHeader("StartScreen")} onGameStateReceived déclenché net identity: ${identityHashCode(_net)} (runtimeType=${_net.runtimeType})',
         );
 
       if (!mounted || _navigated) return;
+
+      // ✅ Sauvegarde immédiate du GameState reçu
+      try {
+        await gameStorage.save(newState);
+        if (debug) {
+          print('${logHeader("StartScreen")} GameState initial sauvegardé');
+        }
+      } catch (e) {
+        print(
+          '${logHeader("StartScreen")} Erreur lors de la sauvegarde du GameState: $e',
+        );
+      }
 
       setState(() => _navigated = true);
 
@@ -84,41 +99,44 @@ class _StartScreenState extends State<StartScreen> {
     }) {
       // Le premier à envoyer une demande (+ petit startTime) de partenaire est toujours à droite
       // Celui qui rejoint (plus grand StartTime) est toujours à gauche. Il joue le premier coup et envoit le gameState
+      // Celui qui est à droite jouera le dernier coup.
       final bool isLeft = leftStartTime > rightStartTime;
 
-      if (isLeft && settings.localUserName == leftName) {
-        final initialGameState = GameInitializer.createGame(
-          isLeft: isLeft,
-          leftName: leftName,
-          leftIP: leftIP,
-          leftPort: leftPort,
-          rightName: rightName,
-          rightIP: rightIP,
-          rightPort: rightPort,
-        );
-        if (!mounted) return;
-        setState(() => _navigated = true);
+      final initialGameState = GameInitializer.createGame(
+        isLeft: isLeft,
+        leftName: leftName,
+        leftIP: leftIP,
+        leftPort: leftPort,
+        rightName: rightName,
+        rightIP: rightIP,
+        rightPort: rightPort,
+      );
+      if (!mounted || _navigated) return;
 
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder:
-                  (_) => GameScreen(
-                    net: _net,
-                    gameState: initialGameState,
-                    onGameStateUpdated: (initialGameState) {
-                      _net.sendGameState(initialGameState);
-                    },
-                  ),
-            ),
-          );
-        });
-      } else if (mounted) {
-        setState(() {
-          _log = 'Partenaire trouvé. A lui de jouer';
-        });
+      if (debug) {
+        print('[StartScreen] Navigation vers GameScreen lancée pour $leftName');
+        print(
+          '[StartScreen][MATCH] left=$leftName ($leftStartTime), right=$rightName ($rightStartTime), isLeft=$isLeft',
+        );
+        print('[StartScreen][MATCH] localUser=${settings.localUserName}');
       }
+      setState(() => _navigated = true);
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder:
+              (_) => GameScreen(
+                net: _net,
+                gameState: initialGameState,
+                onGameStateUpdated: (initialGameState) {
+                  if (isLeft && settings.localUserName == leftName) {
+                    _net.sendGameState(initialGameState);
+                  }
+                },
+              ),
+        ),
+      );
     };
   }
 
@@ -130,14 +148,14 @@ class _StartScreenState extends State<StartScreen> {
     }
     _net.onStatusUpdate = null;
     _net.onMatched = null;
-    _net.disconnect();
+
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Connexion en cours")),
+      appBar: AppBar(title: Text(_appBarTitle)),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Center(
