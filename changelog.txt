@@ -35,3 +35,4 @@ Refonte mode web en polling
     Correction fermeture game_storage proprement.
     Finalisation procédure quit
 1.8.0 Finalisation gameOver avec nombre égal de tour
+1.8.1 Changement serveur relais par défaut 'https://relay-server-eu.onrender.com'

@@ -66,7 +66,7 @@ class _ParamScreenState extends State<ParamScreen> {
       expectedUserName: '',
       relayAddress:
           _relayAddressController.text.isEmpty
-              ? 'https://relay-server-3lv4.onrender.com'
+              ? 'https://relay-server-eu.onrender.com'
               : _relayAddressController.text,
       relayPort:
           _relayPortController.text.isEmpty
