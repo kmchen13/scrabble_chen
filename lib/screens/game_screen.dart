@@ -276,9 +276,9 @@ class _GameScreenState extends State<GameScreen> {
       gameStorage.save(widget.gameState);
 
       // La partie prend fin lorsqu'il n'y a plus de lettres dans le sac et queles 2 joueurs ont joué le même nombre de tours
-      if (widget.gameState.bag.remainingCount == 0 &&
-          settings.localUserName == widget.gameState.rightName) {
-        // if ((settings.localUserName == widget.gameState.rightName)) {
+      // if (widget.gameState.bag.remainingCount == 0 &&
+      //     settings.localUserName == widget.gameState.rightName) {
+      if ((settings.localUserName == widget.gameState.rightName)) {
         _showEndGamePopup();
         _net.sendGameOver(widget.gameState);
       }
@@ -375,13 +375,13 @@ class _GameScreenState extends State<GameScreen> {
               "${widget.gameState.rightName}: ${widget.gameState.rightScore}",
             ),
             actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  _startRematch();
-                },
-                child: const Text("Revanche"),
-              ),
+              // TextButton(
+              //   onPressed: () {
+              //     Navigator.pop(context);
+              //     _startRematch();
+              //   },
+              //   child: const Text("Revanche"),
+              // ),
               TextButton(
                 onPressed: () async {
                   // 🔹 1. Fermer la connexion réseau

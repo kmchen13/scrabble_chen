@@ -1,17 +1,17 @@
 # scrabble_chen
 
-A new Flutter project.
+Un jeu de Scrabble en ligne gratuit compatible Android et IOS
 
 ## Getting Started
 
-This project is a starting point for a Flutter application.
+Téléchargez la dernière release, suivre les instructions d'installation selon votre appareil. 
+Généralement le fichier .apk aura été installé dans le dossier "Téléchargements". Cliquez dessus pour déclencher l'installation.
+Pour le moment cette application n'a pas été installée sur Google Play et autres Apple et il vous faudra accepter de l'analyser pour l'installer.
 
-A few resources to get you started if this is your first Flutter project:
+Lancez l'application.
+A la première execution vous devrez entrer un identifiant, valider pour pouvoir commencer une première partie.
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+Mode d'emploi à venir
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
-
+## Contact
+Suggestions, questions à tmp6@webologix.com

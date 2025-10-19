@@ -41,3 +41,5 @@ Refonte mode web en polling
     Correction bug perte lettres sur undo quand tour partenaire
     Affichage nombre de tuiles total / restantes et vérification cohérence en fin de partie
     Correction bug perte de lettres sur handleSubmit fusion des lettres
+1.8.4 Ajout d'un readme    
+    Mise en commentaire de la logique de revanche

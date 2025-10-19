@@ -39,7 +39,7 @@ class GameUpdateHandler {
         applyIncomingState(newState, updateUI: mounted);
       };
 
-      //
+      //Handlerfin de partie
       net.onGameOverReceived = (finalState) {
         gameStorage.delete(finalState.partnerFrom(settings.localUserName));
 
