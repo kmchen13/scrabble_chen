@@ -1,0 +1,79 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:scrabble_P2P/models/game_state.dart';
+import 'package:scrabble_P2P/models/bag.dart';
+import 'package:scrabble_P2P/models/board.dart';
+import 'package:scrabble_P2P/services/game_initializer.dart';
+import 'package:scrabble_P2P/score.dart';
+
+void main() {
+  
+  test('Simulation d’une partie complète simple', () {
+    // Étape 1 : Initialisation
+    final bag = BagModel();
+    final board = List.generate(15, (_) => List.generate(15, (_) => ''));
+    final game = GameInitializer.createGame(
+          isLeft: true,
+    leftName: 'test',
+    leftIP: '',
+    leftPort: 0,
+    rightName: 'xiao',
+    rightIP: '',
+    rightPort: 0
+    );
+
+    expect(game.leftScore, 0);
+    expect(game.rightScore, 0);
+
+    // Étape 2 : Distribuer les racks initiaux
+    game.leftLetters = bag.drawLetters(7);
+    game.rightLetters = bag.drawLetters(7);
+
+    // Étape 3 : Boucle de partie (tant qu’il reste des lettres)
+    bool leftTurn = true;
+
+    while (!bag.isEmpty && !game.gameIsOver) {
+      final player = leftTurn ? 'linux' : 'xiao';
+      final rack = leftTurn ? game.leftRack : game.rightRack;
+
+      // Jouer toutes les lettres disponibles (simplifié)
+      if (rack.isEmpty) break;
+
+      final word = rack.join();
+
+      // Simule un mot joué au centre
+      final score = ScoreService.computeWordScore(
+        word,
+        row: 7,
+        col: 7,
+        horizontal: true,
+      );
+
+      if (leftTurn) {
+        game.leftScore += score;
+        game.leftLetters = bag.drawLetters(rack.length);
+      } else {
+        game.rightScore += score;
+        game.rightLetters = bag.drawLetters(rack.length);
+      }
+
+      // Vérifier cohérence
+      expect(game.leftScore >= 0, true);
+      expect(game.rightScore >= 0, true);
+
+      // Vérifier si fin du sac
+      if (bag.remainingCount == 0) {
+        game.gameIsOver = true;
+      }
+
+      leftTurn = !leftTurn;
+    }
+
+    // Étape 4 : Vérifications de fin
+    print('Score final : ${game.leftScore} - ${game.rightScore}');
+    print('Sac vide ? ${bag.isEmpty}');
+    print('Partie terminée ? ${game.gameIsOver}');
+
+    expect(bag.isEmpty, true);
+    expect(game.gameIsOver, true);
+  });
+}

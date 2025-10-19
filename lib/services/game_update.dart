@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:scrabble_P2P/services/game_storage.dart';
+import 'package:scrabble_P2P/services/settings_service.dart';
 import 'package:scrabble_P2P/network/scrabble_net.dart';
 import 'utility.dart';
 import 'game_end.dart';
@@ -33,16 +34,16 @@ class GameUpdateHandler {
           '${logHeader("GameUpdateHandler")} net hashCode = ${net.hashCode} mounted=$mounted',
         );
       }
+      //Handler des mises à jour entrantes
       net.onGameStateReceived = (newState) {
         applyIncomingState(newState, updateUI: mounted);
       };
+
+      //
       net.onGameOverReceived = (finalState) {
-        gameStorage.save(finalState);
+        gameStorage.delete(finalState.partnerFrom(settings.localUserName));
 
         if (mounted) {
-          // Appliquer l’état final reçu
-          applyIncomingState(finalState, updateUI: mounted);
-
           GameEndService.showEndGamePopup(
             context: context,
             finalState: finalState,
@@ -50,9 +51,8 @@ class GameUpdateHandler {
             onRematchStarted: (newGameState) {
               // Utilise à nouveau applyIncomingState pour mettre à jour
               applyIncomingState(newGameState, updateUI: true);
-
-              // Puis déclenche la popup de revanche
-              showEndGamePopup();
+              net.startPolling(newGameState.rightName);
+              net.resetGameOver();
             },
           );
         } else {

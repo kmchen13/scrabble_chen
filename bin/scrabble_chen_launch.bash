@@ -29,7 +29,7 @@ if [[ "$1" == *"-c"* ]]; then
   flutter build apk --debug
 fi
 
-APK_PATH="build/app/outputs/flutter-apk/app-debug.apk"
+APK_PATH="/data/flutter/scrabble_chen/build/app/outputs/flutter-apk/app-debug.apk"
 if [ ! -f "$APK_PATH" ]; then
   echo "❌ APK introuvable à $APK_PATH"
   exit 1

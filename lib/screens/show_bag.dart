@@ -9,7 +9,9 @@ extension BagDialog on BagModel {
       context: context,
       builder:
           (_) => AlertDialog(
-            title: const Text("Lettres restantes dans le sac"),
+            title: Text(
+              "Lettres restantes dans le sac: $remainingCount / $totalTiles",
+            ),
             content: SizedBox(
               width: 200,
               height: 300,

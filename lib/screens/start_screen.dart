@@ -130,7 +130,16 @@ class _StartScreenState extends State<StartScreen> {
                 net: _net,
                 gameState: initialGameState,
                 onGameStateUpdated: (initialGameState) {
-                  if (isLeft && settings.localUserName == leftName) {
+                  bool _isFirstSent =
+                      initialGameState.rightScore +
+                          initialGameState.leftScore ==
+                      0;
+                  if (_isFirstSent) {
+                    if (isLeft && settings.localUserName == leftName) {
+                      _net.sendGameState(initialGameState);
+                    }
+                    _isFirstSent = false;
+                  } else {
                     _net.sendGameState(initialGameState);
                   }
                 },
@@ -159,10 +168,19 @@ class _StartScreenState extends State<StartScreen> {
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Center(
-          child: Text(
-            _log,
-            style: const TextStyle(fontFamily: 'monospace'),
-            textAlign: TextAlign.center,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 🔹 Cercle de chargement animé
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              // 🔹 Texte dynamique de statut
+              Text(
+                _log,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
         ),
       ),

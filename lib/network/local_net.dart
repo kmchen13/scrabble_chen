@@ -30,6 +30,7 @@ class LocalNet implements ScrabbleNet {
   bool _udpStopped = false;
   int _lastGameStateId = 0;
   final Map<int, Timer> _pendingAcks = {};
+  bool _gameIsOver = false;
 
   @override
   void Function({
@@ -411,6 +412,11 @@ class LocalNet implements ScrabbleNet {
 
   @override
   void Function()? onConnectionClosed;
+
+  @override
+  void resetGameOver() {
+    _gameIsOver = false;
+  }
 
   @override
   void flushPending() {}

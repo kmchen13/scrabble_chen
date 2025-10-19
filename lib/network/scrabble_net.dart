@@ -74,5 +74,8 @@ abstract class ScrabbleNet {
   /// Vide le buffer des GameState en attente (RelayNet)
   void flushPending() {}
 
+  /// Réinitialise l'état de fin de partie pour permettre d'envoyer des GameState à nouveau
+  void resetGameOver();
+
   void Function(String message)? onError;
 }

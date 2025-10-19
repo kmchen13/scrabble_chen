@@ -26,13 +26,13 @@ Future<void> showEndGameDialog(
             "${gameState.rightName}: ${gameState.rightScore}",
           ),
           actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                onRematch();
-              },
-              child: const Text("Revanche"),
-            ),
+            // TextButton(
+            //   onPressed: () {
+            //     Navigator.pop(context);
+            //     onRematch();
+            //   },
+            //   child: const Text("Revanche"),
+            // ),
             TextButton(
               onPressed: () {
                 Navigator.of(context).pushAndRemoveUntil(

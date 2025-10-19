@@ -36,3 +36,8 @@ Refonte mode web en polling
     Finalisation procédure quit
 1.8.0 Finalisation gameOver avec nombre égal de tour
 1.8.1 Changement serveur relais par défaut 'https://relay-server-eu.onrender.com'
+1.8.2 Correction isFirstSent
+1.8.3 Correction fin de partie avec suppression game_storage du game_state en cours
+    Correction bug perte lettres sur undo quand tour partenaire
+    Affichage nombre de tuiles total / restantes et vérification cohérence en fin de partie
+    Correction bug perte de lettres sur handleSubmit fusion des lettres

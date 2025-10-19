@@ -3,6 +3,7 @@ import 'package:scrabble_P2P/models/board.dart';
 import 'package:scrabble_P2P/models/game_state.dart';
 import 'package:scrabble_P2P/models/player_rack.dart';
 import 'package:scrabble_P2P/network/scrabble_net.dart';
+import 'package:scrabble_P2P/network/relay_net.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
 import 'package:scrabble_P2P/services/game_initializer.dart';
 import 'package:scrabble_P2P/services/game_storage.dart';
@@ -10,6 +11,7 @@ import 'package:scrabble_P2P/services/utility.dart';
 import 'package:scrabble_P2P/services/game_update.dart';
 import 'package:scrabble_P2P/models/placed_letter.dart';
 import 'package:scrabble_P2P/screens/home_screen.dart';
+import 'package:scrabble_P2P/screens/show_bag.dart';
 import 'package:scrabble_P2P/score.dart';
 import 'package:scrabble_P2P/constants.dart';
 
@@ -186,40 +188,6 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
-  void _showBagContents() {
-    final bag = widget.gameState.bag;
-    final remaining = bag.remainingLetters;
-
-    showDialog(
-      context: context,
-      builder:
-          (_) => AlertDialog(
-            title: const Text("Lettres restantes dans le sac"),
-            content: SizedBox(
-              width: 200,
-              height: 300,
-              child: GridView.count(
-                crossAxisCount: 3,
-                childAspectRatio: 3.5, // Ajuste hauteur/largeur
-                children:
-                    remaining.entries.map((entry) {
-                      return Text(
-                        "${entry.key} : ${entry.value}",
-                        style: const TextStyle(fontSize: 16),
-                      );
-                    }).toList(),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Fermer"),
-              ),
-            ],
-          ),
-    );
-  }
-
   void _zoomOnArea(int row, int col) {
     const double cellSize = 40;
     const int zoomSize = 12;
@@ -256,9 +224,9 @@ class _GameScreenState extends State<GameScreen> {
     setState(() {
       for (final placed in _lettersPlacedThisTurn) {
         clearBoard(placed.row, placed.col);
-        widget.gameState.bag.addLetter(placed.letter); // ✅ Restaure dans le sac
+        _playerLetters.add(placed.letter);
       }
-      _playerLetters = List.from(_initialRack);
+      // _playerLetters = List.from(_initialRack);
       clearLettersPlacedThisTurn();
       _updateTitleWithProvisionalScore();
     });
@@ -284,10 +252,9 @@ class _GameScreenState extends State<GameScreen> {
         widget.gameState.rightScore += totalScore;
       }
 
-      // Placer définitivement les lettres sur le plateau et les retirer du sac
+      // Placer définitivement les lettres sur le plateau
       for (final placed in _lettersPlacedThisTurn) {
         widget.gameState.board[placed.row][placed.col] = placed.letter;
-        widget.gameState.bag.removeLetter(placed.letter);
       }
       // Transmettre les _lettersPlacedThisTurn pour surbrillance
       widget.gameState.lettersPlacedThisTurn = List.from(
@@ -310,8 +277,8 @@ class _GameScreenState extends State<GameScreen> {
 
       // La partie prend fin lorsqu'il n'y a plus de lettres dans le sac et queles 2 joueurs ont joué le même nombre de tours
       if (widget.gameState.bag.remainingCount == 0 &&
-          (widget.gameState.isLeft &&
-              (settings.localUserName == widget.gameState.rightName))) {
+          settings.localUserName == widget.gameState.rightName) {
+        // if ((settings.localUserName == widget.gameState.rightName)) {
         _showEndGamePopup();
         _net.sendGameOver(widget.gameState);
       }
@@ -336,6 +303,19 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _showEndGamePopup() {
+    //bidouille pour éviter d'afficher plusieurs fois la popup
+    final state = widget.gameState;
+    final bool isNewGame =
+        state.leftScore == 0 &&
+        state.rightScore == 0 &&
+        state.lettersPlacedThisTurn.isEmpty;
+
+    if (isNewGame) {
+      print("🔄 Nouveau GameState détecté → réactivation du réseau.");
+      widget.net.resetGameOver();
+      return;
+    }
+
     String winner =
         widget.gameState.leftScore == widget.gameState.rightScore
             ? "Égalité !"
@@ -343,6 +323,46 @@ class _GameScreenState extends State<GameScreen> {
                 ? widget.gameState.leftName
                 : widget.gameState.rightName);
 
+    // 🧮 Vérification cohérence du nombre de jetons
+    int lettersOnBoard = 0;
+    for (int row = 0; row < widget.gameState.board.length; row++) {
+      for (int col = 0; col < widget.gameState.board[row].length; col++) {
+        if (widget.gameState.board[row][col].isNotEmpty) {
+          lettersOnBoard++;
+        }
+      }
+    }
+
+    int lettersInRacks =
+        widget.gameState.leftLetters.length +
+        widget.gameState.rightLetters.length;
+    int lettersInBag = widget.gameState.bag.remainingCount;
+    int totalLetters = lettersOnBoard + lettersInBag + lettersInRacks;
+    int expectedTotal = widget.gameState.bag.totalTiles;
+    int difference = (totalLetters - expectedTotal).abs();
+
+    if (totalLetters != expectedTotal) {
+      // ⚠️ Alerte si incohérence détectée
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            "⚠️ Erreur de cohérence : jetons en début de partie = $expectedTotal, en fin = $totalLetters \n\n Qui a piqué $difference jetons ?!",
+            style: const TextStyle(color: Colors.white),
+          ),
+          backgroundColor: Colors.red,
+          action: SnackBarAction(
+            label: 'OK',
+            textColor: Colors.white,
+            onPressed: () {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            },
+          ),
+          duration: const Duration(
+            days: 1,
+          ), // rendu persistant tant que non fermé
+        ),
+      );
+    }
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -363,7 +383,23 @@ class _GameScreenState extends State<GameScreen> {
                 child: const Text("Revanche"),
               ),
               TextButton(
-                onPressed: () {
+                onPressed: () async {
+                  // 🔹 1. Fermer la connexion réseau
+                  try {
+                    _net.disconnect();
+                    print('[GameScreen] Connexion fermée proprement.');
+                  } catch (e) {
+                    print(
+                      '[GameScreen] Erreur lors de la fermeture du réseau : $e',
+                    );
+                  }
+
+                  // 🔹 2. Supprimer la partie courante (optionnel : reset GameState local)
+                  final partner = widget.gameState.partnerFrom(
+                    settings.localUserName,
+                  );
+                  gameStorage.delete(partner);
+
                   Navigator.of(context).pushAndRemoveUntil(
                     MaterialPageRoute(builder: (context) => const HomeScreen()),
                     (Route<dynamic> route) => false,
@@ -376,6 +412,7 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
+  ///Lancement revanche. Le joueur qui a perdu commence.
   void _startRematch() {
     _appBarTitle = defaultTitle;
 
@@ -385,6 +422,8 @@ class _GameScreenState extends State<GameScreen> {
         leftWon ? widget.gameState.rightName : widget.gameState.leftName;
     final String newRight =
         leftWon ? widget.gameState.leftName : widget.gameState.rightName;
+
+    widget.net.resetGameOver();
 
     final newGameState = GameInitializer.createGame(
       isLeft: true,
@@ -396,6 +435,7 @@ class _GameScreenState extends State<GameScreen> {
       rightPort: 0,
     );
     if (!mounted) return;
+
     setState(() {
       widget.gameState.copyFrom(newGameState);
       _board = newGameState.board.map((r) => List<String>.from(r)).toList();
@@ -404,7 +444,17 @@ class _GameScreenState extends State<GameScreen> {
       clearLettersPlacedThisTurn();
     });
 
-    widget.onGameStateUpdated?.call(widget.gameState);
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) => GameScreen(
+              net: widget.net,
+              gameState: newGameState,
+              onGameStateUpdated: widget.onGameStateUpdated,
+            ),
+      ),
+    );
   }
 
   @override
@@ -622,7 +672,9 @@ class _GameScreenState extends State<GameScreen> {
 
             IconButton(
               icon: const Icon(Icons.inventory_2),
-              onPressed: _showBagContents,
+              onPressed: () {
+                widget.gameState.bag.showContents(context);
+              },
             ),
           ],
         ),

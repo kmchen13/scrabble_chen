@@ -2,6 +2,7 @@ import 'dart:math';
 
 class BagModel {
   List<String> _bag = [];
+  late final int totalTiles; // 🔹 Nombre total de jetons au début du jeu
 
   BagModel() {
     final Map<String, int> letterDistribution = {
@@ -15,6 +16,8 @@ class BagModel {
     letterDistribution.forEach((letter, count) {
       _bag.addAll(List.filled(count, letter));
     });
+    // 🔹 Calcule une seule fois le total initial
+    totalTiles = _bag.length;
   }
 
   /// Constructeur depuis un Map<String, dynamic> ou Map<String, int>

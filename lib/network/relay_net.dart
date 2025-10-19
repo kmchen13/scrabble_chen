@@ -320,6 +320,12 @@ class RelayNet implements ScrabbleNet {
           _pausePolling();
           _handleIncomingGameState(gameState);
 
+          if (_gameIsOver) {
+            _gameIsOver = false;
+            logger.i(
+              "🔁 Nouveau GameState reçu → réinitialisation _gameIsOver=false",
+            );
+          }
           if (debug) {
             print(
               "[relayNet] about to call onGameStateReceived "
@@ -341,7 +347,6 @@ class RelayNet implements ScrabbleNet {
           final localTime = json['startTime'] ?? 0;
           final partnerTime = json['partnerStartTime'] ?? 0;
           if (localTime > partnerTime) {
-            _isConnected = true;
             onMatched?.call(
               leftName: localName,
               leftIP: '',
@@ -353,7 +358,6 @@ class RelayNet implements ScrabbleNet {
               rightStartTime: json['partnerStartTime'] ?? 0,
             );
           } else {
-            _isConnected = true;
             onMatched?.call(
               leftName: json['partner'],
               leftIP: '',
@@ -374,6 +378,7 @@ class RelayNet implements ScrabbleNet {
 
         case 'quit':
           disconnect();
+          _gameIsOver = false;
           onConnectionClosed?.call();
           break;
 
@@ -449,7 +454,9 @@ class RelayNet implements ScrabbleNet {
     try {
       _pausePolling();
       _pauseConnecting();
-      onStatusUpdate?.call('Déconnecté');
+      onStatusUpdate?.call(
+        'Interrogation du serveur relai et demandes de connections suspendues',
+      );
     } catch (e) {
       logger.e("Erreur lors de la déconnexion : $e");
     } finally {
@@ -470,6 +477,7 @@ class RelayNet implements ScrabbleNet {
         final json = jsonDecode(res.body);
         if (json['status'] == 'quit_success') {
           onStatusUpdate?.call('Vous avez quitté la partie avec $partner');
+          _gameIsOver = false;
           if (debug)
             print("[relayNet] 🛑 Quit successful for $me (partner=$partner)");
         } else {
@@ -488,6 +496,11 @@ class RelayNet implements ScrabbleNet {
 
   @override
   void Function(String message)? onStatusUpdate;
+
+  @override
+  void resetGameOver() {
+    _gameIsOver = false;
+  }
 
   @override
   void Function()? onConnectionClosed;
