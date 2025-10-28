@@ -45,3 +45,5 @@ Refonte mode web en polling
     Mise en commentaire de la logique de revanche
 1.8.5 Correction bug disparition lettre en double quand déplacement sur le board 
     Ajout sauvegarde gameState sur gameScreen.dispose()    
+1.8.6 Ajout survol "Abandonner la partie" sur le bouton quit
+    Ajout confirmation sur bouton quit    

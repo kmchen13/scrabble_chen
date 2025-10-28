@@ -633,25 +633,49 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ),
             IconButton(
+              tooltip: 'Abandonner la partie', // ✅ Affiche ce texte au survol
               icon: const Icon(Icons.exit_to_app),
               onPressed: () async {
+                final bool? confirmQuit = await showDialog<bool>(
+                  context: context,
+                  builder: (BuildContext context) {
+                    return AlertDialog(
+                      title: const Text('Confirmer l’abandon'),
+                      content: const Text(
+                        'Souhaitez-vous vraiment abandonner la partie ?',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(false),
+                          child: const Text('Annuler'),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(true),
+                          child: const Text('Abandonner'),
+                        ),
+                      ],
+                    );
+                  },
+                );
+
+                if (confirmQuit != true)
+                  return; // ✅ Si l’utilisateur annule, on quitte sans rien faire
+
                 final userName = settings.localUserName;
                 final partner = widget.gameState.partnerFrom(userName);
+
                 try {
                   // ensure quit completes before clearing / navigating
                   await widget.net.quit(userName, partner);
-                  if (context.mounted) {
-                    Navigator.of(context).popUntil((route) => route.isFirst);
-                  }
                   widget.net.resetGameOver();
                 } catch (e) {
                   print("⛔ Erreur abandon: $e");
                 }
 
                 // Supprime le GameState local
-                gameStorage.delete(partner);
+                await gameStorage.delete(partner);
 
-                // Retourne à l'écran d’accueil
+                // Retourne à l’écran d’accueil
                 if (context.mounted) {
                   Navigator.of(context).popUntil((route) => route.isFirst);
                 }
