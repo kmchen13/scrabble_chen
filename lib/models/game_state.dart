@@ -184,7 +184,7 @@ class GameState {
     leftLetters = List<String>.from(other.leftLetters);
     rightLetters = List<String>.from(other.rightLetters);
     board = other.board.map((row) => List<String>.from(row)).toList();
-    bag.copyFrom(other.bag);
+    bag = BagModel.fromJson(other.bag.toJson());
     lettersPlacedThisTurn = List.from(other.lettersPlacedThisTurn);
   }
 

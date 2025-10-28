@@ -2,7 +2,7 @@ import 'dart:math';
 
 class BagModel {
   List<String> _bag = [];
-  late final int totalTiles; // 🔹 Nombre total de jetons au début du jeu
+  late int totalTiles = 0; // 🔹 Nombre total de jetons au début du jeu
 
   BagModel() {
     final Map<String, int> letterDistribution = {
@@ -32,7 +32,9 @@ class BagModel {
   }
 
   /// Constructeur vide privé
-  BagModel._empty();
+  BagModel._empty() {
+    totalTiles = 102; // ✅ valeur par défaut constante (Scrabble FR)
+  }
 
   /// Sérialisation
   Map<String, int> toMap() {
@@ -88,5 +90,18 @@ class BagModel {
       return true;
     }
     return false;
+  }
+
+  /// 🔹 Sérialisation complète
+  Map<String, dynamic> toJson() {
+    return {'bag': _bag, 'totalTiles': totalTiles};
+  }
+
+  /// 🔹 Désérialisation complète
+  factory BagModel.fromJson(Map<String, dynamic> json) {
+    BagModel model = BagModel._empty();
+    model._bag = List<String>.from(json['bag']);
+    model.totalTiles = json['totalTiles'];
+    return model;
   }
 }

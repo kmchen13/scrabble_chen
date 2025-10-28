@@ -3,12 +3,13 @@ import 'package:scrabble_P2P/models/board.dart';
 import 'package:scrabble_P2P/models/game_state.dart';
 import 'package:scrabble_P2P/models/player_rack.dart';
 import 'package:scrabble_P2P/network/scrabble_net.dart';
-import 'package:scrabble_P2P/network/relay_net.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
 import 'package:scrabble_P2P/services/game_initializer.dart';
 import 'package:scrabble_P2P/services/game_storage.dart';
 import 'package:scrabble_P2P/services/utility.dart';
 import 'package:scrabble_P2P/services/game_update.dart';
+import 'package:scrabble_P2P/services/game_end.dart';
+import 'package:scrabble_P2P/services/verification.dart';
 import 'package:scrabble_P2P/models/placed_letter.dart';
 import 'package:scrabble_P2P/screens/home_screen.dart';
 import 'package:scrabble_P2P/screens/show_bag.dart';
@@ -80,6 +81,11 @@ class _GameScreenState extends State<GameScreen> {
     super.initState();
 
     _net = widget.net;
+    _board =
+        widget.gameState.board.map((row) => List<String>.from(row)).toList();
+
+    _playerLetters = widget.gameState.localRack(settings.localUserName);
+    _initialRack = List.from(_playerLetters);
 
     _updateHandler = GameUpdateHandler(
       net: _net,
@@ -90,16 +96,9 @@ class _GameScreenState extends State<GameScreen> {
           setState(() {});
         }
       },
-      showEndGamePopup: _showEndGamePopup,
       mounted: mounted,
     );
     _updateHandler.attach();
-
-    _board =
-        widget.gameState.board.map((row) => List<String>.from(row)).toList();
-
-    _playerLetters = widget.gameState.localRack(settings.localUserName);
-    _initialRack = List.from(_playerLetters);
 
     _net.onError = (message) {
       if (mounted) {
@@ -153,34 +152,60 @@ class _GameScreenState extends State<GameScreen> {
     int? oldCol,
   ) {
     setState(() {
-      // Évite d’écraser une lettre déjà sur la case (par erreur externe)
+      // 1️⃣ Empêche d’écraser une lettre déjà sur la case
       if (_board[row][col].isNotEmpty) return;
 
       if (_firstLetter) {
-        // Premier coup joué ce tour => on vide les coups précédents
         clearLettersPlacedThisTurn();
         _firstLetter = false;
       }
-      // Nettoie l'ancienne lettre
+
       if (oldRow != null && oldCol != null) {
-        clearBoard(oldRow, oldCol);
-        _lettersPlacedThisTurn.removeWhere(
+        // 2️⃣ La lettre vient du board → on déplace, pas on recrée
+        final index = _lettersPlacedThisTurn.indexWhere(
           (e) => e.row == oldRow && e.col == oldCol && e.letter == letter,
         );
+
+        if (index != -1) {
+          // On met à jour la position de la même lettre
+          _lettersPlacedThisTurn[index] = PlacedLetter(
+            row: row,
+            col: col,
+            letter: letter,
+            placedThisTurn: true,
+          );
+        } else {
+          // Sécurité : si pas trouvée, on l’ajoute
+          _lettersPlacedThisTurn.add(
+            PlacedLetter(
+              row: row,
+              col: col,
+              letter: letter,
+              placedThisTurn: true,
+            ),
+          );
+        }
+
+        // Nettoie l’ancienne case visuelle
+        clearBoard(oldRow, oldCol);
+      } else {
+        // 3️⃣ La lettre vient du rack → on la retire du rack et on l’ajoute au board
+        _playerLetters.remove(letter);
+        _lettersPlacedThisTurn.add(
+          PlacedLetter(
+            row: row,
+            col: col,
+            letter: letter,
+            placedThisTurn: true,
+          ),
+        );
       }
-      // Place la lettre à la nouvelle position
+
+      // 4️⃣ Mise à jour du plateau visuel et logique
       widget.gameState.board[row][col] = _board[row][col] = letter;
-
-      // Retire du rack uniquement si elle y est encore
-      _playerLetters.remove(letter); // safe : remove ne crash pas si absente
-
-      _lettersPlacedThisTurn.add(
-        PlacedLetter(row: row, col: col, letter: letter, placedThisTurn: true),
-      );
 
       _updateTitleWithProvisionalScore();
     });
-
     widget.onMovePlayed?.call(GameMove(letter: letter, row: row, col: col));
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -276,10 +301,9 @@ class _GameScreenState extends State<GameScreen> {
       gameStorage.save(widget.gameState);
 
       // La partie prend fin lorsqu'il n'y a plus de lettres dans le sac et queles 2 joueurs ont joué le même nombre de tours
-      // if (widget.gameState.bag.remainingCount == 0 &&
-      //     settings.localUserName == widget.gameState.rightName) {
-      if ((settings.localUserName == widget.gameState.rightName)) {
-        _showEndGamePopup();
+      if (widget.gameState.bag.remainingCount == 0 &&
+          settings.localUserName == widget.gameState.rightName) {
+        // if ((settings.localUserName == widget.gameState.rightName)) {
         _net.sendGameOver(widget.gameState);
       }
 
@@ -302,166 +326,129 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
-  void _showEndGamePopup() {
-    //bidouille pour éviter d'afficher plusieurs fois la popup
-    final state = widget.gameState;
-    final bool isNewGame =
-        state.leftScore == 0 &&
-        state.rightScore == 0 &&
-        state.lettersPlacedThisTurn.isEmpty;
+  // void _showEndGamePopup() {
+  //   //bidouille pour éviter d'afficher plusieurs fois la popup
+  //   final state = widget.gameState;
+  //   final bool isNewGame =
+  //       state.leftScore == 0 &&
+  //       state.rightScore == 0 &&
+  //       state.lettersPlacedThisTurn.isEmpty;
 
-    if (isNewGame) {
-      print("🔄 Nouveau GameState détecté → réactivation du réseau.");
-      widget.net.resetGameOver();
-      return;
-    }
+  //   if (isNewGame) {
+  //     print("🔄 Nouveau GameState détecté → réactivation du réseau.");
+  //     widget.net.resetGameOver();
+  //     return;
+  //   }
 
-    String winner =
-        widget.gameState.leftScore == widget.gameState.rightScore
-            ? "Égalité !"
-            : (widget.gameState.leftScore > widget.gameState.rightScore
-                ? widget.gameState.leftName
-                : widget.gameState.rightName);
+  //   String winner =
+  //       widget.gameState.leftScore == widget.gameState.rightScore
+  //           ? "Égalité !"
+  //           : (widget.gameState.leftScore > widget.gameState.rightScore
+  //               ? widget.gameState.leftName
+  //               : widget.gameState.rightName);
 
-    // 🧮 Vérification cohérence du nombre de jetons
-    int lettersOnBoard = 0;
-    for (int row = 0; row < widget.gameState.board.length; row++) {
-      for (int col = 0; col < widget.gameState.board[row].length; col++) {
-        if (widget.gameState.board[row][col].isNotEmpty) {
-          lettersOnBoard++;
-        }
-      }
-    }
+  //   verification(widget, context);
 
-    int lettersInRacks =
-        widget.gameState.leftLetters.length +
-        widget.gameState.rightLetters.length;
-    int lettersInBag = widget.gameState.bag.remainingCount;
-    int totalLetters = lettersOnBoard + lettersInBag + lettersInRacks;
-    int expectedTotal = widget.gameState.bag.totalTiles;
-    int difference = (totalLetters - expectedTotal).abs();
+  //   showDialog(
+  //     context: context,
+  //     barrierDismissible: false,
+  //     builder:
+  //         (_) => AlertDialog(
+  //           title: const Text("Fin de la partie"),
+  //           content: Text(
+  //             "Le gagnant est : $winner\n\nScore final :\n"
+  //             "${widget.gameState.leftName}: ${widget.gameState.leftScore}\n"
+  //             "${widget.gameState.rightName}: ${widget.gameState.rightScore}",
+  //           ),
+  //           actions: [
+  //             // TextButton(
+  //             //   onPressed: () {
+  //             //     Navigator.pop(context);
+  //             //     _startRematch();
+  //             //   },
+  //             //   child: const Text("Revanche"),
+  //             // ),
+  //             TextButton(
+  //               onPressed: () async {
+  //                 // 🔹 1. Fermer la connexion réseau
+  //                 try {
+  //                   _net.disconnect();
+  //                   print('[GameScreen] Connexion fermée proprement.');
+  //                 } catch (e) {
+  //                   print(
+  //                     '[GameScreen] Erreur lors de la fermeture du réseau : $e',
+  //                   );
+  //                 }
 
-    if (totalLetters != expectedTotal) {
-      // ⚠️ Alerte si incohérence détectée
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            "⚠️ Erreur de cohérence : jetons en début de partie = $expectedTotal, en fin = $totalLetters \n\n Qui a piqué $difference jetons ?!",
-            style: const TextStyle(color: Colors.white),
-          ),
-          backgroundColor: Colors.red,
-          action: SnackBarAction(
-            label: 'OK',
-            textColor: Colors.white,
-            onPressed: () {
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-            },
-          ),
-          duration: const Duration(
-            days: 1,
-          ), // rendu persistant tant que non fermé
-        ),
-      );
-    }
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder:
-          (_) => AlertDialog(
-            title: const Text("Fin de la partie"),
-            content: Text(
-              "Le gagnant est : $winner\n\nScore final :\n"
-              "${widget.gameState.leftName}: ${widget.gameState.leftScore}\n"
-              "${widget.gameState.rightName}: ${widget.gameState.rightScore}",
-            ),
-            actions: [
-              // TextButton(
-              //   onPressed: () {
-              //     Navigator.pop(context);
-              //     _startRematch();
-              //   },
-              //   child: const Text("Revanche"),
-              // ),
-              TextButton(
-                onPressed: () async {
-                  // 🔹 1. Fermer la connexion réseau
-                  try {
-                    _net.disconnect();
-                    print('[GameScreen] Connexion fermée proprement.');
-                  } catch (e) {
-                    print(
-                      '[GameScreen] Erreur lors de la fermeture du réseau : $e',
-                    );
-                  }
+  //                 // 🔹 2. Supprimer la partie courante (optionnel : reset GameState local)
+  //                 final partner = widget.gameState.partnerFrom(
+  //                   settings.localUserName,
+  //                 );
+  //                 gameStorage.delete(partner);
 
-                  // 🔹 2. Supprimer la partie courante (optionnel : reset GameState local)
-                  final partner = widget.gameState.partnerFrom(
-                    settings.localUserName,
-                  );
-                  gameStorage.delete(partner);
+  //                 Navigator.of(context).pushAndRemoveUntil(
+  //                   MaterialPageRoute(builder: (context) => const HomeScreen()),
+  //                   (Route<dynamic> route) => false,
+  //                 );
+  //               },
+  //               child: const Text("Retour à l'accueil"),
+  //             ),
+  //           ],
+  //         ),
+  //   );
+  // }
 
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (context) => const HomeScreen()),
-                    (Route<dynamic> route) => false,
-                  );
-                },
-                child: const Text("Retour à l'accueil"),
-              ),
-            ],
-          ),
-    );
-  }
+  // ///Lancement revanche. Le joueur qui a perdu commence.
+  // void _startRematch() {
+  //   _appBarTitle = defaultTitle;
 
-  ///Lancement revanche. Le joueur qui a perdu commence.
-  void _startRematch() {
-    _appBarTitle = defaultTitle;
+  //   final bool leftWon =
+  //       widget.gameState.leftScore > widget.gameState.rightScore;
+  //   final String newLeft =
+  //       leftWon ? widget.gameState.rightName : widget.gameState.leftName;
+  //   final String newRight =
+  //       leftWon ? widget.gameState.leftName : widget.gameState.rightName;
 
-    final bool leftWon =
-        widget.gameState.leftScore > widget.gameState.rightScore;
-    final String newLeft =
-        leftWon ? widget.gameState.rightName : widget.gameState.leftName;
-    final String newRight =
-        leftWon ? widget.gameState.leftName : widget.gameState.rightName;
+  //   widget.net.resetGameOver();
 
-    widget.net.resetGameOver();
+  //   final newGameState = GameInitializer.createGame(
+  //     isLeft: true,
+  //     leftName: newLeft,
+  //     leftIP: '',
+  //     leftPort: 0,
+  //     rightName: newRight,
+  //     rightIP: '',
+  //     rightPort: 0,
+  //   );
+  //   if (!mounted) return;
 
-    final newGameState = GameInitializer.createGame(
-      isLeft: true,
-      leftName: newLeft,
-      leftIP: '',
-      leftPort: 0,
-      rightName: newRight,
-      rightIP: '',
-      rightPort: 0,
-    );
-    if (!mounted) return;
+  //   setState(() {
+  //     widget.gameState.copyFrom(newGameState);
+  //     _board = newGameState.board.map((r) => List<String>.from(r)).toList();
+  //     _playerLetters = widget.gameState.localRack(settings.localUserName);
+  //     _initialRack = List.from(_playerLetters);
+  //     clearLettersPlacedThisTurn();
+  //   });
 
-    setState(() {
-      widget.gameState.copyFrom(newGameState);
-      _board = newGameState.board.map((r) => List<String>.from(r)).toList();
-      _playerLetters = widget.gameState.localRack(settings.localUserName);
-      _initialRack = List.from(_playerLetters);
-      clearLettersPlacedThisTurn();
-    });
-
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(
-        builder:
-            (_) => GameScreen(
-              net: widget.net,
-              gameState: newGameState,
-              onGameStateUpdated: widget.onGameStateUpdated,
-            ),
-      ),
-    );
-  }
+  //   Navigator.pushReplacement(
+  //     context,
+  //     MaterialPageRoute(
+  //       builder:
+  //           (_) => GameScreen(
+  //             net: widget.net,
+  //             gameState: newGameState,
+  //             onGameStateUpdated: widget.onGameStateUpdated,
+  //           ),
+  //     ),
+  //   );
+  // }
 
   @override
   void dispose() {
     _updateHandler.detach();
     _net.onError = null;
     _net.onConnectionClosed = null;
+    gameStorage.save(widget.gameState);
     super.dispose();
   }
 
@@ -656,6 +643,7 @@ class _GameScreenState extends State<GameScreen> {
                   if (context.mounted) {
                     Navigator.of(context).popUntil((route) => route.isFirst);
                   }
+                  widget.net.resetGameOver();
                 } catch (e) {
                   print("⛔ Erreur abandon: $e");
                 }

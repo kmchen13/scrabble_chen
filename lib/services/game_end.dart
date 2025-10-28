@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:scrabble_P2P/endgame_dialog.dart';
 import 'package:scrabble_P2P/models/game_state\.dart';
 import 'package:scrabble_P2P/services/game_initializer.dart';
-import '../endgame_dialog.dart';
 import 'package:scrabble_P2P/network/scrabble_net.dart';
 
 /// Service gérant la fin de partie et le lancement d’une revanche.

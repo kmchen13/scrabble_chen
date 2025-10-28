@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:scrabble_P2P/models/game_state.dart';
+import 'package:scrabble_P2P/services/verification.dart';
 import 'screens/home_screen.dart';
 
 Future<void> showEndGameDialog(
@@ -7,6 +8,8 @@ Future<void> showEndGameDialog(
   GameState gameState,
   VoidCallback onRematch,
 ) async {
+  verification(gameState, context);
+
   String winner =
       gameState.leftScore == gameState.rightScore
           ? "Égalité !"
@@ -26,13 +29,13 @@ Future<void> showEndGameDialog(
             "${gameState.rightName}: ${gameState.rightScore}",
           ),
           actions: [
-            // TextButton(
-            //   onPressed: () {
-            //     Navigator.pop(context);
-            //     onRematch();
-            //   },
-            //   child: const Text("Revanche"),
-            // ),
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                onRematch();
+              },
+              child: const Text("Revanche"),
+            ),
             TextButton(
               onPressed: () {
                 Navigator.of(context).pushAndRemoveUntil(

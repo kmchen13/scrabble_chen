@@ -43,3 +43,5 @@ Refonte mode web en polling
     Correction bug perte de lettres sur handleSubmit fusion des lettres
 1.8.4 Ajout d'un readme    
     Mise en commentaire de la logique de revanche
+1.8.5 Correction bug disparition lettre en double quand déplacement sur le board 
+    Ajout sauvegarde gameState sur gameScreen.dispose()    
