@@ -38,7 +38,7 @@ class GameEndService {
       onRematchStarted(newGameState);
 
       // 📤 Envoi au partenaire
-      net.sendGameState(newGameState);
+      // net.sendGameState(newGameState);
     });
   }
 }

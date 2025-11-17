@@ -260,11 +260,12 @@ class RelayNet implements ScrabbleNet {
     }
   }
 
-  //Attachement similaire à GameState pour GameOver
+  ///Attachement du callback pour GameOver
   @override
   void Function(GameState state)? get onGameOverReceived => _onGameOverReceived;
   GameState? _pendingGameOver;
   void Function(GameState state)? _onGameOverReceived;
+
   @override
   set onGameOverReceived(void Function(GameState state)? callback) {
     _onGameOverReceived = callback;
@@ -310,6 +311,7 @@ class RelayNet implements ScrabbleNet {
     try {
       switch (json['type']) {
         case 'gameState':
+          //@todo si le gamestate d'un autre partie, la stocker.
           _playNotificationSound();
           if (debug)
             print(
@@ -402,6 +404,11 @@ class RelayNet implements ScrabbleNet {
           _pausePolling();
           break;
 
+        case 'error':
+          if (debug)
+            print('${logHeader("relayNet")} /poll error: ${json['message']}');
+          break;
+
         default:
           if (debug)
             print(
@@ -452,11 +459,9 @@ class RelayNet implements ScrabbleNet {
   @override
   Future<void> disconnect() async {
     try {
-      _pausePolling();
       _pauseConnecting();
-      onStatusUpdate?.call(
-        'Interrogation du serveur relai et demandes de connections suspendues',
-      );
+
+      print("${logHeader("relayNet")} ✅ recherche de joueurs suspendue");
     } catch (e) {
       logger.e("Erreur lors de la déconnexion : $e");
     } finally {
@@ -484,9 +489,11 @@ class RelayNet implements ScrabbleNet {
           if (debug)
             print("[relayNet] ⛔ Quit failed for $me (partner=$partner): $json");
         }
+      } else {
+        print("[relayNet] ⛔ Erreur abandon status code: ${res.statusCode}");
       }
     } catch (e) {
-      if (debug) print("[relayNet] ⛔ Erreur abandon: $e");
+      if (debug) print("[relayNet] ⛔ Erreur abandon inattendue: $e");
     }
 
     disconnect(); //en mode web désamorce seulement le polling
