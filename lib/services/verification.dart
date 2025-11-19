@@ -36,7 +36,7 @@ void verification(gameState, context) {
           },
         ),
         duration: const Duration(
-          days: 1,
+          minutes: 1,
         ), // rendu persistant tant que non fermé
       ),
     );

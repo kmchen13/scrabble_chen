@@ -108,6 +108,10 @@ class RelayNet implements ScrabbleNet {
           print(
             "${logHeader("relayNet")} En attente de partenaire… démarrage du polling",
           );
+        // 🔥 Ajout demandé : informer StartScreen
+        onStatusUpdate?.call(
+          "Connecté au serveur WEB relais $_relayServerUrl, en attente d'un partenaire...",
+        );
         startPolling(localName);
       } else {
         if (debug)
@@ -158,8 +162,9 @@ class RelayNet implements ScrabbleNet {
     );
   }
 
+  @override
   // ⭐️ suspend explicitement
-  void _pausePolling() {
+  void stopPolling() {
     if (debug) print("${logHeader("relayNet")} ⏸️ Polling suspendu");
     _pollingTimer?.cancel();
     _pollingTimer = null;
@@ -319,7 +324,7 @@ class RelayNet implements ScrabbleNet {
             );
           final dynamic msg = json['message'];
           final gameState = GameState.fromJson(msg);
-          _pausePolling();
+          stopPolling();
           _handleIncomingGameState(gameState);
 
           if (_gameIsOver) {
@@ -401,7 +406,7 @@ class RelayNet implements ScrabbleNet {
           }
 
           // ⭐️ fin de partie → plus de polling
-          _pausePolling();
+          stopPolling();
           break;
 
         case 'error':
@@ -450,7 +455,7 @@ class RelayNet implements ScrabbleNet {
       _gameIsOver = true;
 
       // ⭐️ après avoir déclaré la fin, on ne redémarre PAS le polling
-      _pausePolling();
+      stopPolling();
     } catch (e) {
       logger.e("Erreur envoi GameOver : $e");
     }

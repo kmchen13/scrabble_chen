@@ -89,9 +89,17 @@ class GameUpdateHandler {
 
       // Joueur de droite attend → start polling
       if (localName != newGameState.leftName) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Au partenaire de jouer')));
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text("Au partenaire de jouer"),
+            action: SnackBarAction(
+              label: 'Fermer',
+              onPressed: () => messenger.hideCurrentSnackBar(),
+            ),
+            duration: const Duration(minutes: 1),
+          ),
+        );
         net.startPolling(newGameState.rightName);
       }
     }

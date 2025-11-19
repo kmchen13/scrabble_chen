@@ -59,6 +59,7 @@ abstract class ScrabbleNet {
   // Spécifique au mode web (RelayNet)
   // @todo ne devrait pas être ici.
   void startPolling(String localName) {}
+  void stopPolling() {}
 
   /// Quitte la partie en cours
   Future<void> quit(userName, partner);

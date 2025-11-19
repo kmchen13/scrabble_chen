@@ -408,6 +408,11 @@ class LocalNet implements ScrabbleNet {
   }
 
   @override
+  void stopPolling() {
+    // Rien à faire ici pour LocalNet
+  }
+
+  @override
   void Function(String message)? onStatusUpdate;
 
   @override

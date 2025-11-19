@@ -134,7 +134,7 @@ class _GameScreenState extends State<GameScreen> {
               label: 'Fermer',
               onPressed: () => messenger.hideCurrentSnackBar(),
             ),
-            duration: const Duration(hours: 1),
+            duration: const Duration(minutes: 1),
           ),
         );
 
@@ -301,7 +301,7 @@ class _GameScreenState extends State<GameScreen> {
       gameStorage.save(widget.gameState);
 
       // La partie prend fin lorsqu'il n'y a plus de lettres dans le sac et queles 2 joueurs ont joué le même nombre de tours
-      if (widget.gameState.bag.remainingCount <= 96 &&
+      if (widget.gameState.bag.remainingCount <= 0 &&
           settings.localUserName == widget.gameState.rightName) {
         // if ((settings.localUserName == widget.gameState.rightName)) {
         _net.sendGameOver(widget.gameState); //Envoi au partenaire

@@ -19,13 +19,16 @@ class _StartScreenState extends State<StartScreen> {
   late ScrabbleNet _net;
   bool _navigated = false;
   GameState? _bufferedGameState;
+  String statusMessage = "Connexion en cours…";
 
   @override
   void initState() {
     super.initState();
     _net = widget.net;
 
-    _net.onStatusUpdate = (_) {}; // Peut afficher un log si besoin
+    _net.onStatusUpdate = (msg) {
+      setState(() => statusMessage = msg);
+    };
 
     _net.onGameStateReceived = (GameState newState) {
       // Bufferiser si navigation déjà déclenchée
@@ -113,8 +116,33 @@ class _StartScreenState extends State<StartScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(defaultTitle)),
-      body: const Center(child: CircularProgressIndicator()),
+      backgroundColor: Colors.white,
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 20),
+
+            Text(
+              statusMessage,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 18),
+            ),
+
+            const SizedBox(height: 30),
+
+            // 🔥 Bouton Annuler visible en état "waiting"
+            ElevatedButton(
+              onPressed: () {
+                widget.net.stopPolling(); // ⬅️ ARRÊTE LE POLLING
+                Navigator.pop(context); // ⬅️ Retour HomeScreen
+              },
+              child: const Text("Retour Accueil"),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
