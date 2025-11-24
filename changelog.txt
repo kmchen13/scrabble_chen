@@ -57,5 +57,6 @@ Refonte mode web en polling
     Process revanche acceptée des 2 côtés OK. Si refusée par gagnant, son entrée reste dans players
 1.8.9
     Débridage fin de partie
-
+1.8.12 
+    Acknowledgement des poll
     

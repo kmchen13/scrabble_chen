@@ -92,7 +92,7 @@ class GameUpdateHandler {
         final messenger = ScaffoldMessenger.of(context);
         messenger.showSnackBar(
           SnackBar(
-            content: Text("Au partenaire de jouer"),
+            content: Text("Au perdant de jouer"),
             action: SnackBarAction(
               label: 'Fermer',
               onPressed: () => messenger.hideCurrentSnackBar(),

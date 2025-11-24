@@ -72,15 +72,19 @@ class RelayNet implements ScrabbleNet {
         }),
         headers: {'Content-Type': 'application/json'},
       );
+      final json = jsonDecode(res.body);
 
       if (res.statusCode == 200) {
         onStatusUpdate?.call(
           "Connecté au serveur WEB relais $_relayServerUrl, en attente d'un joueur",
         );
+      } else if (res.statusCode == 503) {
+        onStatusUpdate?.call(
+          "Serveur $_relayServerUrl temporairement indisponible.\n Veuillez réessayer plus tard.",
+        );
       } else {
-        onStatusUpdate?.call("Erreur serveur (${res.statusCode})");
+        onStatusUpdate?.call("Erreur serveur inattendue (${res.statusCode})");
       }
-      final json = jsonDecode(res.body);
       if (debug) {
         print(
           "${logHeader("relayNet")} Demande de connexion $localName → $expectedName : $startTime",
@@ -313,6 +317,7 @@ class RelayNet implements ScrabbleNet {
       Uri.parse("$_relayServerUrl/poll?userName=$localName"),
     );
     final json = jsonDecode(res.body);
+    final String partner = json['partner'] ?? '';
     try {
       switch (json['type']) {
         case 'gameState':
@@ -421,6 +426,11 @@ class RelayNet implements ScrabbleNet {
             );
           break;
       }
+      //send acknowledgement
+      await http.post(
+        Uri.parse('$_relayServerUrl/acknowledgement'),
+        body: {'userName': localName, 'partner': partner},
+      );
     } catch (e, st) {
       if (debug) {
         logger.e("Erreur pollMessages : $e\n$st");
@@ -474,6 +484,7 @@ class RelayNet implements ScrabbleNet {
     }
   }
 
+  ///Quitte une partie
   @override
   Future<void> quit(me, partner) async {
     try {
@@ -501,7 +512,7 @@ class RelayNet implements ScrabbleNet {
       if (debug) print("[relayNet] ⛔ Erreur abandon inattendue: $e");
     }
 
-    disconnect(); //en mode web désamorce seulement le polling
+    disconnect();
   }
 
   void Function(String error)? onError;
