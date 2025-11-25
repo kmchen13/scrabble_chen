@@ -15,15 +15,6 @@ class RelayNet implements ScrabbleNet {
   late final String _relayServerUrl;
   bool _gameIsOver = false;
   final _player = AudioPlayer();
-
-  Future<void> _playNotificationSound() async {
-    try {
-      await _player.play(AssetSource('sounds/notify.wav'));
-    } catch (e) {
-      print('${logHeader("relayNet")} Erreur lecture son : $e');
-    }
-  }
-
   Timer? _pollingTimer;
   bool _isConnected = false;
   bool _retrying = false;
@@ -33,6 +24,14 @@ class RelayNet implements ScrabbleNet {
   RelayNet() {
     _relayServerUrl = settings.relayServerUrl;
     print('[relayNet] constructor called id=${identityHashCode(this)}');
+  }
+
+  Future<void> _playNotificationSound() async {
+    try {
+      await _player.play(AssetSource('sounds/notify.wav'));
+    } catch (e) {
+      print('${logHeader("relayNet")} Erreur lecture son : $e');
+    }
   }
 
   @override
@@ -317,7 +316,8 @@ class RelayNet implements ScrabbleNet {
       Uri.parse("$_relayServerUrl/poll?userName=$localName"),
     );
     final json = jsonDecode(res.body);
-    final String partner = json['partner'] ?? '';
+    String partner = json['from'] ?? json['partner'] ?? '';
+
     try {
       switch (json['type']) {
         case 'gameState':
@@ -381,12 +381,13 @@ class RelayNet implements ScrabbleNet {
               rightStartTime: json['startTime'] ?? 0,
             );
           }
+          partner = ''; //Lors du match partner n'est pas défini dans players
           break;
 
         case 'no_message':
           // if (debug)
           //   print('${logHeader("relayNet")} ${logHeader("relayNet")} "${logHeader("relayNet")} Aucun message pour $localName");
-          break;
+          return;
 
         case 'quit':
           disconnect();
@@ -417,20 +418,29 @@ class RelayNet implements ScrabbleNet {
         case 'error':
           if (debug)
             print('${logHeader("relayNet")} /poll error: ${json['message']}');
-          break;
+          return;
 
         default:
           if (debug)
             print(
               "${logHeader("relayNet")} Type de message inconnu: ${json['type']}",
             );
-          break;
+          return;
       }
+
       //send acknowledgement
-      await http.post(
-        Uri.parse('$_relayServerUrl/acknowledgement'),
-        body: {'userName': localName, 'partner': partner},
+      final res = await http.get(
+        Uri.parse(
+          '$_relayServerUrl/acknowledgement?userName=$localName&partner=$partner&type=${json['type']}',
+        ),
       );
+
+      final jsonResponse = jsonDecode(res.body);
+      if (debug)
+        print('${logHeader("relayNet")} ack $localName-$partner envoyé');
+      if (jsonResponse['status'] != 'ok') {
+        print('${logHeader("relayNet")} erreur serveur traitement ack');
+      }
     } catch (e, st) {
       if (debug) {
         logger.e("Erreur pollMessages : $e\n$st");

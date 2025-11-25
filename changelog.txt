@@ -59,4 +59,7 @@ Refonte mode web en polling
     Débridage fin de partie
 1.8.12 
     Acknowledgement des poll
-    
+1.8.13
+    Bouton rafraichir la page dans showPlayers    
+1.8.14
+    Correction Acknowledgement dans relay_net
