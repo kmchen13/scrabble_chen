@@ -9,6 +9,7 @@ import 'package:scrabble_P2P/services/utility.dart';
 import 'package:scrabble_P2P/services/game_update.dart';
 import 'package:scrabble_P2P/models/placed_letter.dart';
 import 'package:scrabble_P2P/screens/show_bag.dart';
+import 'package:scrabble_P2P/screens/home_screen.dart';
 import 'package:scrabble_P2P/score.dart';
 import 'package:scrabble_P2P/constants.dart';
 
@@ -76,6 +77,15 @@ class _GameScreenState extends State<GameScreen> {
     _firstLetter = true;
   }
 
+  ///compare deux GameState pour vérifier s'ils représentent la même partie
+  bool compareGameState(GameState a, GameState b) {
+    // Même couple de joueurs ? (dans n’importe quel sens)
+    final setA = {a.leftName, a.rightName};
+    final setB = {b.leftName, b.rightName};
+
+    return setA.length == 2 && setA.containsAll(setB);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -90,14 +100,38 @@ class _GameScreenState extends State<GameScreen> {
     _updateHandler = GameUpdateHandler(
       net: _net,
       context: context,
-      applyIncomingState: (newState, {required bool updateUI}) {
-        _applyGameState(newState);
-        if (updateUI) {
-          setState(() {});
+      applyIncomingState: (newState, {required bool updateUI}) async {
+        final current = widget.gameState;
+
+        // Vérifie si le GameScreen est visible et actif
+        final currentScreenActive =
+            mounted && ModalRoute.of(context)?.isCurrent == true;
+
+        // Compare le couple de joueurs
+        final sameGame = compareGameState(newState, current);
+
+        // 1️⃣ Si ce n'est pas la bonne partie ou si l'écran n'est pas actif → sauvegarder seulement
+        if (!currentScreenActive || !sameGame) {
+          await gameStorage.save(newState);
+          if (debug) {
+            print(
+              "💾 GameState reçu mais écran inactif ou autre partie → sauvegardé",
+            );
+          }
+
+          // Relance le polling pour continuer à récupérer les états
+          _net.startPolling(settings.localUserName);
+          return;
         }
+
+        // 2️⃣ Même partie et écran actif → appliquer normalement
+        _applyGameState(newState);
+
+        if (updateUI && mounted) setState(() {});
       },
       mounted: mounted,
     );
+
     _updateHandler.attach();
 
     _net.onError = (message) {
@@ -502,6 +536,18 @@ class _GameScreenState extends State<GameScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             IconButton(
+              tooltip: 'Retour à l’accueil',
+              icon: const Icon(Icons.home),
+              onPressed: () {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const HomeScreen()),
+                  (route) => false, // supprime toute la pile
+                );
+              },
+            ),
+
+            IconButton(
               icon: const Icon(Icons.undo),
               tooltip: "Annuler",
               onPressed: _handleUndo,
@@ -525,6 +571,13 @@ class _GameScreenState extends State<GameScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+            ),
+            IconButton(
+              tooltip: "Afficher le sac de lettres",
+              icon: const Icon(Icons.inventory_2),
+              onPressed: () {
+                widget.gameState.bag.showContents(context);
+              },
             ),
             IconButton(
               tooltip: 'Abandonner la partie', // ✅ Affiche ce texte au survol
@@ -573,14 +626,6 @@ class _GameScreenState extends State<GameScreen> {
                 if (context.mounted) {
                   Navigator.of(context).popUntil((route) => route.isFirst);
                 }
-              },
-            ),
-
-            IconButton(
-              tooltip: "Afficher le sac de lettres",
-              icon: const Icon(Icons.inventory_2),
-              onPressed: () {
-                widget.gameState.bag.showContents(context);
               },
             ),
           ],

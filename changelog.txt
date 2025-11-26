@@ -63,3 +63,7 @@ Refonte mode web en polling
     Bouton rafraichir la page dans showPlayers    
 1.8.14
     Correction Acknowledgement dans relay_net
+1.9.0
+    Ajout bouton "Retour accueil" sur gameScreen
+    Sauvegarde des parties reçues pendant qu'on est sur une partie.
+    
