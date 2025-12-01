@@ -15,6 +15,15 @@ class RelayNet implements ScrabbleNet {
   late final String _relayServerUrl;
   bool _gameIsOver = false;
   final _player = AudioPlayer();
+
+  Future<void> _playNotificationSound() async {
+    try {
+      await _player.play(AssetSource('sounds/notify.wav'));
+    } catch (e) {
+      print('${logHeader("relayNet")} Erreur lecture son : $e');
+    }
+  }
+
   Timer? _pollingTimer;
   bool _isConnected = false;
   bool _retrying = false;
@@ -24,14 +33,6 @@ class RelayNet implements ScrabbleNet {
   RelayNet() {
     _relayServerUrl = settings.relayServerUrl;
     print('[relayNet] constructor called id=${identityHashCode(this)}');
-  }
-
-  Future<void> _playNotificationSound() async {
-    try {
-      await _player.play(AssetSource('sounds/notify.wav'));
-    } catch (e) {
-      print('${logHeader("relayNet")} Erreur lecture son : $e');
-    }
   }
 
   @override
@@ -79,10 +80,10 @@ class RelayNet implements ScrabbleNet {
         );
       } else if (res.statusCode == 503) {
         onStatusUpdate?.call(
-          "Serveur $_relayServerUrl temporairement indisponible.\n Veuillez réessayer plus tard.",
+          "serveur WEB relais $_relayServerUrl, temporairement indisponible, Veuillez réessayer plus tard.",
         );
       } else {
-        onStatusUpdate?.call("Erreur serveur inattendue (${res.statusCode})");
+        onStatusUpdate?.call("Erreur serveur inattendue(${res.statusCode})");
       }
       if (debug) {
         print(
@@ -316,7 +317,7 @@ class RelayNet implements ScrabbleNet {
       Uri.parse("$_relayServerUrl/poll?userName=$localName"),
     );
     final json = jsonDecode(res.body);
-    String partner = json['from'] ?? json['partner'] ?? '';
+    final String partner = json['from'] ?? json['partner'] ?? '';
 
     try {
       switch (json['type']) {
@@ -381,7 +382,6 @@ class RelayNet implements ScrabbleNet {
               rightStartTime: json['startTime'] ?? 0,
             );
           }
-          partner = ''; //Lors du match partner n'est pas défini dans players
           break;
 
         case 'no_message':
@@ -434,10 +434,10 @@ class RelayNet implements ScrabbleNet {
           '$_relayServerUrl/acknowledgement?userName=$localName&partner=$partner&type=${json['type']}',
         ),
       );
-
       final jsonResponse = jsonDecode(res.body);
       if (debug)
         print('${logHeader("relayNet")} ack $localName-$partner envoyé');
+
       if (jsonResponse['status'] != 'ok') {
         print('${logHeader("relayNet")} erreur serveur traitement ack');
       }

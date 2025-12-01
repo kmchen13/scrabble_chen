@@ -110,24 +110,47 @@ class _GameScreenState extends State<GameScreen> {
         // Compare le couple de joueurs
         final sameGame = compareGameState(newState, current);
 
-        // 1️⃣ Si ce n'est pas la bonne partie ou si l'écran n'est pas actif → sauvegarder seulement
-        if (!currentScreenActive || !sameGame) {
-          await gameStorage.save(newState);
-          if (debug) {
-            print(
-              "💾 GameState reçu mais écran inactif ou autre partie → sauvegardé",
-            );
-          }
+        // Récupère le nom du partenaire
+        final partner = newState.partnerFrom(settings.localUserName);
 
-          // Relance le polling pour continuer à récupérer les états
-          _net.startPolling(settings.localUserName);
+        // 1️⃣ Même partie et écran actif → appliquer normalement
+        if (currentScreenActive && sameGame) {
+          _applyGameState(newState);
+          if (updateUI && mounted) setState(() {});
           return;
         }
 
-        // 2️⃣ Même partie et écran actif → appliquer normalement
-        _applyGameState(newState);
+        // 2️⃣ WaitingScreen et premier coup attendu → appliquer aussi
+        final isWaitingScreenActive =
+            mounted && ModalRoute.of(context)?.settings.name == '/waiting';
+        final isFirstTurn = newState.leftScore == 0 && newState.rightScore == 0;
 
-        if (updateUI && mounted) setState(() {});
+        if (isWaitingScreenActive && sameGame && isFirstTurn) {
+          _applyGameState(newState);
+          return;
+        }
+
+        // 3️⃣ Autre cas → sauvegarder dans gameStorage et afficher SnackBar
+        await gameStorage.save(newState);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("$partner a joué un coup"),
+              action: SnackBarAction(label: 'OK', onPressed: () {}),
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+
+        if (debug) {
+          print(
+            "💾 GameState reçu mais écran inactif ou autre partie → sauvegardé game_$partner",
+          );
+        }
+
+        // Relance le polling
+        _net.startPolling(settings.localUserName);
       },
       mounted: mounted,
     );
@@ -326,16 +349,13 @@ class _GameScreenState extends State<GameScreen> {
       // Passer au tour suivant
       widget.gameState.isLeft = !widget.gameState.isLeft;
 
-      // ⚡️ Envoyer le nouvel état de jeu
-      widget.onGameStateUpdated?.call(widget.gameState);
-
-      // ✅ Réinitialiser _lettersPlacedThisTurn pour neutraliser _returnLetterToRack
-      clearLettersPlacedThisTurn();
-
-      gameStorage.save(widget.gameState);
-
-      // La partie prend fin lorsqu'il n'y a plus de lettres dans le sac et queles 2 joueurs ont joué le même nombre de tours
+      // La partie prend fin lorsque le sac est vide, qu'un joueur n'a plus de lettres
+      // et que les 2 joueurs ont joué le même nombre de tours
+      // Un joueur n’a plus de lettres
+      final leftEmpty = widget.gameState.leftLetters.isEmpty;
+      final rightEmpty = widget.gameState.rightLetters.isEmpty;
       if (widget.gameState.bag.remainingCount <= 0 &&
+          (leftEmpty || rightEmpty) &&
           settings.localUserName == widget.gameState.rightName) {
         // if ((settings.localUserName == widget.gameState.rightName)) {
         _net.sendGameOver(widget.gameState); //Envoi au partenaire
@@ -343,9 +363,17 @@ class _GameScreenState extends State<GameScreen> {
           // Affichage end popup localement
           _net.onGameOverReceived!(widget.gameState);
         }
-      }
+      } else {
+        // ⚡️ Envoyer le nouvel état de jeu
+        widget.onGameStateUpdated?.call(widget.gameState);
 
-      setState(() => _appBarTitle = defaultTitle);
+        // ✅ Réinitialiser _lettersPlacedThisTurn pour neutraliser _returnLetterToRack
+        clearLettersPlacedThisTurn();
+
+        gameStorage.save(widget.gameState);
+
+        setState(() => _appBarTitle = defaultTitle);
+      }
     });
   }
 

@@ -66,4 +66,8 @@ Refonte mode web en polling
 1.9.0
     Ajout bouton "Retour accueil" sur gameScreen
     Sauvegarde des parties reçues pendant qu'on est sur une partie.
+1.9.1
+    Corrections  gameScreen._updateHandler   
+1.9.2 
+    Correction fin de partie quand un joueur n'a plus de lettres
     
