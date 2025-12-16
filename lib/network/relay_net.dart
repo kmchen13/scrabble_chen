@@ -6,12 +6,38 @@ import 'package:audioplayers/audioplayers.dart';
 
 import 'package:scrabble_P2P/models/game_state\.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
+import 'package:scrabble_P2P/services/game_storage.dart';
 import 'package:scrabble_P2P/services/log.dart';
 import 'scrabble_net.dart';
 import '../constants.dart';
 import 'package:scrabble_P2P/services/utility.dart';
 
+class _GameStateDispatcher {
+  GameState? pending;
+
+  void handleIncoming(GameState state, void Function(GameState)? callback) {
+    // 🔴 PERSISTANCE IMMÉDIATE (clé de tout)
+    gameStorage.save(state);
+
+    if (callback != null) {
+      callback(state);
+    } else {
+      pending = state;
+    }
+  }
+
+  void flush(void Function(GameState)? callback) {
+    if (pending != null && callback != null) {
+      final state = pending!;
+      pending = null;
+      callback(state);
+    }
+  }
+}
+
 class RelayNet implements ScrabbleNet {
+  late final _GameStateDispatcher _dispatcher = _GameStateDispatcher();
+
   late final String _relayServerUrl;
   bool _gameIsOver = false;
   final _player = AudioPlayer();
@@ -233,40 +259,22 @@ class RelayNet implements ScrabbleNet {
 
   void Function(GameState state)? _onGameStateReceived;
 
-  //bufferisation des derniers états reçus si pas de callback défini
-  GameState? _pendingState;
-
+  @override
   @override
   set onGameStateReceived(void Function(GameState state)? callback) {
     _onGameStateReceived = callback;
     print(
-      "${logHeader("relayNet")} onGameStateReceived setter called (newHash=${callback.hashCode}) for net=${hashCode}",
+      "${logHeader("relayNet")} onGameStateReceived setter (hash=${callback?.hashCode})",
     );
 
-    if (callback != null && _pendingState != null) {
-      final state = _pendingState!;
-      _pendingState = null; // vidé immédiatement
-      Future.microtask(() {
-        print(
-          "${logHeader("relayNet")} Chargement GameState en attente (hash=${state.hashCode})",
-        );
-        _onGameStateReceived?.call(state);
-      });
-    }
+    // 🔥 flush éventuel
+    _dispatcher.flush(callback);
   }
 
   void _handleIncomingGameState(GameState state) {
-    print(
-      "${logHeader('relayNet')} GameState reçu in net instance $hashCode; about to call onGameStateReceived (hash=${_onGameStateReceived?.hashCode})",
-    );
-    if (_onGameStateReceived != null) {
-      _onGameStateReceived!(state);
-    } else {
-      print(
-        "${logHeader("relayNet")} Pas de callBack défini. Mise en buffer du gameState reçu (hash=${state.hashCode})",
-      );
-      _pendingState = state;
-    }
+    print("${logHeader("relayNet")} GameState reçu (hash=${state.hashCode})");
+
+    _dispatcher.handleIncoming(state, _onGameStateReceived);
   }
 
   ///Attachement du callback pour GameOver
@@ -292,21 +300,11 @@ class RelayNet implements ScrabbleNet {
 
   /// Permet de vider manuellement le buffer si un état était en attente
   void flushPending() {
-    if (_pendingState != null && _onGameStateReceived != null) {
-      final state = _pendingState!;
-      _pendingState = null;
-      print(
-        "${logHeader("relayNet")} Flush manuel du GameState en attente (hash=${state.hashCode})",
-      );
-      _onGameStateReceived?.call(state);
-    }
+    _dispatcher.flush(_onGameStateReceived);
 
     if (_pendingGameOver != null && _onGameOverReceived != null) {
       final state = _pendingGameOver!;
       _pendingGameOver = null;
-      print(
-        "${logHeader("relayNet")} Flush manuel du GameOver en attente (hash=${state.hashCode})",
-      );
       _onGameOverReceived?.call(state);
     }
   }

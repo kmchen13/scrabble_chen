@@ -70,4 +70,7 @@ Refonte mode web en polling
     Corrections  gameScreen._updateHandler   
 1.9.2 
     Correction fin de partie quand un joueur n'a plus de lettres
-    
+1.9.3
+    Correction bug gameState non enregistré dès réception
+2.0.0
+    Mise en place modèle MVC pour relay_net et game_update

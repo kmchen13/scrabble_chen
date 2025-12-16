@@ -103,24 +103,21 @@ class _GameScreenState extends State<GameScreen> {
       applyIncomingState: (newState, {required bool updateUI}) async {
         final current = widget.gameState;
 
-        // Vérifie si le GameScreen est visible et actif
         final currentScreenActive =
             mounted && ModalRoute.of(context)?.isCurrent == true;
 
-        // Compare le couple de joueurs
         final sameGame = compareGameState(newState, current);
 
-        // Récupère le nom du partenaire
         final partner = newState.partnerFrom(settings.localUserName);
 
-        // 1️⃣ Même partie et écran actif → appliquer normalement
+        // 1️⃣ Même partie et écran actif
         if (currentScreenActive && sameGame) {
           _applyGameState(newState);
           if (updateUI && mounted) setState(() {});
           return;
         }
 
-        // 2️⃣ WaitingScreen et premier coup attendu → appliquer aussi
+        // 2️⃣ WaitingScreen et premier coup
         final isWaitingScreenActive =
             mounted && ModalRoute.of(context)?.settings.name == '/waiting';
         final isFirstTurn = newState.leftScore == 0 && newState.rightScore == 0;
@@ -130,7 +127,7 @@ class _GameScreenState extends State<GameScreen> {
           return;
         }
 
-        // 3️⃣ Autre cas → sauvegarder dans gameStorage et afficher SnackBar
+        // 3️⃣ Autre cas → sauvegarde + notification
         await gameStorage.save(newState);
 
         if (mounted) {
@@ -149,10 +146,10 @@ class _GameScreenState extends State<GameScreen> {
           );
         }
 
-        // Relance le polling
         _net.startPolling(settings.localUserName);
       },
-      mounted: mounted,
+
+      isMounted: () => context.mounted,
     );
 
     _updateHandler.attach();

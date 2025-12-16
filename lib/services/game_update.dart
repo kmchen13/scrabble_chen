@@ -16,153 +16,136 @@ class GameUpdateHandler {
   final ScrabbleNet net;
   final BuildContext context;
   final ApplyIncomingState applyIncomingState;
-  final bool mounted;
+  final bool Function() isMounted;
 
   GameUpdateHandler({
     required this.net,
     required this.context,
     required this.applyIncomingState,
-    required this.mounted,
+    required this.isMounted,
   });
 
   void attach() {
     if (debug) {
-      print(
-        '${logHeader("GameUpdateHandler")} Installing callbacks immediately; net hashCode = ${net.hashCode}, mounted=$mounted',
-      );
+      print('${logHeader("GameUpdateHandler")} attach (net=${net.hashCode})');
     }
 
-    // 🔁 Callback GameState normal
-    net.onGameStateReceived = (newState) {
-      applyIncomingState(newState, updateUI: mounted);
-    };
+    // 🎮 GameState reçu
+    net.onGameStateReceived = _onGameStateReceived;
 
-    // 📌 Fonction interne pour gérer la revanche
-    void handleRematch(GameState oldGameState) {
-      final localName = settings.localUserName;
+    // 🏁 Fin de partie
+    net.onGameOverReceived = _onGameOverReceived;
 
-      final newGameState = GameInitializer.createGame(
-        isLeft: oldGameState.isLeft,
-        leftName: oldGameState.leftName,
-        leftIP: oldGameState.leftIP,
-        leftPort: oldGameState.leftPort,
-        rightName: oldGameState.rightName,
-        rightIP: oldGameState.rightIP,
-        rightPort: oldGameState.rightPort,
-      );
+    // ❌ Erreur réseau
+    net.onError = _onError;
 
-      // 🔑 Réinstaller callbacks AVANT navigation
-      net.onGameStateReceived = (gs) {
-        applyIncomingState(gs, updateUI: true);
-      };
-      net.onGameOverReceived = (finalState) {
-        GameEndService.showEndGamePopup(
-          context: context,
-          finalState: finalState,
-          net: net,
-          onRematchStarted: handleRematch,
-        );
-      };
-
-      // 🔄 Flush immédiat des GameState bufferisés
-      net.flushPending();
-
-      // Joueur de gauche commence
-      if (localName == newGameState.leftName) {
-        applyIncomingState(newGameState, updateUI: true);
-      }
-
-      // Naviguer vers le nouveau GameScreen
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder:
-              (_) => GameScreen(
-                gameState: newGameState,
-                net: net,
-                onGameStateUpdated: (gs) => net.sendGameState(gs),
-              ),
-        ),
-      );
-
-      net.resetGameOver();
-
-      // Joueur de droite attend → start polling
-      if (localName != newGameState.leftName) {
-        final messenger = ScaffoldMessenger.of(context);
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text("Au perdant de jouer"),
-            action: SnackBarAction(
-              label: 'Fermer',
-              onPressed: () => messenger.hideCurrentSnackBar(),
-            ),
-            duration: const Duration(minutes: 1),
-          ),
-        );
-        net.startPolling(newGameState.rightName);
-      }
-    }
-
-    // 🔥 Callback de fin de partie
-    net.onGameOverReceived = (finalState) {
-      gameStorage.delete(finalState.partnerFrom(settings.localUserName));
-
-      if (!mounted) {
-        print('[GameUpdateHandler] Fin de partie ignorée (non monté)');
-        return;
-      }
-
-      GameEndService.showEndGamePopup(
-        context: context,
-        finalState: finalState,
-        net: net,
-        onRematchStarted: handleRematch,
-      );
-    };
-
-    // ⏳ Flush messages en attente après le build
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        if (debug) {
-          print(
-            '${logHeader("GameUpdateHandler")} 🔄 Flushing pending messages...',
-          );
-        }
-        net.flushPending();
-      }
-    });
-
-    // 🔥 Callback erreur
-    net.onError = (message) {
-      if (!mounted) return;
-      showDialog(
-        context: context,
-        builder:
-            (_) => AlertDialog(
-              title: const Text('Erreur réseau'),
-              content: Text(message),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Fermer'),
-                ),
-              ],
-            ),
-      );
-    };
-
-    // 🔥 Callback déconnexion partenaire
-    net.onConnectionClosed = () {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Votre partenaire s'est déconnecté")),
-      );
-      Navigator.of(context).popUntil((route) => route.isFirst);
-    };
+    // 🔌 Déconnexion partenaire
+    net.onConnectionClosed = _onConnectionClosed;
   }
 
+  // =========================================================
+  // Callbacks
+  // =========================================================
+
+  void _onGameStateReceived(GameState state) {
+    if (!isMounted()) return;
+    applyIncomingState(state, updateUI: true);
+  }
+
+  void _onGameOverReceived(GameState finalState) {
+    gameStorage.delete(finalState.partnerFrom(settings.localUserName));
+
+    if (!isMounted()) return;
+
+    GameEndService.showEndGamePopup(
+      context: context,
+      finalState: finalState,
+      net: net,
+      onRematchStarted: _handleRematch,
+    );
+  }
+
+  void _onError(String message) {
+    if (!isMounted()) return;
+
+    showDialog(
+      context: context,
+      builder:
+          (_) => AlertDialog(
+            title: const Text('Erreur réseau'),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Fermer'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _onConnectionClosed() {
+    if (!isMounted()) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Votre partenaire s'est déconnecté")),
+    );
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
+  // =========================================================
+  // Revanche
+  // =========================================================
+
+  void _handleRematch(GameState oldGameState) {
+    final localName = settings.localUserName;
+
+    final newGameState = GameInitializer.createGame(
+      isLeft: oldGameState.isLeft,
+      leftName: oldGameState.leftName,
+      leftIP: oldGameState.leftIP,
+      leftPort: oldGameState.leftPort,
+      rightName: oldGameState.rightName,
+      rightIP: oldGameState.rightIP,
+      rightPort: oldGameState.rightPort,
+    );
+
+    // Joueur de gauche commence
+    if (localName == newGameState.leftName) {
+      applyIncomingState(newGameState, updateUI: true);
+    }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder:
+            (_) => GameScreen(
+              gameState: newGameState,
+              net: net,
+              onGameStateUpdated: net.sendGameState,
+            ),
+      ),
+    );
+
+    net.resetGameOver();
+
+    // Joueur de droite attend
+    if (localName != newGameState.leftName) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Au perdant de jouer"),
+          duration: Duration(minutes: 1),
+        ),
+      );
+      net.startPolling(newGameState.rightName);
+    }
+  }
+
+  // =========================================================
+
   void detach() {
+    net.onGameStateReceived = null;
+    net.onGameOverReceived = null;
     net.onError = null;
     net.onConnectionClosed = null;
   }
