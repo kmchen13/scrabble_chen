@@ -100,59 +100,23 @@ class _GameScreenState extends State<GameScreen> {
     _updateHandler = GameUpdateHandler(
       net: _net,
       context: context,
+
+      // 🔥 applique un état entrant (UI ou non)
       applyIncomingState: (newState, {required bool updateUI}) async {
-        final current = widget.gameState;
-
-        final currentScreenActive =
-            mounted && ModalRoute.of(context)?.isCurrent == true;
-
-        final sameGame = compareGameState(newState, current);
-
-        final partner = newState.partnerFrom(settings.localUserName);
-
-        // 1️⃣ Même partie et écran actif
-        if (currentScreenActive && sameGame) {
-          _applyGameState(newState);
-          if (updateUI && mounted) setState(() {});
-          return;
+        _applyGameState(newState);
+        if (updateUI && mounted) {
+          setState(() {});
         }
-
-        // 2️⃣ WaitingScreen et premier coup
-        final isWaitingScreenActive =
-            mounted && ModalRoute.of(context)?.settings.name == '/waiting';
-        final isFirstTurn = newState.leftScore == 0 && newState.rightScore == 0;
-
-        if (isWaitingScreenActive && sameGame && isFirstTurn) {
-          _applyGameState(newState);
-          return;
-        }
-
-        // 3️⃣ Autre cas → sauvegarde + notification
-        await gameStorage.save(newState);
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("$partner a joué un coup"),
-              action: SnackBarAction(label: 'OK', onPressed: () {}),
-              duration: const Duration(seconds: 5),
-            ),
-          );
-        }
-
-        if (debug) {
-          print(
-            "💾 GameState reçu mais écran inactif ou autre partie → sauvegardé game_$partner",
-          );
-        }
-
-        _net.startPolling(settings.localUserName);
       },
 
+      // 🔥 état courant TOUJOURS à jour
+      getCurrentGame: () => widget.gameState,
+
+      // 🔥 état du widget
       isMounted: () => context.mounted,
     );
 
-    _updateHandler.attach();
+    _updateHandler.attach(widget.gameState);
 
     _net.onError = (message) {
       if (mounted) {

@@ -74,3 +74,6 @@ Refonte mode web en polling
     Correction bug gameState non enregistré dès réception
 2.0.0
     Mise en place modèle MVC pour relay_net et game_update
+2.0.1
+    adaptation game_screen
+    Bug sur Revanche 
