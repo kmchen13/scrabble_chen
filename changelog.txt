@@ -77,3 +77,6 @@ Refonte mode web en polling
 2.0.1
     adaptation game_screen
     Bug sur Revanche 
+2.0.2
+    Correction bug revanche. abandon total de detach()
+    Envoi de quit lorsqu'onrefusela revanche

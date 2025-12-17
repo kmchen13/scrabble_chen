@@ -118,47 +118,6 @@ class _GameScreenState extends State<GameScreen> {
 
     _updateHandler.attach(widget.gameState);
 
-    _net.onError = (message) {
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder:
-              (_) => AlertDialog(
-                title: const Text('Erreur réseau'),
-                content: Text(message),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Fermer'),
-                  ),
-                ],
-              ),
-        );
-      }
-    };
-
-    widget.net.onConnectionClosed = () async {
-      if (mounted) {
-        if (debug)
-          print("${logHeader('GameScreen')} Le partenaire a abandonné");
-        final partner = widget.gameState.partnerFrom(settings.localUserName);
-        await gameStorage.delete(partner);
-
-        final messenger = ScaffoldMessenger.of(context);
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text("$partner a quitté la partie"),
-            action: SnackBarAction(
-              label: 'Fermer',
-              onPressed: () => messenger.hideCurrentSnackBar(),
-            ),
-            duration: const Duration(minutes: 1),
-          ),
-        );
-
-        Navigator.of(context).popUntil((route) => route.isFirst);
-      }
-    };
     saveSettings();
   }
 
@@ -315,9 +274,9 @@ class _GameScreenState extends State<GameScreen> {
       // Un joueur n’a plus de lettres
       final leftEmpty = widget.gameState.leftLetters.isEmpty;
       final rightEmpty = widget.gameState.rightLetters.isEmpty;
-      if (widget.gameState.bag.remainingCount <= 0 &&
+      if (widget.gameState.bag.remainingCount <= 80 ||
           (leftEmpty || rightEmpty) &&
-          settings.localUserName == widget.gameState.rightName) {
+              settings.localUserName == widget.gameState.rightName) {
         // if ((settings.localUserName == widget.gameState.rightName)) {
         _net.sendGameOver(widget.gameState); //Envoi au partenaire
         if (_net.onGameOverReceived != null) {
@@ -355,7 +314,6 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   void dispose() {
-    _updateHandler.detach();
     _net.onError = null;
     _net.onConnectionClosed = null;
     _net.disconnect();

@@ -40,11 +40,6 @@ class GameUpdateHandler {
     return route?.isCurrent == true;
   }
 
-  /// Premier coup ?
-  bool _isFirstTurn(GameState gs) {
-    return gs.leftScore == 0 && gs.rightScore == 0;
-  }
-
   void attach(GameState currentGame) {
     if (debug) {
       print('[GameUpdateHandler] attach (net=${net.hashCode})');
@@ -55,24 +50,17 @@ class GameUpdateHandler {
       final currentGame = getCurrentGame();
       final sameGame = _sameGame(incoming, currentGame);
       final screenActive = mounted && _isCurrentScreenActive();
-      final firstTurn = _isFirstTurn(incoming);
 
       if (debug) {
         print(
           '[GameUpdateHandler] GameState reçu '
-          '(sameGame=$sameGame, active=$screenActive, firstTurn=$firstTurn)',
+          '(sameGame=$sameGame, active=$screenActive)',
         );
       }
 
       // 1️⃣ Même partie + écran actif → appliquer immédiatement
       if (sameGame && screenActive) {
         applyIncomingState(incoming, updateUI: true);
-        return;
-      }
-
-      // 2️⃣ Premier coup → appliquer même si écran non actif
-      if (sameGame && firstTurn) {
-        applyIncomingState(incoming, updateUI: mounted);
         return;
       }
 
@@ -184,12 +172,5 @@ class GameUpdateHandler {
             ),
       ),
     );
-  }
-
-  void detach() {
-    net.onGameStateReceived = null;
-    net.onGameOverReceived = null;
-    net.onError = null;
-    net.onConnectionClosed = null;
   }
 }
