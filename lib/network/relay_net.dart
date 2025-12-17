@@ -388,6 +388,9 @@ class RelayNet implements ScrabbleNet {
           return;
 
         case 'quit':
+          final String partner = json['from'] ?? json['partner'] ?? '';
+          if (partner.isNotEmpty) await gameStorage.delete(partner);
+
           disconnect();
           _gameIsOver = false;
           onConnectionClosed?.call();

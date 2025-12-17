@@ -274,9 +274,9 @@ class _GameScreenState extends State<GameScreen> {
       // Un joueur n’a plus de lettres
       final leftEmpty = widget.gameState.leftLetters.isEmpty;
       final rightEmpty = widget.gameState.rightLetters.isEmpty;
-      if (widget.gameState.bag.remainingCount <= 80 ||
+      if (widget.gameState.bag.remainingCount <= 8 &&
           (leftEmpty || rightEmpty) &&
-              settings.localUserName == widget.gameState.rightName) {
+          settings.localUserName == widget.gameState.rightName) {
         // if ((settings.localUserName == widget.gameState.rightName)) {
         _net.sendGameOver(widget.gameState); //Envoi au partenaire
         if (_net.onGameOverReceived != null) {

@@ -84,6 +84,8 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
             }
             _loading = false;
           });
+          // ⚡ Démarrage systématique du polling
+          _net.startPolling(settings.localUserName);
         }
       } catch (e) {
         print('[HomeScreen] Erreur lors du chargement des GameStates: $e');
