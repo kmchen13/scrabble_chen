@@ -274,7 +274,7 @@ class _GameScreenState extends State<GameScreen> {
       // Un joueur n’a plus de lettres
       final leftEmpty = widget.gameState.leftLetters.isEmpty;
       final rightEmpty = widget.gameState.rightLetters.isEmpty;
-      if (widget.gameState.bag.remainingCount <= 8 &&
+      if (widget.gameState.bag.remainingCount <= 0 &&
           (leftEmpty || rightEmpty) &&
           settings.localUserName == widget.gameState.rightName) {
         // if ((settings.localUserName == widget.gameState.rightName)) {
@@ -315,8 +315,7 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void dispose() {
     _net.onError = null;
-    _net.onConnectionClosed = null;
-    _net.disconnect();
+
     gameStorage.save(widget.gameState);
     super.dispose();
   }

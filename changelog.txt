@@ -82,3 +82,5 @@ Refonte mode web en polling
     Envoi de quit lorsqu'onrefusela revanche
 2.0.3
     Débridage fin de partie
+2.0.4
+    Correction bug revanche, setOnConectionClose dans homeScreen

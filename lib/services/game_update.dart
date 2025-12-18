@@ -122,16 +122,6 @@ class GameUpdateHandler {
       );
     };
 
-    net.onConnectionClosed = () {
-      if (!isMounted()) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Votre partenaire s'est déconnecté")),
-      );
-
-      Navigator.of(context).popUntil((r) => r.isFirst);
-    };
-
     // Flush après build
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (isMounted()) {

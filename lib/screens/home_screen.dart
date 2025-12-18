@@ -70,6 +70,34 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   void initState() {
     super.initState();
 
+    _net.setOnConnectionClosed((partner, reason) {
+      if (!mounted) return;
+
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        // Affiche une boîte de dialogue bloquante
+        await showDialog<void>(
+          context: context,
+          barrierDismissible: false, // 🔒 impossible à ignorer
+          builder:
+              (context) => AlertDialog(
+                title: Text("$partner a quitté la partie"),
+                content: Text(reason),
+                actions: [
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop(); // ferme le dialog
+                    },
+                    child: const Text("OK"),
+                  ),
+                ],
+              ),
+        );
+
+        // Nettoyage + retour à l'accueil
+        Navigator.of(context).popUntil((r) => r.isFirst);
+      });
+    });
+
     // ⚡ Différer l'appel à load() pour s'assurer que gameStorage.init() est terminé
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await gameStorage.init(); // s'assure que Hive est ouvert

@@ -70,7 +70,9 @@ abstract class ScrabbleNet {
   void disconnect();
 
   /// La connexion est fermée (par quit ou déconnexion)
-  void Function()? onConnectionClosed;
+  void setOnConnectionClosed(
+    void Function(String partner, String reason)? callback,
+  );
 
   /// Vide le buffer des GameState en attente (RelayNet)
   void flushPending() {}

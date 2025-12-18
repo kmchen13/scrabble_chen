@@ -397,9 +397,16 @@ class LocalNet implements ScrabbleNet {
 
     // Fermer la socket
     disconnect();
+  }
 
-    // Notifier l’UI
-    onConnectionClosed?.call();
+  // Notifier l’UI
+  void Function(String partner, String reason)? _onConnectionClosed;
+
+  @override
+  void setOnConnectionClosed(
+    void Function(String partner, String reason)? callback,
+  ) {
+    _onConnectionClosed = callback;
   }
 
   @override

@@ -391,9 +391,9 @@ class RelayNet implements ScrabbleNet {
           final String partner = json['from'] ?? json['partner'] ?? '';
           if (partner.isNotEmpty) await gameStorage.delete(partner);
 
-          disconnect();
+          // disconnect();
           _gameIsOver = false;
-          onConnectionClosed?.call();
+          _onConnectionClosed?.call(partner, "$partner a quitté la partie.");
           break;
 
         case 'gameOver':
@@ -536,6 +536,12 @@ class RelayNet implements ScrabbleNet {
     _gameIsOver = false;
   }
 
+  void Function(String partner, String reason)? _onConnectionClosed;
+
   @override
-  void Function()? onConnectionClosed;
+  void setOnConnectionClosed(
+    void Function(String partner, String reason)? callback,
+  ) {
+    _onConnectionClosed = callback;
+  }
 }
