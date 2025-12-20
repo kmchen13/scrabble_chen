@@ -50,6 +50,23 @@ class ScrabbleApp extends StatelessWidget {
         },
       ),
       debugShowCheckedModeBanner: false,
+
+      theme: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: Colors.black,
+        canvasColor: Colors.black,
+        colorScheme: const ColorScheme.dark(
+          background: Colors.black,
+          surface: Colors.black,
+          primary: Colors.white,
+          onBackground: Colors.white,
+          onSurface: Colors.white,
+        ),
+        textTheme: const TextTheme(
+          bodyMedium: TextStyle(color: Colors.white),
+          bodyLarge: TextStyle(color: Colors.white),
+          titleMedium: TextStyle(color: Colors.white),
+        ),
+      ),
     );
   }
 }

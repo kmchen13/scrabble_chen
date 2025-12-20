@@ -87,4 +87,7 @@ Refonte mode web en polling
 2.1.0
     Suppression flèche retour dans gameScreen
     Corrections pollMessage
+2.1.1
+    Changement couleurs
+    Centrage chevalet
     
