@@ -5,6 +5,11 @@ import 'package:scrabble_P2P/models/game_state.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
 import 'package:scrabble_P2P/services/utility.dart';
 
+String gameKey(String a, String b) {
+  final sorted = [a, b]..sort();
+  return 'game_${sorted[0]}_${sorted[1]}';
+}
+
 class GameStorage {
   static const String _boxName = 'gameBox';
   static Box? _box;

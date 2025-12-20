@@ -53,8 +53,8 @@ class RelayNet implements ScrabbleNet {
   Timer? _pollingTimer;
   bool _isConnected = false;
   bool _retrying = false;
-  int _timerFrequency = 2; // fréquence de polling en secondes
-  int _retryDelay = 2; // fré&quence de retry connect si "waiting" ou erreur
+  int _timerFrequency = 5; // fréquence de polling en secondes
+  int _retryDelay = 5; // fré&quence de retry connect si "waiting" ou erreur
 
   RelayNet() {
     _relayServerUrl = settings.relayServerUrl;
@@ -186,10 +186,19 @@ class RelayNet implements ScrabbleNet {
     }
     if (debug)
       print('${logHeader("relayNet")} Polling démarré pour $localName');
-    _pollingTimer = Timer.periodic(
-      Duration(seconds: _timerFrequency),
-      (_) async => await pollMessages(localName),
-    );
+    _pollingTimer = Timer.periodic(Duration(seconds: _timerFrequency), (
+      _,
+    ) async {
+      try {
+        await pollMessages(localName);
+      } catch (e) {
+        // Log l'erreur et la stack trace pour le débogage
+        if (debug) {
+          print("${logHeader('pollMessages')} ⚠️ Erreur lors du polling: $e");
+        }
+        // Vous pouvez aussi ajouter une logique de relance ou de notification ici
+      }
+    });
   }
 
   @override
@@ -310,11 +319,18 @@ class RelayNet implements ScrabbleNet {
   }
 
   Future<void> pollMessages(String localName) async {
+    http.Response? response;
     // if (debug) print('${logHeader("relayNet")} Poll de $localName');
-    final res = await http.get(
-      Uri.parse("$_relayServerUrl/poll?userName=$localName"),
-    );
-    final json = jsonDecode(res.body);
+    try {
+      response = await http.get(
+        Uri.parse("$_relayServerUrl/poll?userName=$localName"),
+      );
+    } catch (e) {
+      logger.e("Erreur pollMessages: $e");
+      return;
+    }
+
+    final json = jsonDecode(response.body);
     final String partner = json['from'] ?? json['partner'] ?? '';
 
     try {
@@ -391,7 +407,7 @@ class RelayNet implements ScrabbleNet {
           final String partner = json['from'] ?? json['partner'] ?? '';
           if (partner.isNotEmpty) await gameStorage.delete(partner);
 
-          // disconnect();
+          disconnect();
           _gameIsOver = false;
           _onConnectionClosed?.call(partner, "$partner a quitté la partie.");
           break;

@@ -84,3 +84,7 @@ Refonte mode web en polling
     Débridage fin de partie
 2.0.4
     Correction bug revanche, setOnConectionClose dans homeScreen
+2.1.0
+    Suppression flèche retour dans gameScreen
+    Corrections pollMessage
+    

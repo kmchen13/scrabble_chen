@@ -109,7 +109,7 @@ class _StartScreenState extends State<StartScreen> {
   void dispose() {
     _net.onStatusUpdate = null;
     _net.onMatched = null;
-    _net.disconnect(); // Stop recherche de joueur
+    // _net.disconnect(); // Stop recherche de joueur
     super.dispose();
   }
 
