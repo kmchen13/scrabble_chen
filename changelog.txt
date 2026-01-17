@@ -94,4 +94,6 @@ Refonte mode web en polling
     Sauvegarde systémamtique au niveau de relay_net
 2.2.1
     Fin de partie OK
+2.2.2
+    débridage fin de partie
     
