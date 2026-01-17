@@ -92,4 +92,6 @@ Refonte mode web en polling
     Centrage chevalet
 2.2.0
     Sauvegarde systémamtique au niveau de relay_net
+2.2.1
+    Fin de partie OK
     

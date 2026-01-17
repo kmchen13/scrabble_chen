@@ -6,6 +6,7 @@ import 'package:scrabble_P2P/network/scrabble_net.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
 import 'package:scrabble_P2P/services/game_storage.dart';
 import 'package:scrabble_P2P/services/utility.dart';
+import 'package:scrabble_P2P/services/game_end.dart';
 import 'package:scrabble_P2P/services/game_update.dart';
 import 'package:scrabble_P2P/models/placed_letter.dart';
 import 'package:scrabble_P2P/screens/show_bag.dart';
@@ -52,15 +53,12 @@ class _GameScreenState extends State<GameScreen> {
   final TransformationController _boardController = TransformationController();
   bool _firstLetter = true;
   late final GameUpdateHandler _updateHandler;
+  bool _endPopupShown = false;
 
   void _applyGameState(GameState newState) {
     _appBarTitle = defaultTitle;
 
     widget.gameState.copyFrom(newState);
-
-    final localName = settings.localUserName;
-    final bool isLocalPlayerLeft = (localName == widget.gameState.leftName);
-    widget.gameState.isLeft = isLocalPlayerLeft;
 
     _board =
         widget.gameState.board.map((row) => List<String>.from(row)).toList();
@@ -75,6 +73,26 @@ class _GameScreenState extends State<GameScreen> {
 
     _boardController.value = Matrix4.identity();
     _firstLetter = true;
+  }
+
+  void _onGameOver(GameState state) {
+    if (!mounted || _endPopupShown) return;
+    _endPopupShown = true;
+
+    GameEndService.showEndGamePopup(
+      context: context,
+      finalState: state,
+      net: _net,
+      onRematchStarted: (newGameState) {
+        if (!mounted) return;
+
+        // 🔁 prêt pour une nouvelle partie
+        _endPopupShown = false;
+
+        _applyGameState(newGameState);
+        setState(() {});
+      },
+    );
   }
 
   ///compare deux GameState pour vérifier s'ils représentent la même partie
@@ -116,6 +134,24 @@ class _GameScreenState extends State<GameScreen> {
     );
 
     _updateHandler.attach();
+
+    _net.onGameOverReceived = (finalState) {
+      if (!mounted) return;
+
+      debugPrint(
+        '[GameScreen] Application du GameState FINAL avant affichage fin '
+        '(hash=${finalState.hashCode})',
+      );
+
+      // 🔑 APPLIQUER LE BOARD FINAL
+      _applyGameState(finalState);
+
+      // 🔄 FORCER LE RAFRAÎCHISSEMENT
+      setState(() {});
+
+      // 🧠 Ensuite seulement : popup de fin
+      _onGameOver(finalState);
+    };
 
     saveSettings();
   }
@@ -268,20 +304,16 @@ class _GameScreenState extends State<GameScreen> {
       // Passer au tour suivant
       widget.gameState.isLeft = !widget.gameState.isLeft;
 
-      // La partie prend fin lorsque le sac est vide, qu'un joueur n'a plus de lettres
+      // La partie prend fin lorsqu'un joueur n'a plus de lettres
       // et que les 2 joueurs ont joué le même nombre de tours
       // Un joueur n’a plus de lettres
       final leftEmpty = widget.gameState.leftLetters.isEmpty;
       final rightEmpty = widget.gameState.rightLetters.isEmpty;
-      if (widget.gameState.bag.remainingCount <= 0 &&
-          (leftEmpty || rightEmpty) &&
+      if ((leftEmpty || rightEmpty) &&
           settings.localUserName == widget.gameState.rightName) {
-        // if ((settings.localUserName == widget.gameState.rightName)) {
-        _net.sendGameOver(widget.gameState); //Envoi au partenaire
-        if (_net.onGameOverReceived != null) {
-          // Affichage end popup localement
-          _net.onGameOverReceived!(widget.gameState);
-        }
+        _net.sendGameOver(GameState.fromJson(widget.gameState.toJson()));
+
+        _onGameOver(widget.gameState);
       } else {
         // ⚡️ Envoyer le nouvel état de jeu
         widget.onGameStateUpdated?.call(widget.gameState);
