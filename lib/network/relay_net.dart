@@ -17,6 +17,7 @@ class _GameStateDispatcher {
 
   void handleIncoming(GameState state, void Function(GameState)? callback) {
     // 🔴 PERSISTANCE IMMÉDIATE (clé de tout)
+    if (debug) print("${logHeader('handleIncoming')} Sauvegarde immédiate");
     gameStorage.save(state);
 
     if (callback != null) {
@@ -318,6 +319,31 @@ class RelayNet implements ScrabbleNet {
     }
   }
 
+  Future<void> _handleAndAck({
+    required String localName,
+    required String partner,
+    required String type,
+    required Future<void> Function() handler,
+  }) async {
+    // 1️⃣ traiter / persister AVANT ack
+    await handler();
+
+    // 2️⃣ ACK seulement après succès
+    final res = await http.get(
+      Uri.parse(
+        '$_relayServerUrl/acknowledgement'
+        '?userName=$localName&partner=$partner&type=$type',
+      ),
+    );
+
+    final json = jsonDecode(res.body);
+    if (json['status'] != 'ok') {
+      logger.w('[relayNet] ACK échoué pour type=$type');
+    } else if (debug) {
+      print('${logHeader("relayNet")} ack $type envoyé');
+    }
+  }
+
   Future<void> pollMessages(String localName) async {
     http.Response? response;
     // if (debug) print('${logHeader("relayNet")} Poll de $localName');
@@ -332,120 +358,120 @@ class RelayNet implements ScrabbleNet {
 
     final json = jsonDecode(response.body);
     final String partner = json['from'] ?? json['partner'] ?? '';
+    bool shouldAck = false;
 
     try {
       switch (json['type']) {
         case 'gameState':
-          //@todo si le gamestate d'un autre partie, la stocker.
-          _playNotificationSound();
-          if (debug)
-            print(
-              '${logHeader("relayNet")} GameState reçu pour $localName in net instance ${identityHashCode(this)}; about to call onGameStateReceived (hash=${onGameStateReceived?.hashCode})',
-            );
-          final dynamic msg = json['message'];
-          final gameState = GameState.fromJson(msg);
-          stopPolling();
-          _handleIncomingGameState(gameState);
+          await _handleAndAck(
+            localName: localName,
+            partner: partner,
+            type: 'gameState',
+            handler: () async {
+              _playNotificationSound();
+              final gameState = GameState.fromJson(json['message']);
 
-          if (_gameIsOver) {
-            _gameIsOver = false;
-            logger.i(
-              "🔁 Nouveau GameState reçu → réinitialisation _gameIsOver=false",
-            );
-          }
-          if (debug) {
-            print(
-              "[relayNet] about to call onGameStateReceived "
-              "(hash=${onGameStateReceived.hashCode})",
-            );
-          }
-          break;
+              // 🔐 persistance immédiate
+              _dispatcher.handleIncoming(gameState, onGameStateReceived);
 
-        case 'message':
-          _playNotificationSound();
-          if (debug)
-            print("${logHeader("relayNet")} Message reçu: ${json['message']}");
-          break;
-
-        case 'matched':
-          _isConnected = true;
-          if (debug)
-            print('${logHeader("relayNet")} Match trouvé pour $localName');
-          final localTime = json['startTime'] ?? 0;
-          final partnerTime = json['partnerStartTime'] ?? 0;
-          if (localTime > partnerTime) {
-            onMatched?.call(
-              leftName: localName,
-              leftIP: '',
-              leftPort: 0,
-              leftStartTime: json['startTime'] ?? 0,
-              rightName: json['partner'],
-              rightIP: '',
-              rightPort: 0,
-              rightStartTime: json['partnerStartTime'] ?? 0,
-            );
-          } else {
-            onMatched?.call(
-              leftName: json['partner'],
-              leftIP: '',
-              leftPort: 0,
-              leftStartTime: json['partnerStartTime'] ?? 0,
-              rightName: localName,
-              rightIP: '',
-              rightPort: 0,
-              rightStartTime: json['startTime'] ?? 0,
-            );
-          }
-          break;
-
-        case 'no_message':
-          // if (debug)
-          //   print('${logHeader("relayNet")} ${logHeader("relayNet")} "${logHeader("relayNet")} Aucun message pour $localName");
-          return;
-
-        case 'quit':
-          final String partner = json['from'] ?? json['partner'] ?? '';
-          if (partner.isNotEmpty) await gameStorage.delete(partner);
-
-          disconnect();
-          _gameIsOver = false;
-          _onConnectionClosed?.call(partner, "$partner a quitté la partie.");
+              if (_gameIsOver) _gameIsOver = false;
+            },
+          );
           break;
 
         case 'gameOver':
-          if (debug)
-            print(
-              '${logHeader("relayNet")} onGameOverReceived? = ${onGameOverReceived != null}, net hashCode = ${this.hashCode}, GameOver reçu pour $localName',
-            );
-          _playNotificationSound();
-          _gameIsOver = true;
+          await _handleAndAck(
+            localName: localName,
+            partner: partner,
+            type: 'gameOver',
+            handler: () async {
+              _playNotificationSound();
+              _gameIsOver = true;
 
-          final gameState = GameState.fromJson(json['message']);
+              final gameState = GameState.fromJson(json['message']);
+              gameStorage.save(gameState); // 🔐 CRUCIAL
 
-          if (_onGameOverReceived != null) {
-            _onGameOverReceived!(gameState);
-          } else {
-            _pendingGameOver = gameState; // stocke si callback non attaché
-          }
+              if (_onGameOverReceived != null) {
+                _onGameOverReceived!(gameState);
+              } else {
+                _pendingGameOver = gameState;
+              }
 
-          // ⭐️ fin de partie → plus de polling
-          stopPolling();
+              stopPolling();
+            },
+          );
           break;
 
-        case 'error':
-          if (debug)
-            print('${logHeader("relayNet")} /poll error: ${json['message']}');
-          return;
+        case 'matched':
+          await _handleAndAck(
+            localName: localName,
+            partner: partner,
+            type: 'matched',
+            handler: () async {
+              _isConnected = true;
 
-        default:
-          if (debug)
-            print(
-              "${logHeader("relayNet")} Type de message inconnu: ${json['type']}",
-            );
+              final localTime = json['startTime'] ?? 0;
+              final partnerTime = json['partnerStartTime'] ?? 0;
+
+              onMatched?.call(
+                leftName: localTime > partnerTime ? localName : json['partner'],
+                leftIP: '',
+                leftPort: 0,
+                leftStartTime:
+                    localTime > partnerTime ? localTime : partnerTime,
+                rightName:
+                    localTime > partnerTime ? json['partner'] : localName,
+                rightIP: '',
+                rightPort: 0,
+                rightStartTime:
+                    localTime > partnerTime ? partnerTime : localTime,
+              );
+            },
+          );
+          break;
+
+        case 'quit':
+          await _handleAndAck(
+            localName: localName,
+            partner: partner,
+            type: 'quit',
+            handler: () async {
+              if (partner.isNotEmpty) {
+                await gameStorage.delete(partner);
+              }
+
+              disconnect();
+              _gameIsOver = false;
+              _onConnectionClosed?.call(
+                partner,
+                "$partner a quitté la partie.",
+              );
+            },
+          );
+          break;
+
+        case 'message':
+          await _handleAndAck(
+            localName: localName,
+            partner: partner,
+            type: 'message',
+            handler: () async {
+              _playNotificationSound();
+              if (debug) {
+                print(
+                  "${logHeader("relayNet")} Message reçu: ${json['message']}",
+                );
+              }
+            },
+          );
+          break;
+
+        case 'no_message':
           return;
       }
 
       //send acknowledgement
+      if (!shouldAck) return;
       final res = await http.get(
         Uri.parse(
           '$_relayServerUrl/acknowledgement?userName=$localName&partner=$partner&type=${json['type']}',

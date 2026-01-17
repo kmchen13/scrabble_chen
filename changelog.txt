@@ -90,4 +90,6 @@ Refonte mode web en polling
 2.1.1
     Changement couleurs
     Centrage chevalet
+2.2.0
+    Sauvegarde systémamtique au niveau de relay_net
     

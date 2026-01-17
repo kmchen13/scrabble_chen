@@ -70,6 +70,11 @@ class GameState {
     required this.gameId, // <--- obligatoire
   });
 
+  @override
+  int get hashCode {
+    return Object.hash(leftScore, rightScore);
+  }
+
   /// Réinitialise les lettres posées ce tour
   void resetPlacedThisTurn() {
     lettersPlacedThisTurn.clear();

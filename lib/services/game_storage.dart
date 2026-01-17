@@ -45,7 +45,9 @@ class GameStorage {
       await _box!.flush();
       // await gameStorage.debugDump();
       if (debug) {
-        print("${logHeader('GameStorage')} sauvegardé sous $key");
+        print(
+          "${logHeader('GameStorage')} game.hash(${gameState.hashCode} sauvegardé sous $key",
+        );
       }
     } catch (e) {
       print("${logHeader('GameStorage')} Erreur save: $e");

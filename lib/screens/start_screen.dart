@@ -31,6 +31,7 @@ class _StartScreenState extends State<StartScreen> {
     };
 
     _net.onGameStateReceived = (GameState newState) {
+      if (!mounted) return;
       // Bufferiser si navigation déjà déclenchée
       if (_navigated) {
         _bufferedGameState = newState;
@@ -116,7 +117,7 @@ class _StartScreenState extends State<StartScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,

@@ -99,7 +99,6 @@ class _GameScreenState extends State<GameScreen> {
 
     _updateHandler = GameUpdateHandler(
       net: _net,
-      context: context,
 
       // 🔥 applique un état entrant (UI ou non)
       applyIncomingState: (newState, {required bool updateUI}) async {
@@ -113,10 +112,10 @@ class _GameScreenState extends State<GameScreen> {
       getCurrentGame: () => widget.gameState,
 
       // 🔥 état du widget
-      isMounted: () => context.mounted,
+      isMounted: () => mounted,
     );
 
-    _updateHandler.attach(widget.gameState);
+    _updateHandler.attach();
 
     saveSettings();
   }
@@ -290,6 +289,7 @@ class _GameScreenState extends State<GameScreen> {
         // ✅ Réinitialiser _lettersPlacedThisTurn pour neutraliser _returnLetterToRack
         clearLettersPlacedThisTurn();
 
+        if (debug) print("${logHeader('handleSubmit')} Sauvegarde après envoi");
         gameStorage.save(widget.gameState);
 
         setState(() => _appBarTitle = defaultTitle);

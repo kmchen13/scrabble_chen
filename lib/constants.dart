@@ -2,4 +2,4 @@ library constants;
 
 const bool debug = true;
 const String appName = "Scrabble P2P";
-const String version = "2.1.0";
+const String version = "2.1.1";

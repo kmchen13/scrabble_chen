@@ -33,6 +33,7 @@ class _WaitingScreenState extends State<WaitingScreen> {
 
     // 🔹 Écoute future de GameState reçu
     widget.net.onGameStateReceived = (GameState newState) {
+      if (!mounted) return;
       Future.microtask(() => _navigateToGameScreen(newState));
     };
   }
@@ -60,7 +61,7 @@ class _WaitingScreenState extends State<WaitingScreen> {
         child: Text(
           "Partenaire trouvé : ${widget.leftName}\n\n👉 À lui de jouer en premier.",
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 18),
+          style: Theme.of(context).textTheme.bodyLarge,
         ),
       ),
     );
