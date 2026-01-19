@@ -107,4 +107,6 @@ Refonte mode web en polling
     débridage fin de partie
 2.2.7
     Correction affichage immédiat gameState / Rebuild Flutter forcé par changement de référence
+2.2.8
+    Correction affichage immédiat gameState / compromis addPostFrameCallback
     
