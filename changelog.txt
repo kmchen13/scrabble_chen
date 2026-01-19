@@ -98,4 +98,5 @@ Refonte mode web en polling
     débridage fin de partie
 2.2.3
     Correction non affichage immédiat quand on est dans la partie
-    
+2.2.4
+    Correction inversion positions à la revanche    

@@ -58,8 +58,14 @@ class _GameScreenState extends State<GameScreen> {
   void _applyGameState(GameState newState) {
     _appBarTitle = defaultTitle;
 
+    // 🔥 COPIE TOTALE
     widget.gameState.copyFrom(newState);
 
+    // 🔥 RECALCUL DU CÔTÉ LOCAL (CRUCIAL POUR LA REVANCHE)
+    final localName = settings.localUserName;
+    widget.gameState.isLeft = (localName == widget.gameState.leftName);
+
+    // 🔥 reconstruire le board depuis le GameState
     _board =
         widget.gameState.board.map((row) => List<String>.from(row)).toList();
 
