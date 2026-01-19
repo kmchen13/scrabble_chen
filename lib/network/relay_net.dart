@@ -373,6 +373,7 @@ class RelayNet implements ScrabbleNet {
 
               // 🔐 persistance immédiate
               _dispatcher.handleIncoming(gameState, onGameStateReceived);
+              _dispatcher.flush(onGameStateReceived);
 
               if (_gameIsOver) _gameIsOver = false;
             },

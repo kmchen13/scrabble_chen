@@ -96,4 +96,6 @@ Refonte mode web en polling
     Fin de partie OK
 2.2.2
     débridage fin de partie
+    2.2.3
+    Correction non affichage immédiat quand on est dans la partie
     

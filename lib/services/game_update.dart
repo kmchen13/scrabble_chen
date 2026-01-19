@@ -68,35 +68,28 @@ class GameUpdateHandler {
         );
       }
 
-      // 1️⃣ Même partie + écran vivant → appliquer immédiatement
+      // ✅ Même partie + écran actif → appliquer IMMÉDIATEMENT
       if (mounted && sameGame) {
-        WidgetsBinding.instance.addPostFrameCallback((_) async {
-          if (!mounted) return;
-          await applyIncomingState(incoming, updateUI: true);
-        });
+        await applyIncomingState(incoming, updateUI: true);
+
+        // 🔥 Sécurité : vider tout buffer éventuel
+        onFlushPending?.call();
         return;
       }
 
-      // 2️⃣ Sinon → sauvegarde
+      // ❌ Sinon → sauvegarde uniquement
       if (debug) {
         print('[GameUpdateHandler] Sauvegarde gameState');
       }
       await gameStorage.save(incoming);
 
-      // 3️⃣ Notification passive
+      // Notification passive éventuelle
       if (mounted && sameGame) {
         onBackgroundMove?.call(incoming);
       }
 
-      // 4️⃣ Relance polling
+      // Reprise polling si nécessaire
       net.startPolling(settings.localUserName);
-
-      if (debug) {
-        print(
-          '[GameUpdateHandler] GameState sauvegardé '
-          '(game_${incoming.partnerFrom(settings.localUserName)})',
-        );
-      }
     };
 
     // ─────────────────────────────────────────────
@@ -119,7 +112,7 @@ class GameUpdateHandler {
     };
 
     // ─────────────────────────────────────────────
-    // Flush après build
+    // Flush initial (sécurité)
     // ─────────────────────────────────────────────
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (isMounted()) {
