@@ -11,22 +11,22 @@ class GameState {
   bool isLeft;
 
   @HiveField(1)
-  final String leftName;
+  String leftName;
 
   @HiveField(2)
-  final String leftIP;
+  String leftIP;
 
   @HiveField(3)
-  final int leftPort;
+  int leftPort;
 
   @HiveField(4)
-  final String rightName;
+  String rightName;
 
   @HiveField(5)
-  final String rightIP;
+  String rightIP;
 
   @HiveField(6)
-  final int rightPort;
+  int rightPort;
 
   @HiveField(7)
   List<List<String>> board;
@@ -183,9 +183,16 @@ class GameState {
 
   /// Méthode pour copier depuis un autre GameState
   void copyFrom(GameState other) {
+    // 🔥 IDENTITÉ DE LA PARTIE
+    leftName = other.leftName;
+    rightName = other.rightName;
+
+    // 🔥 LOGIQUE DE JEU
     isLeft = other.isLeft;
     leftScore = other.leftScore;
     rightScore = other.rightScore;
+
+    // 🔥 CONTENU
     leftLetters = List<String>.from(other.leftLetters);
     rightLetters = List<String>.from(other.rightLetters);
     board = other.board.map((row) => List<String>.from(row)).toList();

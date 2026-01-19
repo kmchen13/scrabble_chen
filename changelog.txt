@@ -100,3 +100,11 @@ Refonte mode web en polling
     Correction non affichage immédiat quand on est dans la partie
 2.2.4
     Correction inversion positions à la revanche    
+2.2.5
+    Correction relance polling après revanche acceptée
+    Correction bug double abandon
+2.2.6
+    débridage fin de partie
+2.2.7
+    Correction affichage immédiat gameState / Rebuild Flutter forcé par changement de référence
+    

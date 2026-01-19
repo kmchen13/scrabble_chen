@@ -61,15 +61,23 @@ class GameUpdateHandler {
       final currentGame = getCurrentGame();
       final sameGame = _sameGame(incoming, currentGame);
 
+      // 👉 Détection REVANCHE (sans isGameOver / isInitial)
+      final bool isRematch =
+          mounted &&
+          !sameGame &&
+          incoming.lettersPlacedThisTurn.isEmpty &&
+          incoming.leftScore == 0 &&
+          incoming.rightScore == 0;
+
       if (debug) {
         print(
           '[GameUpdateHandler] GameState reçu '
-          '(sameGame=$sameGame, mounted=$mounted)',
+          '(sameGame=$sameGame, isRematch=$isRematch, mounted=$mounted)',
         );
       }
 
-      // ✅ Même partie + écran actif → appliquer IMMÉDIATEMENT
-      if (mounted && sameGame) {
+      // ✅ Même partie OU revanche → appliquer immédiatement
+      if (mounted && (sameGame || isRematch)) {
         await applyIncomingState(incoming, updateUI: true);
 
         // 🔥 Sécurité : vider tout buffer éventuel
@@ -83,12 +91,12 @@ class GameUpdateHandler {
       }
       await gameStorage.save(incoming);
 
-      // Notification passive éventuelle
+      // 🔔 Notification passive
       if (mounted && sameGame) {
         onBackgroundMove?.call(incoming);
       }
 
-      // Reprise polling si nécessaire
+      // ▶️ Reprise polling
       net.startPolling(settings.localUserName);
     };
 

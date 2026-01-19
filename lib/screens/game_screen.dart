@@ -54,31 +54,29 @@ class _GameScreenState extends State<GameScreen> {
   bool _firstLetter = true;
   late final GameUpdateHandler _updateHandler;
   bool _endPopupShown = false;
+  late GameState _gameState;
 
   void _applyGameState(GameState newState) {
     _appBarTitle = defaultTitle;
 
-    // 🔥 COPIE TOTALE
-    widget.gameState.copyFrom(newState);
+    setState(() {
+      //Force flutter à reconnaître le changement de l’état du jeu
+      // 🔥 REMPLACEMENT COMPLET (clé du bug)
+      _gameState = newState;
 
-    // 🔥 RECALCUL DU CÔTÉ LOCAL (CRUCIAL POUR LA REVANCHE)
-    final localName = settings.localUserName;
-    widget.gameState.isLeft = (localName == widget.gameState.leftName);
+      final localName = settings.localUserName;
+      _board = _gameState.board.map((row) => List<String>.from(row)).toList();
 
-    // 🔥 reconstruire le board depuis le GameState
-    _board =
-        widget.gameState.board.map((row) => List<String>.from(row)).toList();
+      _playerLetters = _gameState.localRack(localName);
+      _initialRack = List.from(_playerLetters);
 
-    _playerLetters = widget.gameState.localRack(settings.localUserName);
+      _lettersPlacedThisTurn
+        ..clear()
+        ..addAll(_gameState.lettersPlacedThisTurn);
 
-    _initialRack = List.from(_playerLetters);
-
-    _lettersPlacedThisTurn
-      ..clear()
-      ..addAll(widget.gameState.lettersPlacedThisTurn);
-
-    _boardController.value = Matrix4.identity();
-    _firstLetter = true;
+      _boardController.value = Matrix4.identity();
+      _firstLetter = true;
+    });
   }
 
   void _onGameOver(GameState state) {
@@ -91,12 +89,16 @@ class _GameScreenState extends State<GameScreen> {
       net: _net,
       onRematchStarted: (newGameState) {
         if (!mounted) return;
-
+        // 🔓 autoriser les envois
+        _net.resetGameOver();
         // 🔁 prêt pour une nouvelle partie
         _endPopupShown = false;
 
         _applyGameState(newGameState);
         setState(() {});
+
+        // ▶️ relancer le polling pour recevoir les coups du partenaire
+        _net.startPolling(settings.localUserName);
       },
     );
   }
@@ -113,12 +115,12 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
+    _gameState = widget.gameState;
 
     _net = widget.net;
-    _board =
-        widget.gameState.board.map((row) => List<String>.from(row)).toList();
+    _board = _gameState.board.map((row) => List<String>.from(row)).toList();
 
-    _playerLetters = widget.gameState.localRack(settings.localUserName);
+    _playerLetters = _gameState.localRack(settings.localUserName);
     _initialRack = List.from(_playerLetters);
 
     _updateHandler = GameUpdateHandler(
@@ -133,7 +135,7 @@ class _GameScreenState extends State<GameScreen> {
       },
 
       // 🔥 état courant TOUJOURS à jour
-      getCurrentGame: () => widget.gameState,
+      getCurrentGame: () => _gameState,
 
       // 🔥 état du widget
       isMounted: () => mounted,
@@ -220,7 +222,7 @@ class _GameScreenState extends State<GameScreen> {
       }
 
       // 4️⃣ Mise à jour du plateau visuel et logique
-      widget.gameState.board[row][col] = _board[row][col] = letter;
+      _gameState.board[row][col] = _board[row][col] = letter;
 
       _updateTitleWithProvisionalScore();
     });
@@ -282,53 +284,51 @@ class _GameScreenState extends State<GameScreen> {
     }
     setState(() {
       final result = getWordsCreatedAndScore(
-        board: widget.gameState.board,
+        board: _gameState.board,
         lettersPlacedThisTurn: _lettersPlacedThisTurn,
       );
 
       int totalScore = result.totalScore;
 
       // Appliquer le score au joueur actif
-      if (widget.gameState.isLeft) {
-        widget.gameState.leftScore += totalScore;
+      if (_gameState.isLeft) {
+        _gameState.leftScore += totalScore;
       } else {
-        widget.gameState.rightScore += totalScore;
+        _gameState.rightScore += totalScore;
       }
 
       // Placer définitivement les lettres sur le plateau
       for (final placed in _lettersPlacedThisTurn) {
-        widget.gameState.board[placed.row][placed.col] = placed.letter;
+        _gameState.board[placed.row][placed.col] = placed.letter;
       }
       // Transmettre les _lettersPlacedThisTurn pour surbrillance
-      widget.gameState.lettersPlacedThisTurn = List.from(
-        _lettersPlacedThisTurn,
-      );
+      _gameState.lettersPlacedThisTurn = List.from(_lettersPlacedThisTurn);
 
       // Tirer de nouvelles lettres
       refillRack(7);
 
       // Passer au tour suivant
-      widget.gameState.isLeft = !widget.gameState.isLeft;
+      _gameState.isLeft = !_gameState.isLeft;
 
       // La partie prend fin lorsqu'un joueur n'a plus de lettres
       // et que les 2 joueurs ont joué le même nombre de tours
       // Un joueur n’a plus de lettres
-      final leftEmpty = widget.gameState.leftLetters.isEmpty;
-      final rightEmpty = widget.gameState.rightLetters.isEmpty;
+      final leftEmpty = _gameState.leftLetters.isEmpty;
+      final rightEmpty = _gameState.rightLetters.isEmpty;
       if ((leftEmpty || rightEmpty) &&
-          settings.localUserName == widget.gameState.rightName) {
-        _net.sendGameOver(GameState.fromJson(widget.gameState.toJson()));
+          settings.localUserName == _gameState.rightName) {
+        _net.sendGameOver(GameState.fromJson(_gameState.toJson()));
 
-        _onGameOver(widget.gameState);
+        _onGameOver(_gameState);
       } else {
         // ⚡️ Envoyer le nouvel état de jeu
-        widget.onGameStateUpdated?.call(widget.gameState);
+        widget.onGameStateUpdated?.call(_gameState);
 
         // ✅ Réinitialiser _lettersPlacedThisTurn pour neutraliser _returnLetterToRack
         clearLettersPlacedThisTurn();
 
         if (debug) print("${logHeader('handleSubmit')} Sauvegarde après envoi");
-        gameStorage.save(widget.gameState);
+        gameStorage.save(_gameState);
 
         setState(() => _appBarTitle = defaultTitle);
       }
@@ -338,14 +338,14 @@ class _GameScreenState extends State<GameScreen> {
   void refillRack(int rackSize) {
     int missing = rackSize - _playerLetters.length;
     if (missing > 0) {
-      final drawn = widget.gameState.bag.drawLetters(missing);
+      final drawn = _gameState.bag.drawLetters(missing);
       _playerLetters.addAll(drawn);
 
       // ✅ MISE À JOUR du GameState avec les nouvelles lettres
-      if (widget.gameState.isLeft) {
-        widget.gameState.leftLetters = List.from(_playerLetters);
+      if (_gameState.isLeft) {
+        _gameState.leftLetters = List.from(_playerLetters);
       } else {
-        widget.gameState.rightLetters = List.from(_playerLetters);
+        _gameState.rightLetters = List.from(_playerLetters);
       }
     }
   }
@@ -362,9 +362,9 @@ class _GameScreenState extends State<GameScreen> {
 
     // 🔹 C’est au joueur de gauche si isLeft == true
     final bool isCurrentTurn =
-        widget.gameState.isLeft
-            ? (widget.gameState.leftName == localName)
-            : (widget.gameState.rightName == localName);
+        _gameState.isLeft
+            ? (_gameState.leftName == localName)
+            : (_gameState.rightName == localName);
 
     return WillPopScope(
       onWillPop: () async => false, // ⛔ empêche flèche gauche
@@ -459,13 +459,13 @@ class _GameScreenState extends State<GameScreen> {
 
     // Limite les noms à nameDspl caractères
     String shortLeftName =
-        widget.gameState.leftName.length > nameDspl
-            ? widget.gameState.leftName.substring(0, nameDspl)
-            : widget.gameState.leftName;
+        _gameState.leftName.length > nameDspl
+            ? _gameState.leftName.substring(0, nameDspl)
+            : _gameState.leftName;
     String shortRightName =
-        widget.gameState.rightName.length > nameDspl
-            ? widget.gameState.rightName.substring(0, nameDspl)
-            : widget.gameState.rightName;
+        _gameState.rightName.length > nameDspl
+            ? _gameState.rightName.substring(0, nameDspl)
+            : _gameState.rightName;
 
     return Container(
       color: const Color.fromARGB(255, 167, 156, 13),
@@ -474,8 +474,8 @@ class _GameScreenState extends State<GameScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _scoreContainer(
-            "$shortLeftName: ${widget.gameState.leftScore}",
-            widget.gameState.isLeft,
+            "$shortLeftName: ${_gameState.leftScore}",
+            _gameState.isLeft,
             fontSize: nameFontSize,
           ),
           const SizedBox(width: 12),
@@ -486,8 +486,8 @@ class _GameScreenState extends State<GameScreen> {
           ),
           const SizedBox(width: 12),
           _scoreContainer(
-            "$shortRightName: ${widget.gameState.rightScore}",
-            !widget.gameState.isLeft,
+            "$shortRightName: ${_gameState.rightScore}",
+            !_gameState.isLeft,
             fontSize: nameFontSize,
           ),
         ],
@@ -565,57 +565,64 @@ class _GameScreenState extends State<GameScreen> {
               tooltip: "Afficher le sac de lettres",
               icon: const Icon(Icons.inventory_2),
               onPressed: () {
-                widget.gameState.bag.showContents(context);
+                _gameState.bag.showContents(context);
               },
             ),
             IconButton(
               tooltip: 'Abandonner la partie', // ✅ Affiche ce texte au survol
               icon: const Icon(Icons.exit_to_app),
-              onPressed: () async {
-                final bool? confirmQuit = await showDialog<bool>(
-                  context: context,
-                  builder: (BuildContext context) {
-                    return AlertDialog(
-                      title: const Text('Confirmer l’abandon'),
-                      content: const Text(
-                        'Souhaitez-vous vraiment abandonner la partie ?',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(false),
-                          child: const Text('Annuler'),
-                        ),
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(true),
-                          child: const Text('Abandonner'),
-                        ),
-                      ],
-                    );
-                  },
-                );
+              onPressed:
+                  isCurrentTurn
+                      ? () async {
+                        final bool? confirmQuit = await showDialog<bool>(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                              title: const Text('Confirmer l’abandon'),
+                              content: const Text(
+                                'Souhaitez-vous vraiment abandonner la partie ?',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed:
+                                      () => Navigator.of(context).pop(false),
+                                  child: const Text('Annuler'),
+                                ),
+                                TextButton(
+                                  onPressed:
+                                      () => Navigator.of(context).pop(true),
+                                  child: const Text('Abandonner'),
+                                ),
+                              ],
+                            );
+                          },
+                        );
 
-                if (confirmQuit != true)
-                  return; // ✅ Si l’utilisateur annule, on quitte sans rien faire
+                        if (confirmQuit != true)
+                          return; // ✅ Si l’utilisateur annule, on quitte sans rien faire
 
-                final userName = settings.localUserName;
-                final partner = widget.gameState.partnerFrom(userName);
+                        final userName = settings.localUserName;
+                        final partner = _gameState.partnerFrom(userName);
 
-                try {
-                  // ensure quit completes before clearing / navigating
-                  await widget.net.quit(userName, partner);
-                  widget.net.resetGameOver();
-                } catch (e) {
-                  print("⛔ Erreur abandon: $e");
-                }
+                        try {
+                          // ensure quit completes before clearing / navigating
+                          await widget.net.quit(userName, partner);
+                          widget.net.resetGameOver();
+                        } catch (e) {
+                          print("⛔ Erreur abandon: $e");
+                        }
 
-                // Supprime le GameState local
-                await gameStorage.delete(partner);
+                        // Supprime le GameState local
+                        await gameStorage.delete(partner);
 
-                // Retourne à l’écran d’accueil
-                if (context.mounted) {
-                  Navigator.of(context).popUntil((route) => route.isFirst);
-                }
-              },
+                        // Retourne à l’écran d’accueil
+                        if (context.mounted) {
+                          Navigator.of(
+                            context,
+                          ).popUntil((route) => route.isFirst);
+                        }
+                      }
+                      : null,
             ),
           ],
         ),
@@ -644,7 +651,7 @@ class _GameScreenState extends State<GameScreen> {
       return;
     }
     final result = getWordsCreatedAndScore(
-      board: widget.gameState.board,
+      board: _gameState.board,
       lettersPlacedThisTurn: _lettersPlacedThisTurn,
     );
     int score = result.totalScore;
@@ -653,14 +660,14 @@ class _GameScreenState extends State<GameScreen> {
 
   void clearBoard(row, col) {
     setState(() {
-      widget.gameState.board[row][col] = _board[row][col] = '';
+      _gameState.board[row][col] = _board[row][col] = '';
     });
   }
 
   void clearLettersPlacedThisTurn() {
     setState(() {
       _lettersPlacedThisTurn.clear();
-      widget.gameState.lettersPlacedThisTurn.clear();
+      _gameState.lettersPlacedThisTurn.clear();
     });
   }
 }
