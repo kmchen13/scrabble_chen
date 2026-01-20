@@ -236,8 +236,8 @@ class _PlayerRackInternalState extends State<_PlayerRackInternal> {
               ),
             ),
             Positioned(
-              bottom: 2,
-              right: 4,
+              bottom: 1,
+              right: 1,
               child: Text(
                 '$point',
                 style: TextStyle(

@@ -200,7 +200,7 @@ Widget _buildLetterTile(
     child: Stack(
       children: [
         Transform.translate(
-          offset: const Offset(0, -3),
+          offset: const Offset(0, 0),
           child: Center(
             child: Text(
               letter,
