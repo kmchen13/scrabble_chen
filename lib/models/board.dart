@@ -220,7 +220,7 @@ Widget _buildLetterTile(
               '$point',
               style: TextStyle(
                 fontSize: size * 0.2,
-                color: Colors.black87,
+                color: Colors.red,
                 fontWeight: FontWeight.bold,
               ),
             ),

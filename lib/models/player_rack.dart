@@ -243,6 +243,7 @@ class _PlayerRackInternalState extends State<_PlayerRackInternal> {
                 style: TextStyle(
                   fontSize: size * 0.25,
                   fontWeight: FontWeight.w600,
+                  color: Colors.red,
                 ),
               ),
             ),

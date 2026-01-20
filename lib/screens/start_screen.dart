@@ -48,11 +48,15 @@ class _StartScreenState extends State<StartScreen> {
       required String rightIP,
       required int rightPort,
     }) {
-      if (_navigated) return;
-      _navigated = true;
-
       final localName = settings.localUserName;
-      final bool isLeft = leftStartTime > rightStartTime;
+
+      print(
+        "DEBUG onMatched triggered: local=$localName, left=$leftName, right=$rightName, _navigated=$_navigated",
+      );
+
+      if (_navigated)
+        return; // maintenant le print montre si on est déjà navigué
+      _navigated = true;
 
       if (localName == leftName) {
         // Joueur gauche → crée GameState et ouvre GameScreen

@@ -109,4 +109,8 @@ Refonte mode web en polling
     Correction affichage immédiat gameState / Rebuild Flutter forcé par changement de référence
 2.2.8
     Correction affichage immédiat gameState / compromis addPostFrameCallback
+2.3.0
+    changement couleur jetons
+    retour zoom après envoit d'un coup
+
     

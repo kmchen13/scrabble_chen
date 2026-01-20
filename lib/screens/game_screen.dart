@@ -332,6 +332,8 @@ class _GameScreenState extends State<GameScreen> {
 
         setState(() => _appBarTitle = defaultTitle);
       }
+      // 🔹 Réinitialiser le zoom à 100% (identité)
+      _boardController.value = Matrix4.identity();
     });
   }
 
