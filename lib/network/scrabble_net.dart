@@ -81,4 +81,6 @@ abstract class ScrabbleNet {
   void resetGameOver();
 
   void Function(String message)? onError;
+
+  void reset();
 }

@@ -432,4 +432,7 @@ class LocalNet implements ScrabbleNet {
 
   @override
   void flushPending() {}
+
+  @override
+  void reset() {}
 }

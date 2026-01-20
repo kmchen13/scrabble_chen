@@ -209,6 +209,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
               ),
               ElevatedButton(
                 onPressed: () {
+                  _net.reset();
                   SystemNavigator.pop();
                 },
                 child: const Text("Quitter"),

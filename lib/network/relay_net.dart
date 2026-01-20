@@ -587,4 +587,17 @@ class RelayNet implements ScrabbleNet {
   ) {
     _onConnectionClosed = callback;
   }
+
+  void reset() {
+    _pollingTimer?.cancel();
+    _pollingTimer = null;
+
+    _isConnected = false;
+    _gameIsOver = false;
+
+    onMatched = null;
+    onGameStateReceived = null;
+    onGameOverReceived = null;
+    onStatusUpdate = null;
+  }
 }

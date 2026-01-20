@@ -112,5 +112,8 @@ Refonte mode web en polling
 2.3.0
     changement couleur jetons
     retour zoom après envoit d'un coup
+2.3.1
+    Ajout net.reset()
+    correction bug board tronqué sur galaxy S7
 
     

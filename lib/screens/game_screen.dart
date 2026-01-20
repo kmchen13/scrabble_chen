@@ -359,6 +359,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
     final localName = settings.localUserName;
 
@@ -375,70 +376,72 @@ class _GameScreenState extends State<GameScreen> {
           automaticallyImplyLeading: false, // ⛔ flèche UI
           title: Text(_appBarTitle),
         ),
-        body: Column(
-          children: [
-            _buildScoreBar(),
-            Expanded(
-              flex: 5,
-              child: GestureDetector(
-                onDoubleTap: () => _boardController.value = Matrix4.identity(),
-                child: InteractiveViewer(
-                  transformationController: _boardController,
-                  panEnabled: true,
-                  minScale: 1.0,
-                  maxScale: 15 / 12,
-                  child: buildScrabbleBoard(
-                    board: _board,
-                    lettersPlacedThisTurn:
-                        _lettersPlacedThisTurn
-                            .map(
-                              (e) => PlacedLetter(
-                                row: e.row,
-                                col: e.col,
-                                letter: e.letter,
-                              ),
-                            )
-                            .toList(),
-                    onLetterPlaced: onLetterPlaced,
-                    onLetterReturned: _returnLetterToRack,
+        body: SafeArea(
+          child: Column(
+            children: [
+              _buildScoreBar(), // barre de score
+              Expanded(
+                flex: 5,
+                child: GestureDetector(
+                  onDoubleTap:
+                      () => _boardController.value = Matrix4.identity(),
+                  child: InteractiveViewer(
+                    transformationController: _boardController,
+                    panEnabled: true,
+                    minScale: 1.0,
+                    maxScale: 15 / 12,
+                    child: buildScrabbleBoard(
+                      board: _board,
+                      lettersPlacedThisTurn:
+                          _lettersPlacedThisTurn
+                              .map(
+                                (e) => PlacedLetter(
+                                  row: e.row,
+                                  col: e.col,
+                                  letter: e.letter,
+                                ),
+                              )
+                              .toList(),
+                      onLetterPlaced: onLetterPlaced,
+                      onLetterReturned: _returnLetterToRack,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              height: 60,
-              child: PlayerRack(
-                letters: _playerLetters,
-                onMove: (fromIndex, toIndex) {
-                  setState(() {
-                    final letter = _playerLetters.removeAt(fromIndex);
-                    _playerLetters.insert(toIndex, letter);
-                  });
-                },
-                onAddLetter: (String letter, {int? hoveredIndex}) {
-                  // Utilisez un paramètre nommé
-                  setState(() {
-                    if (hoveredIndex != null) {
-                      _playerLetters.insert(hoveredIndex, letter);
-                    } else {
-                      _playerLetters.add(letter);
-                    }
-                  });
-                },
-                onRemoveFromBoard: (row, col) {
-                  setState(() {
-                    clearBoard(row, col);
-                    _lettersPlacedThisTurn.removeWhere(
-                      (placed) => placed.row == row && placed.col == col,
-                    );
-                  });
-                },
-                onRemoveLetter:
-                    (i) => setState(() => _playerLetters.removeAt(i)),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 60,
+                child: PlayerRack(
+                  letters: _playerLetters,
+                  onMove: (fromIndex, toIndex) {
+                    setState(() {
+                      final letter = _playerLetters.removeAt(fromIndex);
+                      _playerLetters.insert(toIndex, letter);
+                    });
+                  },
+                  onAddLetter: (String letter, {int? hoveredIndex}) {
+                    setState(() {
+                      if (hoveredIndex != null) {
+                        _playerLetters.insert(hoveredIndex, letter);
+                      } else {
+                        _playerLetters.add(letter);
+                      }
+                    });
+                  },
+                  onRemoveFromBoard: (row, col) {
+                    setState(() {
+                      clearBoard(row, col);
+                      _lettersPlacedThisTurn.removeWhere(
+                        (placed) => placed.row == row && placed.col == col,
+                      );
+                    });
+                  },
+                  onRemoveLetter:
+                      (i) => setState(() => _playerLetters.removeAt(i)),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         bottomNavigationBar: _buildBottomBar(isCurrentTurn),
       ),
