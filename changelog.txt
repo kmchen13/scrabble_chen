@@ -117,5 +117,8 @@ Refonte mode web en polling
     correction bug board tronqué sur galaxy S7
 2.3.2
     Repositionnement Lettres et Points sur les jetons du rack et du board
+2.3.3
+    Repositionnement lettres du board
+    
 
     
