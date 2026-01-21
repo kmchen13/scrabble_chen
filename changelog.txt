@@ -112,5 +112,8 @@ Refonte mode web en polling
 2.3.0
     changement couleur jetons
     retour zoom après envoit d'un coup
-
+3.0.0
+    Modification de navigation. 
+    suppression "commencer une partie", suppression start_screen et waiting_screen
+    gestion connect, onMatched dans homeScreen
     

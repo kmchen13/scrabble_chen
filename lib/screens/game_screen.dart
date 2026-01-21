@@ -607,9 +607,15 @@ class _GameScreenState extends State<GameScreen> {
                         final partner = _gameState.partnerFrom(userName);
 
                         try {
-                          // ensure quit completes before clearing / navigating
+                          // Prévient le partenaire
                           await widget.net.quit(userName, partner);
                           widget.net.resetGameOver();
+                          // 🔁 redevenir disponible
+                          widget.net.connect(
+                            localName: settings.localUserName,
+                            expectedName: settings.expectedUserName,
+                            startTime: DateTime.now().millisecondsSinceEpoch,
+                          );
                         } catch (e) {
                           print("⛔ Erreur abandon: $e");
                         }
