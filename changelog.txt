@@ -112,5 +112,7 @@ Refonte mode web en polling
 2.3.0
     changement couleur jetons
     retour zoom après envoit d'un coup
+2.4.0
+    Ajout dictionnaire français
 
     

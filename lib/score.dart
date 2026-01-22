@@ -1,6 +1,18 @@
 import 'bonus.dart';
 import 'package:scrabble_P2P/models/dragged_letter.dart';
 import 'package:scrabble_P2P/models/placed_letter.dart';
+import 'package:scrabble_P2P/services/dictionary.dart';
+
+String _normalize(String word) =>
+    word.toUpperCase(); // ou removeAccents + upper
+
+class InvalidWordException implements Exception {
+  final String word;
+  InvalidWordException(this.word);
+
+  @override
+  String toString() => 'Mot invalide: $word';
+}
 
 /* Fonctions utilitaires pour calcul score */
 bool _isLikelyHorizontal(List<PlacedLetter> letters, List<List<String>> board) {
@@ -95,6 +107,7 @@ bool _inBounds(int row, int col) {
 ({List<String> words, int totalScore}) getWordsCreatedAndScore({
   required List<List<String>> board,
   required List<PlacedLetter> lettersPlacedThisTurn,
+  required DictionaryService dictionary,
 }) {
   if (lettersPlacedThisTurn.isEmpty) {
     return (words: [], totalScore: 0);
@@ -127,6 +140,11 @@ bool _inBounds(int row, int col) {
       placedCoords,
     );
     if (mainWord.length > 1) {
+      final normalized = _normalize(mainWord);
+
+      if (!dictionary.contains(normalized)) {
+        throw InvalidWordException(normalized);
+      }
       words.add(mainWord);
       totalScore += mainScore;
     }
@@ -172,6 +190,11 @@ bool _inBounds(int row, int col) {
             );
 
     if (perpWord.length > 1) {
+      final normalized = _normalize(perpWord);
+
+      if (!dictionary.contains(normalized)) {
+        throw InvalidWordException(normalized);
+      }
       words.add(perpWord);
       totalScore += perpScore;
     }

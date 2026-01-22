@@ -37,6 +37,12 @@ class GameStorage {
     }
   }
 
+  /// Retourne true si aucune partie n'est sauvegardée
+  Future<bool> get isEmpty async {
+    final savedGames = await listSavedGames();
+    return savedGames.isEmpty;
+  }
+
   Future<void> save(GameState gameState) async {
     if (_box == null) throw Exception("GameStorage not initialized");
     try {

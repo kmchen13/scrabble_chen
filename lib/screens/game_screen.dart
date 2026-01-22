@@ -8,6 +8,7 @@ import 'package:scrabble_P2P/services/game_storage.dart';
 import 'package:scrabble_P2P/services/utility.dart';
 import 'package:scrabble_P2P/services/game_end.dart';
 import 'package:scrabble_P2P/services/game_update.dart';
+import 'package:scrabble_P2P/services/dictionary.dart';
 import 'package:scrabble_P2P/models/placed_letter.dart';
 import 'package:scrabble_P2P/screens/show_bag.dart';
 import 'package:scrabble_P2P/screens/home_screen.dart';
@@ -55,6 +56,8 @@ class _GameScreenState extends State<GameScreen> {
   late final GameUpdateHandler _updateHandler;
   bool _endPopupShown = false;
   late GameState _gameState;
+  ({List<String> words, int totalScore})? _cachedTurnResult;
+  bool _cachedTurnValid = false;
 
   void _applyGameState(GameState newState) {
     _appBarTitle = defaultTitle;
@@ -224,6 +227,7 @@ class _GameScreenState extends State<GameScreen> {
       // 4️⃣ Mise à jour du plateau visuel et logique
       _gameState.board[row][col] = _board[row][col] = letter;
 
+      _cachedTurnValid = false;
       _updateTitleWithProvisionalScore();
     });
     widget.onMovePlayed?.call(GameMove(letter: letter, row: row, col: col));
@@ -273,23 +277,16 @@ class _GameScreenState extends State<GameScreen> {
       }
       // _playerLetters = List.from(_initialRack);
       clearLettersPlacedThisTurn();
+      _cachedTurnValid = false;
       _updateTitleWithProvisionalScore();
     });
   }
 
   void _handleSubmit() {
-    // Fusionne les lettres posées ce tour dans le plateau
-    for (final placed in _lettersPlacedThisTurn) {
-      _board[placed.row][placed.col] = placed.letter;
-    }
+    final result = _cachedTurnResult!;
+    final totalScore = result.totalScore;
+
     setState(() {
-      final result = getWordsCreatedAndScore(
-        board: _gameState.board,
-        lettersPlacedThisTurn: _lettersPlacedThisTurn,
-      );
-
-      int totalScore = result.totalScore;
-
       // Appliquer le score au joueur actif
       if (_gameState.isLeft) {
         _gameState.leftScore += totalScore;
@@ -634,6 +631,7 @@ class _GameScreenState extends State<GameScreen> {
 
   void _returnLetterToRack(String letter) {
     setState(() {
+      _cachedTurnValid = false;
       _updateTitleWithProvisionalScore();
 
       _playerLetters.add(letter);
@@ -649,15 +647,35 @@ class _GameScreenState extends State<GameScreen> {
 
   void _updateTitleWithProvisionalScore() {
     if (_lettersPlacedThisTurn.isEmpty) {
-      setState(() => _appBarTitle = defaultTitle);
+      setState(() {
+        _appBarTitle = defaultTitle;
+        _cachedTurnResult = null;
+        _cachedTurnValid = false;
+      });
       return;
     }
-    final result = getWordsCreatedAndScore(
-      board: _gameState.board,
-      lettersPlacedThisTurn: _lettersPlacedThisTurn,
-    );
-    int score = result.totalScore;
-    setState(() => _appBarTitle = "Score provisoire : $score");
+
+    try {
+      final result = getWordsCreatedAndScore(
+        board: _gameState.board,
+        lettersPlacedThisTurn: _lettersPlacedThisTurn,
+        dictionary: dictionaryService,
+      );
+
+      _cachedTurnResult = result;
+      _cachedTurnValid = true;
+
+      setState(() {
+        _appBarTitle = "Score provisoire : ${result.totalScore}";
+      });
+    } on InvalidWordException catch (e) {
+      _cachedTurnResult = null;
+      _cachedTurnValid = false;
+
+      setState(() {
+        _appBarTitle = "Mot invalide";
+      });
+    }
   }
 
   void clearBoard(row, col) {

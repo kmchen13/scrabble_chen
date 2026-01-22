@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:scrabble_P2P/constants.dart';
 import 'package:scrabble_P2P/models/user_settings.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
 import 'package:scrabble_P2P/screens/home_screen.dart';
+import 'package:scrabble_P2P/services/game_storage.dart';
+import 'package:scrabble_P2P/services/dictionary.dart';
 
 class ParamScreen extends StatefulWidget {
   const ParamScreen({super.key});
@@ -15,6 +19,7 @@ class _ParamScreenState extends State<ParamScreen> {
   static const String settingsKey = 'user_settings';
 
   final TextEditingController _nameController = TextEditingController();
+  late UserSettings _settings;
   final TextEditingController _localIPController = TextEditingController();
   final TextEditingController _localPortController = TextEditingController();
   final TextEditingController _udpPortController = TextEditingController();
@@ -58,6 +63,7 @@ class _ParamScreenState extends State<ParamScreen> {
   Future<void> _saveSettings() async {
     settings = UserSettings(
       localUserName: _nameController.text,
+      language: settings.language,
       communicationMode: _communicationMode ?? 'local',
       soundEnabled: _soundEnabled,
       localIP: _localIPController.text,
@@ -86,6 +92,28 @@ class _ParamScreenState extends State<ParamScreen> {
     await loadSettings();
   }
 
+  Future<void> _fetchDictionaryFromRelay(String language) async {
+    // Exemple pour le relay server HTTP
+    final uri = Uri.parse('${settings.relayAddress}/dictionary?lang=$language');
+
+    final response = await http.get(uri);
+    if (response.statusCode == 200) {
+      // Le serveur renvoie le dictionnaire en texte brut
+
+      // Remplace le dictionnaire existant dans l'app
+      dictionaryService.replaceFromText(response.body);
+
+      if (debug)
+        print(
+          'Dictionnaire $language chargé avec ${dictionaryService.size} mots.',
+        );
+    } else {
+      throw Exception(
+        'Impossible de récupérer le dictionnaire du relay server',
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_communicationMode == null) {
@@ -104,6 +132,9 @@ class _ParamScreenState extends State<ParamScreen> {
               _nameController,
               hintText: "Veuillez entrer votre pseudo",
             ),
+            const SizedBox(height: 20),
+            _buildLanguageSelector(),
+
             const SizedBox(height: 20),
             Row(
               children: [
@@ -249,6 +280,84 @@ class _ParamScreenState extends State<ParamScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildLanguageSelector() {
+    return FutureBuilder<bool>(
+      future: gameStorage.isEmpty, // futur booléen
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final canChangeLanguage = snapshot.data!;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Langue du dictionnaire :",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<Language>(
+              value: languageFromString(_settings.language),
+              items:
+                  Language.values
+                      .map(
+                        (lang) => DropdownMenuItem(
+                          value: lang,
+                          child: Text(lang.label),
+                        ),
+                      )
+                      .toList(),
+              onChanged:
+                  canChangeLanguage
+                      ? (Language? newLang) async {
+                        if (newLang == null) return;
+                        final newLanguageStr = languageToString(newLang);
+
+                        setState(() {
+                          _settings = _settings.copyWith(
+                            language: newLanguageStr,
+                          );
+                        });
+
+                        // 🔹 Envoi au relay server pour récupérer le nouveau dictionnaire
+                        try {
+                          await _fetchDictionaryFromRelay(newLanguageStr);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Dictionnaire mis à jour pour $newLanguageStr',
+                              ),
+                            ),
+                          );
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Erreur lors du téléchargement du dictionnaire',
+                              ),
+                            ),
+                          );
+                        }
+                      }
+                      : null,
+
+              decoration: const InputDecoration(border: OutlineInputBorder()),
+            ),
+            if (!canChangeLanguage) ...[
+              const SizedBox(height: 8),
+              const Text(
+                "La langue ne peut pas être modifiée tant que des parties sont enregistrées.",
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
+          ],
+        );
+      },
     );
   }
 }

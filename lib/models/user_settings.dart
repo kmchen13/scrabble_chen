@@ -1,5 +1,38 @@
+enum Language { fr, en, es }
+
+extension LanguageX on Language {
+  String get label {
+    switch (this) {
+      case Language.fr:
+        return 'Français';
+      case Language.en:
+        return 'English';
+      case Language.es:
+        return 'Español';
+    }
+  }
+}
+
+Language languageFromString(String s) {
+  switch (s) {
+    case 'fr':
+      return Language.fr;
+    case 'en':
+      return Language.en;
+    case 'es':
+      return Language.es;
+    default:
+      return Language.fr; // fallback
+  }
+}
+
+String languageToString(Language l) {
+  return l.name; // "fr", "en", "es"
+}
+
 class UserSettings {
   String localUserName;
+  String language;
   String communicationMode;
   bool soundEnabled;
   String localIP;
@@ -13,6 +46,7 @@ class UserSettings {
 
   UserSettings({
     required this.localUserName,
+    this.language = 'fr',
     required this.communicationMode,
     required this.soundEnabled,
     required this.localIP,
@@ -28,6 +62,7 @@ class UserSettings {
   factory UserSettings.defaultSettings() {
     return UserSettings(
       localUserName: '',
+      language: 'fr',
       communicationMode: 'local',
       soundEnabled: true,
       localIP: '',
@@ -44,6 +79,7 @@ class UserSettings {
   Map<String, dynamic> toJson() {
     return {
       'localUserName': localUserName,
+      'language': language,
       'communicationMode': communicationMode,
       'soundEnabled': soundEnabled,
       'localIP': localIP,
@@ -68,6 +104,7 @@ class UserSettings {
   factory UserSettings.fromJson(Map<String, dynamic> json) {
     return UserSettings(
       localUserName: json['localUserName'] ?? '',
+      language: json['language'] ?? 'fr',
       communicationMode: json['communicationMode'] ?? 'local',
       soundEnabled: json['soundEnabled'] ?? true,
       localIP: json['localIP'] ?? '',
@@ -85,19 +122,33 @@ class UserSettings {
   }
 
   // Méthode utilitaire pour copier l’objet avec une nouvelle startTime
-  UserSettings copyWith({DateTime? startTime, int? nameDisplayLimit}) {
+  UserSettings copyWith({
+    String? localUserName,
+    String? language, // ✅ ajouter
+    String? communicationMode,
+    bool? soundEnabled,
+    String? localIP,
+    int? localPort,
+    int? udpPort,
+    String? expectedUserName,
+    String? relayAddress,
+    int? relayPort,
+    DateTime? startTime,
+    int? nameDisplayLimit, // ✅ garder
+  }) {
     return UserSettings(
-      localUserName: localUserName,
-      communicationMode: communicationMode,
-      soundEnabled: soundEnabled,
-      localIP: localIP,
-      localPort: localPort,
-      udpPort: udpPort,
-      expectedUserName: expectedUserName,
-      relayAddress: relayAddress,
-      relayPort: relayPort,
+      localUserName: localUserName ?? this.localUserName,
+      language: language ?? this.language, // ✅ utiliser
+      communicationMode: communicationMode ?? this.communicationMode,
+      soundEnabled: soundEnabled ?? this.soundEnabled,
+      localIP: localIP ?? this.localIP,
+      localPort: localPort ?? this.localPort,
+      udpPort: udpPort ?? this.udpPort,
+      expectedUserName: expectedUserName ?? this.expectedUserName,
+      relayAddress: relayAddress ?? this.relayAddress,
+      relayPort: relayPort ?? this.relayPort,
       startTime: startTime ?? this.startTime,
-      nameDisplayLimit: nameDisplayLimit ?? this.nameDisplayLimit,
+      nameDisplayLimit: nameDisplayLimit ?? this.nameDisplayLimit, // ✅ garder
     );
   }
 }

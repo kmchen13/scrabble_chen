@@ -1,13 +1,21 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
+
 import 'package:hive_flutter/hive_flutter.dart';
 import 'services/settings_service.dart';
+import 'services/dictionary.dart';
 import 'services/game_storage.dart';
 import 'models/game_state.dart';
 import 'screens/home_screen.dart';
 import 'screens/param_screen.dart';
 
 final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
+
+Future<void> loadDefaultDictionary() async {
+  final content = await rootBundle.loadString('assets/dictionary.txt');
+  dictionaryService.replaceFromText(content);
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,6 +30,7 @@ void main() async {
     await gameStorage.close();
     exit(0);
   });
+
   runApp(ScrabbleApp());
 }
 
