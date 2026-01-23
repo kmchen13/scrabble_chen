@@ -11,10 +11,28 @@ import 'screens/home_screen.dart';
 import 'screens/param_screen.dart';
 
 final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 Future<void> loadDefaultDictionary() async {
-  final content = await rootBundle.loadString('assets/dictionary.txt');
-  dictionaryService.replaceFromText(content);
+  try {
+    final content = await rootBundle.loadString('assets/dictionary.txt');
+    dictionaryService.replaceFromText(content);
+  } catch (e) {
+    // Affiche un snackbar si impossible de charger le dictionnaire
+    final context = navigatorKey.currentContext;
+    if (context != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '⚠️ Impossible de charger le dictionnaire par défaut: $e',
+            style: const TextStyle(fontSize: 14),
+          ),
+          backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
 }
 
 void main() async {
@@ -25,6 +43,8 @@ void main() async {
   Hive.registerAdapter(GameStateAdapter());
   // Ouverture de la box via ton wrapper
   await gameStorage.init();
+  // Charger le dictionnaire par défaut
+  await loadDefaultDictionary();
   // Intercepter la fermeture de l'app
   ProcessSignal.sigint.watch().listen((_) async {
     await gameStorage.close();

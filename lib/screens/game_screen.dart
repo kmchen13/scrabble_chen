@@ -283,6 +283,14 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _handleSubmit() {
+    if (_cachedTurnResult == null || !_cachedTurnValid) {
+      // Aucun résultat validé à utiliser
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Le coup n'est pas valide")));
+      return;
+    }
+
     final result = _cachedTurnResult!;
     final totalScore = result.totalScore;
 
@@ -673,7 +681,7 @@ class _GameScreenState extends State<GameScreen> {
       _cachedTurnValid = false;
 
       setState(() {
-        _appBarTitle = "Mot invalide";
+        _appBarTitle = "Mot invalide : ${e.word}";
       });
     }
   }
