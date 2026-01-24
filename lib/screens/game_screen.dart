@@ -238,34 +238,38 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _zoomOnArea(int row, int col) {
+    final RenderBox box = context.findRenderObject() as RenderBox;
+    final Size viewportSize = box.size;
+
     const double cellSize = 40;
+    const int boardCells = 15;
     const int zoomSize = 12;
-    const double scale = 15 / zoomSize;
 
-    final double boardSizePx = cellSize * 15;
-    double targetX = (col - zoomSize ~/ 2) * cellSize;
-    double targetY = (row - zoomSize ~/ 2) * cellSize;
+    final double scale = boardCells / zoomSize;
+    final double boardSizePx = cellSize * boardCells;
 
-    targetX = targetX.clamp(0, boardSizePx - (boardSizePx / scale));
-    targetY = targetY.clamp(0, boardSizePx - (boardSizePx / scale));
+    final double visibleWidth = viewportSize.width / scale;
+    final double visibleHeight = viewportSize.height / scale;
+
+    double targetX = (col - zoomSize / 2) * cellSize;
+    double targetY = (row - zoomSize / 2) * cellSize;
+
+    final double maxX = (boardSizePx - visibleWidth).clamp(
+      0.0,
+      double.infinity,
+    );
+    final double maxY = (boardSizePx - visibleHeight).clamp(
+      0.0,
+      double.infinity,
+    );
+
+    targetX = targetX.clamp(0.0, maxX);
+    targetY = targetY.clamp(0.0, maxY);
 
     _boardController.value =
         Matrix4.identity()
           ..scale(scale)
           ..translate(-targetX, -targetY);
-  }
-
-  void _moveLetter(int fromIndex, int toIndex) {
-    // sécurité si les indices sont hors bornes
-    if (fromIndex < 0 || fromIndex >= _playerLetters.length) return;
-    if (toIndex < 0) toIndex = 0;
-    if (toIndex > _playerLetters.length) toIndex = _playerLetters.length;
-
-    setState(() {
-      final letter = _playerLetters.removeAt(fromIndex);
-      final adjustedIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
-      _playerLetters.insert(adjustedIndex, letter);
-    });
   }
 
   void _handleUndo() {
@@ -639,9 +643,6 @@ class _GameScreenState extends State<GameScreen> {
 
   void _returnLetterToRack(String letter) {
     setState(() {
-      _cachedTurnValid = false;
-      _updateTitleWithProvisionalScore();
-
       _playerLetters.add(letter);
       final idx = _lettersPlacedThisTurn.indexWhere(
         (pos) => pos.letter == letter,
@@ -650,6 +651,9 @@ class _GameScreenState extends State<GameScreen> {
         final removed = _lettersPlacedThisTurn.removeAt(idx);
         clearBoard(removed.row, removed.col);
       }
+
+      _cachedTurnValid = false;
+      _updateTitleWithProvisionalScore();
     });
   }
 

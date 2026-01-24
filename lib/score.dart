@@ -149,7 +149,6 @@ bool _inBounds(int row, int col) {
       totalScore += mainScore;
     }
   } else {
-    // Lettre placée avec la plus petite ligne
     final start = lettersPlacedThisTurn.reduce((a, b) => a.row < b.row ? a : b);
     final (mainWord, mainScore) = _extractWordWithScore(
       board,
@@ -160,7 +159,14 @@ bool _inBounds(int row, int col) {
       0,
       placedCoords,
     );
+
     if (mainWord.length > 1) {
+      final normalized = _normalize(mainWord);
+
+      if (!dictionary.contains(normalized)) {
+        throw InvalidWordException(normalized);
+      }
+
       words.add(mainWord);
       totalScore += mainScore;
     }

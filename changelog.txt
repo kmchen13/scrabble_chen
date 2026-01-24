@@ -116,5 +116,9 @@ Refonte mode web en polling
     Ajout dictionnaire français
 2.4.1
     Corrections bugs divers
-
+2.4.2
+    Correction bug score quand retour lettre au rack
+    Correction bug zoom / bord écran
+    Ajustement polices du rack
+    Correction bug validation mot principal vertical
     

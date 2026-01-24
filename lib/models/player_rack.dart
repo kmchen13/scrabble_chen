@@ -229,7 +229,7 @@ class _PlayerRackInternalState extends State<_PlayerRackInternal> {
               child: Text(
                 letter,
                 style: TextStyle(
-                  fontSize: size * 0.6,
+                  fontSize: size * 0.55,
                   fontWeight: FontWeight.bold,
                   color: Colors.black,
                 ),
@@ -241,7 +241,7 @@ class _PlayerRackInternalState extends State<_PlayerRackInternal> {
               child: Text(
                 '$point',
                 style: TextStyle(
-                  fontSize: size * 0.25,
+                  fontSize: size * 0.20,
                   fontWeight: FontWeight.w600,
                   color: Colors.red,
                 ),

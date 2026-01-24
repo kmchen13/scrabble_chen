@@ -16,10 +16,9 @@ class ParamScreen extends StatefulWidget {
 }
 
 class _ParamScreenState extends State<ParamScreen> {
-  static const String settingsKey = 'user_settings';
+  static const String settingsKey = 'usersettings';
 
   final TextEditingController _nameController = TextEditingController();
-  late UserSettings _settings;
   final TextEditingController _localIPController = TextEditingController();
   final TextEditingController _localPortController = TextEditingController();
   final TextEditingController _udpPortController = TextEditingController();
@@ -297,12 +296,12 @@ class _ParamScreenState extends State<ParamScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              "Langue du dictionnaire :",
+              "Dictionnaire :",
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<Language>(
-              value: languageFromString(_settings.language),
+              value: languageFromString(settings.language),
               items:
                   Language.values
                       .map(
@@ -319,7 +318,7 @@ class _ParamScreenState extends State<ParamScreen> {
                         final newLanguageStr = languageToString(newLang);
 
                         setState(() {
-                          _settings = _settings.copyWith(
+                          settings = settings.copyWith(
                             language: newLanguageStr,
                           );
                         });
