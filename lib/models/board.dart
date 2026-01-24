@@ -14,6 +14,7 @@ typedef OnLetterPlacedCallback =
 typedef OnLetterReturnedCallback = void Function(String letter);
 
 Widget buildScrabbleBoard({
+  required GlobalKey boardKey,
   required List<List<String>> board,
   required List<PlacedLetter> lettersPlacedThisTurn,
   required OnLetterPlacedCallback onLetterPlaced,
@@ -26,6 +27,7 @@ Widget buildScrabbleBoard({
       final tileSize = _calculateTileSize(context);
 
       return GridView.builder(
+        key: boardKey,
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: boardSize,

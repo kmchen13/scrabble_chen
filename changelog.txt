@@ -123,5 +123,6 @@ Refonte mode web en polling
     Correction bug validation mot principal vertical
 2.4.3
     Changement padding du scorebar
+2.5.0
     Notification coup joué sur une autre partie dans gameScreen
-    
+    Correction du zoom

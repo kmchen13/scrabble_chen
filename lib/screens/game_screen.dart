@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
+
 import 'package:scrabble_P2P/models/board.dart';
 import 'package:scrabble_P2P/models/game_state.dart';
 import 'package:scrabble_P2P/models/player_rack.dart';
@@ -45,6 +47,7 @@ class GameScreen extends StatefulWidget {
 }
 
 class _GameScreenState extends State<GameScreen> {
+  final GlobalKey _boardKey = GlobalKey();
   String _appBarTitle = defaultTitle;
   late ScrabbleNet _net;
   late List<String> _playerLetters;
@@ -270,33 +273,27 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _zoomOnArea(int row, int col) {
+    final context = _boardKey.currentContext;
+    if (context == null) return;
+
     final RenderBox box = context.findRenderObject() as RenderBox;
-    final Size viewportSize = box.size;
+    final Size boardSize = box.size;
 
-    const double cellSize = 40;
-    const int boardCells = 15;
-    const int zoomSize = 12;
+    final double cellSize = boardSize.width / 15;
+    const int zoomCells = 12;
 
-    final double scale = boardCells / zoomSize;
-    final double boardSizePx = cellSize * boardCells;
+    final double scale = 15 / zoomCells;
 
-    final double visibleWidth = viewportSize.width / scale;
-    final double visibleHeight = viewportSize.height / scale;
+    final double visibleSize = boardSize.width / scale;
 
-    double targetX = (col - zoomSize / 2) * cellSize;
-    double targetY = (row - zoomSize / 2) * cellSize;
+    // 🎯 centrer la cellule
+    double targetX = (col + 0.5) * cellSize - visibleSize / 2;
+    double targetY = (row + 0.5) * cellSize - visibleSize / 2;
 
-    final double maxX = (boardSizePx - visibleWidth).clamp(
-      0.0,
-      double.infinity,
-    );
-    final double maxY = (boardSizePx - visibleHeight).clamp(
-      0.0,
-      double.infinity,
-    );
+    final double max = boardSize.width - visibleSize;
 
-    targetX = targetX.clamp(0.0, maxX);
-    targetY = targetY.clamp(0.0, maxY);
+    targetX = targetX.clamp(0.0, max);
+    targetY = targetY.clamp(0.0, max);
 
     _boardController.value =
         Matrix4.identity()
@@ -429,6 +426,7 @@ class _GameScreenState extends State<GameScreen> {
                   minScale: 1.0,
                   maxScale: 15 / 12,
                   child: buildScrabbleBoard(
+                    boardKey: _boardKey,
                     board: _board,
                     lettersPlacedThisTurn:
                         _lettersPlacedThisTurn
