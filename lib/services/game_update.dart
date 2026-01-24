@@ -78,28 +78,23 @@ class GameUpdateHandler {
 
       // ✅ Même partie OU revanche → appliquer immédiatement
       if (mounted && (sameGame || isRematch)) {
-        // 🔹 Appliquer l'état après le frame courant
         WidgetsBinding.instance.addPostFrameCallback((_) async {
           if (!mounted) return;
           await applyIncomingState(incoming, updateUI: true);
         });
-        return;
 
-        // 🔥 Sécurité : vider tout buffer éventuel
         onFlushPending?.call();
         return;
       }
 
-      // ❌ Sinon → sauvegarde uniquement
+      // ❌ Autre partie → sauvegarde
       if (debug) {
-        print('[GameUpdateHandler] Sauvegarde gameState');
+        print('[GameUpdateHandler] Sauvegarde gameState (autre partie)');
       }
       await gameStorage.save(incoming);
 
-      // 🔔 Notification passive
-      if (mounted && sameGame) {
-        onBackgroundMove?.call(incoming);
-      }
+      // 🔔 Notification passive (UI déléguée)
+      onBackgroundMove?.call(incoming);
 
       // ▶️ Reprise polling
       net.startPolling(settings.localUserName);

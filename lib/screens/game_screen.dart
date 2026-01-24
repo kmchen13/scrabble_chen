@@ -132,9 +132,7 @@ class _GameScreenState extends State<GameScreen> {
       // 🔥 applique un état entrant (UI ou non)
       applyIncomingState: (newState, {required bool updateUI}) async {
         _applyGameState(newState);
-        if (updateUI && mounted) {
-          setState(() {});
-        }
+        if (updateUI && mounted) setState(() {});
       },
 
       // 🔥 état courant TOUJOURS à jour
@@ -142,6 +140,40 @@ class _GameScreenState extends State<GameScreen> {
 
       // 🔥 état du widget
       isMounted: () => mounted,
+
+      // 🔔 notification quand un autre joueur joue sur une autre partie
+      onBackgroundMove: (incoming) {
+        if (!mounted) return;
+
+        final opponent = incoming.partnerFrom(settings.localUserName);
+
+        final context = this.context;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$opponent a joué un coup'),
+            duration: const Duration(seconds: 4),
+            action: SnackBarAction(
+              label: 'Ouvrir',
+              onPressed: () async {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                await Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder:
+                        (_) => GameScreen(
+                          net: widget.net, // réutilise le net existant
+                          gameState:
+                              incoming, // gameState de la partie à ouvrir
+                          onMovePlayed: widget.onMovePlayed,
+                          onGameStateUpdated: widget.onGameStateUpdated,
+                        ),
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
 
     _updateHandler.attach();
@@ -480,7 +512,7 @@ class _GameScreenState extends State<GameScreen> {
 
     return Container(
       color: const Color.fromARGB(255, 167, 156, 13),
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
