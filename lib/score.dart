@@ -26,16 +26,16 @@ bool _isLikelyHorizontal(List<PlacedLetter> letters, List<List<String>> board) {
   }
 }
 
-(bool, String) _inPlaced(
+(bool, PlacedLetter?) _inPlaced(
   int row,
   int col,
-  Map<(int, int), String> placedCoords,
+  Map<(int, int), PlacedLetter> placedCoords,
 ) {
   final key = (row, col);
   if (placedCoords.containsKey(key)) {
-    return (true, placedCoords[key]!);
+    return (true, placedCoords[key]);
   }
-  return (false, '');
+  return (false, null);
 }
 
 (String word, int score) _extractWordWithScore(
@@ -45,7 +45,7 @@ bool _isLikelyHorizontal(List<PlacedLetter> letters, List<List<String>> board) {
   int col,
   int dRow,
   int dCol,
-  Map<(int, int), String> placedCoords,
+  Map<(int, int), PlacedLetter> placedCoords,
 ) {
   // Reculer jusqu’au début du mot
   while (_inBounds(row - dRow, col - dCol) &&
@@ -60,13 +60,17 @@ bool _isLikelyHorizontal(List<PlacedLetter> letters, List<List<String>> board) {
 
   while (_inBounds(row, col) && board[row][col].isNotEmpty) {
     final letter = board[row][col];
-    final isNewTile = placedCoords.containsKey((row, col));
+    final placed = placedCoords[(row, col)];
+    final isNewTile = placed != null;
+    final isJoker = placed?.isJoker ?? false;
     final bonus = bonusMap[row][col];
 
-    final baseScore = letterPoints[letter.toUpperCase()] ?? 0;
+    // ✅ JOKER = 0 POINT
+    final baseScore = isJoker ? 0 : (letterPoints[letter.toUpperCase()] ?? 0);
+
     int letterScore = baseScore;
 
-    // Appliquer bonus uniquement si la lettre vient d'être posée
+    // Bonus uniquement pour les lettres posées ce tour
     if (isNewTile) {
       switch (bonus) {
         case BonusType.doubleLetter:
@@ -94,9 +98,7 @@ bool _isLikelyHorizontal(List<PlacedLetter> letters, List<List<String>> board) {
   }
 
   final word = buffer.toString();
-  final totalScore = wordScore * wordMultiplier;
-
-  return (word, totalScore);
+  return (word, wordScore * wordMultiplier);
 }
 
 bool _inBounds(int row, int col) {
@@ -116,88 +118,57 @@ bool _inBounds(int row, int col) {
   final words = <String>{};
   int totalScore = 0;
 
-  // Temporairement poser les lettres sur le plateau
+  // Pose temporaire des lettres
   for (final l in lettersPlacedThisTurn) {
     board[l.row][l.col] = l.letter;
   }
 
-  bool isHorizontal = _isLikelyHorizontal(lettersPlacedThisTurn, board);
+  final isHorizontal = _isLikelyHorizontal(lettersPlacedThisTurn, board);
 
+  // 🔥 On garde l’info joker
   final placedCoords = {
-    for (final l in lettersPlacedThisTurn) (l.row, l.col): l.letter,
+    for (final l in lettersPlacedThisTurn) (l.row, l.col): l,
   };
 
-  if (isHorizontal) {
-    // Lettre placée avec la plus petite colonne
-    final start = lettersPlacedThisTurn.reduce((a, b) => a.col < b.col ? a : b);
-    final (mainWord, mainScore) = _extractWordWithScore(
-      board,
-      bonusMap,
-      start.row,
-      start.col,
-      0,
-      1,
-      placedCoords,
-    );
-    if (mainWord.length > 1) {
-      final normalized = _normalize(mainWord);
+  // --- Mot principal ---
+  final start =
+      isHorizontal
+          ? lettersPlacedThisTurn.reduce((a, b) => a.col < b.col ? a : b)
+          : lettersPlacedThisTurn.reduce((a, b) => a.row < b.row ? a : b);
 
-      if (!dictionary.contains(normalized)) {
-        throw InvalidWordException(normalized);
-      }
-      words.add(mainWord);
-      totalScore += mainScore;
+  final (mainWord, mainScore) = _extractWordWithScore(
+    board,
+    bonusMap,
+    start.row,
+    start.col,
+    isHorizontal ? 0 : 1,
+    isHorizontal ? 1 : 0,
+    placedCoords,
+  );
+
+  if (mainWord.length > 1) {
+    final normalized = _normalize(mainWord);
+    if (!dictionary.contains(normalized)) {
+      throw InvalidWordException(normalized);
     }
-  } else {
-    final start = lettersPlacedThisTurn.reduce((a, b) => a.row < b.row ? a : b);
-    final (mainWord, mainScore) = _extractWordWithScore(
-      board,
-      bonusMap,
-      start.row,
-      start.col,
-      1,
-      0,
-      placedCoords,
-    );
-
-    if (mainWord.length > 1) {
-      final normalized = _normalize(mainWord);
-
-      if (!dictionary.contains(normalized)) {
-        throw InvalidWordException(normalized);
-      }
-
-      words.add(mainWord);
-      totalScore += mainScore;
-    }
+    words.add(mainWord);
+    totalScore += mainScore;
   }
 
-  // Mots secondaires perpendiculaires
+  // --- Mots secondaires ---
   for (final l in lettersPlacedThisTurn) {
-    final (perpWord, perpScore) =
-        isHorizontal
-            ? _extractWordWithScore(
-              board,
-              bonusMap,
-              l.row,
-              l.col,
-              1,
-              0,
-              placedCoords,
-            )
-            : _extractWordWithScore(
-              board,
-              bonusMap,
-              l.row,
-              l.col,
-              0,
-              1,
-              placedCoords,
-            );
+    final (perpWord, perpScore) = _extractWordWithScore(
+      board,
+      bonusMap,
+      l.row,
+      l.col,
+      isHorizontal ? 1 : 0,
+      isHorizontal ? 0 : 1,
+      placedCoords,
+    );
 
     if (perpWord.length > 1) {
       final normalized = _normalize(perpWord);
-
       if (!dictionary.contains(normalized)) {
         throw InvalidWordException(normalized);
       }
@@ -205,8 +176,11 @@ bool _inBounds(int row, int col) {
       totalScore += perpScore;
     }
   }
-  // Bonus Scrabble : 7 lettres jouées
-  if (lettersPlacedThisTurn.length == 7) totalScore += 50;
+
+  // 🎁 Bonus Scrabble
+  if (lettersPlacedThisTurn.length == 7) {
+    totalScore += 50;
+  }
 
   return (words: words.toList(), totalScore: totalScore);
 }

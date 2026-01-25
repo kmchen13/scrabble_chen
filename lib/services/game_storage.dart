@@ -10,6 +10,24 @@ String gameKey(String a, String b) {
   return 'game_${sorted[0]}_${sorted[1]}';
 }
 
+Map<String, dynamic> deepCastMap(Map map) {
+  return map.map((key, value) {
+    if (value is Map) {
+      return MapEntry(key.toString(), deepCastMap(value));
+    } else if (value is List) {
+      return MapEntry(
+        key.toString(),
+        value.map((e) {
+          if (e is Map) return deepCastMap(e);
+          return e;
+        }).toList(),
+      );
+    } else {
+      return MapEntry(key.toString(), value);
+    }
+  });
+}
+
 class GameStorage {
   static const String _boxName = 'gameBox';
   static Box? _box;
@@ -72,7 +90,8 @@ class GameStorage {
         print("${logHeader('GameStorage')} Donnée invalide pour $key");
         return null;
       }
-      final gameState = GameState.fromMap(Map<String, dynamic>.from(data));
+      final map = deepCastMap(data);
+      final gameState = GameState.fromMap(map);
       if (debug) print("${logHeader('GameStorage')} restauré sous $key");
       return gameState;
     } catch (e) {

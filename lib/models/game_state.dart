@@ -96,17 +96,9 @@ class GameState {
       'rightLetters': rightLetters.toList(),
       'leftScore': leftScore,
       'rightScore': rightScore,
+
       'lettersPlacedThisTurn':
-          lettersPlacedThisTurn
-              .map(
-                (e) => {
-                  'row': e.row,
-                  'col': e.col,
-                  'letter': e.letter,
-                  'placedThisTurn': e.placedThisTurn,
-                },
-              )
-              .toList(),
+          lettersPlacedThisTurn.map((e) => e.toMap()).toList(),
       'gameId': gameId, // <--- sérialisation
     };
   }
@@ -130,13 +122,8 @@ class GameState {
       lettersPlacedThisTurn:
           (map['lettersPlacedThisTurn'] as List<dynamic>? ?? [])
               .map(
-                (e) => PlacedLetter(
-                  row: e['row'] as int,
-                  col: e['col'] as int,
-                  letter: e['letter'] as String,
-                  placedThisTurn: e['placedThisTurn'] as bool? ?? false,
-                ),
-              )
+                (e) => PlacedLetter.fromMap(e),
+              ) // ici isJoker sera lu correctement
               .toList(),
       gameId: map['gameId'] as String, // <--- désérialisation
     );

@@ -126,3 +126,8 @@ Refonte mode web en polling
 2.5.0
     Notification coup joué sur une autre partie dans gameScreen
     Correction du zoom
+    Correction retour joker au rack
+    Correction calcul score joker
+2.5.1
+    Correction affichage jocker au board
+    Ajout notion jocker dans placedLetter et draggedLetter

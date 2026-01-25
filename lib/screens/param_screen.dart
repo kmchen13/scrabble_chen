@@ -100,8 +100,10 @@ class _ParamScreenState extends State<ParamScreen> {
       // Le serveur renvoie le dictionnaire en texte brut
 
       // Remplace le dictionnaire existant dans l'app
-      dictionaryService.replaceFromText(response.body);
+      final langEnum = ScrabbleLanguageX.fromString(settings.language);
 
+      dictionaryService.replaceFromText(response.body, langEnum);
+      dictionaryService.setLanguage(langEnum);
       if (debug)
         print(
           'Dictionnaire $language chargé avec ${dictionaryService.size} mots.',

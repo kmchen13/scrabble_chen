@@ -13,10 +13,26 @@ import 'screens/param_screen.dart';
 final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+ScrabbleLanguage scrabbleLanguageFromString(String lang) {
+  switch (lang.toLowerCase()) {
+    case 'fr':
+      return ScrabbleLanguage.fr;
+    case 'en':
+      return ScrabbleLanguage.en;
+    case 'es':
+      return ScrabbleLanguage.es;
+    default:
+      return ScrabbleLanguage.fr; // valeur par défaut
+  }
+}
+
 Future<void> loadDefaultDictionary() async {
   try {
     final content = await rootBundle.loadString('assets/dictionary.txt');
-    dictionaryService.replaceFromText(content);
+    final langEnum = scrabbleLanguageFromString(settings.language);
+
+    dictionaryService.replaceFromText(content, langEnum);
+    dictionaryService.setLanguage(langEnum);
   } catch (e) {
     // Affiche un snackbar si impossible de charger le dictionnaire
     final context = navigatorKey.currentContext;

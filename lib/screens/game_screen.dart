@@ -24,8 +24,13 @@ class GameMove {
   final String letter;
   final int row;
   final int col;
-
-  GameMove({required this.letter, required this.row, required this.col});
+  final bool isJoker;
+  GameMove({
+    required this.letter,
+    required this.row,
+    required this.col,
+    required this.isJoker,
+  });
 }
 
 class GameScreen extends StatefulWidget {
@@ -202,70 +207,92 @@ class _GameScreenState extends State<GameScreen> {
     saveSettings();
   }
 
+  Future<String?> _askJokerLetter() async {
+    return showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) {
+        String selected = 'A';
+        return AlertDialog(
+          title: const Text('Joker'),
+          content: DropdownButton<String>(
+            value: selected,
+            items: List.generate(
+              26,
+              (i) => DropdownMenuItem(
+                value: String.fromCharCode(65 + i),
+                child: Text(String.fromCharCode(65 + i)),
+              ),
+            ),
+            onChanged: (v) => selected = v!,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, selected),
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void onLetterPlaced(
     String letter,
     int row,
     int col,
     int? oldRow,
     int? oldCol,
-  ) {
-    setState(() {
-      // 1️⃣ Empêche d’écraser une lettre déjà sur la case
-      if (_board[row][col].isNotEmpty) return;
+  ) async {
+    if (_board[row][col].isNotEmpty) return;
 
+    String effectiveLetter = letter;
+    bool isJoker = false;
+
+    if (letter == ' ') {
+      final chosen = await _askJokerLetter();
+      if (chosen == null) return; // sécurité
+      effectiveLetter = chosen;
+      isJoker = true;
+    }
+
+    setState(() {
       if (_firstLetter) {
         clearLettersPlacedThisTurn();
         _firstLetter = false;
       }
 
+      final placedLetter = PlacedLetter(
+        row: row,
+        col: col,
+        letter: effectiveLetter,
+        isJoker: isJoker,
+        jokerValue: isJoker ? effectiveLetter : null,
+        placedThisTurn: true,
+      );
+
       if (oldRow != null && oldCol != null) {
-        // 2️⃣ La lettre vient du board → on déplace, pas on recrée
         final index = _lettersPlacedThisTurn.indexWhere(
-          (e) => e.row == oldRow && e.col == oldCol && e.letter == letter,
+          (e) => e.row == oldRow && e.col == oldCol,
         );
-
         if (index != -1) {
-          // On met à jour la position de la même lettre
-          _lettersPlacedThisTurn[index] = PlacedLetter(
-            row: row,
-            col: col,
-            letter: letter,
-            placedThisTurn: true,
-          );
-        } else {
-          // Sécurité : si pas trouvée, on l’ajoute
-          _lettersPlacedThisTurn.add(
-            PlacedLetter(
-              row: row,
-              col: col,
-              letter: letter,
-              placedThisTurn: true,
-            ),
-          );
+          _lettersPlacedThisTurn[index] = placedLetter;
         }
-
-        // Nettoie l’ancienne case visuelle
         clearBoard(oldRow, oldCol);
       } else {
-        // 3️⃣ La lettre vient du rack → on la retire du rack et on l’ajoute au board
         _playerLetters.remove(letter);
-        _lettersPlacedThisTurn.add(
-          PlacedLetter(
-            row: row,
-            col: col,
-            letter: letter,
-            placedThisTurn: true,
-          ),
-        );
+        _lettersPlacedThisTurn.add(placedLetter);
       }
 
-      // 4️⃣ Mise à jour du plateau visuel et logique
-      _gameState.board[row][col] = _board[row][col] = letter;
+      _board[row][col] = _gameState.board[row][col] = effectiveLetter;
 
       _cachedTurnValid = false;
       _updateTitleWithProvisionalScore();
     });
-    widget.onMovePlayed?.call(GameMove(letter: letter, row: row, col: col));
+
+    widget.onMovePlayed?.call(
+      GameMove(letter: effectiveLetter, row: row, col: col, isJoker: isJoker),
+    );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _zoomOnArea(row, col);
@@ -435,6 +462,9 @@ class _GameScreenState extends State<GameScreen> {
                                 row: e.row,
                                 col: e.col,
                                 letter: e.letter,
+                                isJoker: e.isJoker,
+                                jokerValue: e.jokerValue,
+                                placedThisTurn: e.placedThisTurn,
                               ),
                             )
                             .toList(),
@@ -671,15 +701,22 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  void _returnLetterToRack(String letter) {
+  /// Retourne une lettre placée sur le plateau dans le rack du joueur
+  /// et supprime la lettre du plateau.
+  void _returnLetterToRack(PlacedLetter placedLetter) {
     setState(() {
-      _playerLetters.add(letter);
+      // ⚡ Déterminer la lettre à remettre
+      final letterToReturn = placedLetter.isJoker ? ' ' : placedLetter.letter;
+      _playerLetters.add(letterToReturn);
+
+      // ⚡ Retirer la bonne instance du plateau
       final idx = _lettersPlacedThisTurn.indexWhere(
-        (pos) => pos.letter == letter,
+        (p) => p.row == placedLetter.row && p.col == placedLetter.col,
       );
+
       if (idx != -1) {
-        final removed = _lettersPlacedThisTurn.removeAt(idx);
-        clearBoard(removed.row, removed.col);
+        _lettersPlacedThisTurn.removeAt(idx);
+        clearBoard(placedLetter.row, placedLetter.col);
       }
 
       _cachedTurnValid = false;

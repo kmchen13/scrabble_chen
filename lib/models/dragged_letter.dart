@@ -1,15 +1,19 @@
+import 'placed_letter.dart';
+
 class DraggedLetter {
   final String letter;
   final int fromIndex; // -1 si la lettre vient du board
   final int? row; // row si depuis board
   final int? col; // col si depuis board
   final bool fromBoard;
+  final PlacedLetter? placedLetter; // ⚡ référence si déjà placé sur le board
 
   DraggedLetter({
     required this.letter,
     required this.fromIndex,
     this.row,
     this.col,
+    this.placedLetter,
   }) : fromBoard = (fromIndex == -1);
 }
 
