@@ -131,3 +131,5 @@ Refonte mode web en polling
 2.5.1
     Correction affichage jocker au board
     Ajout notion jocker dans placedLetter et draggedLetter
+2.5.2
+    Ajout SOULOTE SOULOTES au dcitionaire FR
