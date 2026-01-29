@@ -123,8 +123,6 @@ class RelayNet implements ScrabbleNet {
       if (json['status'] == 'matched') {
         onStatusUpdate?.call("Partenaire trouvé (${json['partner']})");
         _isConnected = true;
-        startPolling(localName);
-
         onMatched?.call(
           leftName: localName,
           leftIP: '',
@@ -144,7 +142,6 @@ class RelayNet implements ScrabbleNet {
         onStatusUpdate?.call(
           "Connecté au serveur WEB relais $_relayServerUrl, en attente d'un partenaire...",
         );
-        startPolling(localName);
       } else {
         if (debug)
           print(
@@ -270,7 +267,6 @@ class RelayNet implements ScrabbleNet {
 
   void Function(GameState state)? _onGameStateReceived;
 
-  @override
   @override
   set onGameStateReceived(void Function(GameState state)? callback) {
     _onGameStateReceived = callback;

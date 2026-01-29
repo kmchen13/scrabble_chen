@@ -135,3 +135,5 @@ Refonte mode web en polling
     Ajout SOULOTE SOULOTES au dcitionaire FR
 2.5.3
     stopPolling quand c'est son tour
+2.5.4
+    Ajustements du polling

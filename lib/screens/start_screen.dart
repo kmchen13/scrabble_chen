@@ -70,6 +70,8 @@ class _StartScreenState extends State<StartScreen> {
           rightPort: rightPort,
         );
         _navigateToGameScreen(gameState);
+        if (localName == gameState.leftName)
+          _net.stopPolling(); // ⬅️ ARRÊTE LE POLLING pour le joueur qui commence
       } else {
         // Joueur droite → écran d'attente
         Navigator.push(
