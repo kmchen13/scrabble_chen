@@ -1,0 +1,11 @@
+- perte gameState si mode avion. Afficher message sur handleSubmit au lieu d'envoyer le gameState
+- la propriété isJoker est perdue sur board. Ils sont affichés comme uleur lettre de remplacement avec le score non null. Créer un map paralléle des jokers
+- fin de partie non affichée chez le partenaire. A est à gauche, B à droite. B vide son rack, affiche le popup fin de partie et envoit game_over. A reçoit game_over mais n'affiche pas le popup fin de partie
+- Afficher le popup fin de partie de manière à voir encore le jeu
+- Le gameState reçu n'est pas toujours affiché quand on est dans la partie
+- stopPolling quand on est dans une partie et que c'est à nous de jouer
+- ralentir le polling sur home
+- stopPolling dans paramètres
+- afficher "language" dans paramètres comme les autres
+- afficher un message d'erreur si pas de réseau
+- si on reçoit un gameState dans home l'afficher

@@ -400,6 +400,8 @@ class _GameScreenState extends State<GameScreen> {
       // 🔹 Réinitialiser le zoom à 100% (identité)
       _boardController.value = Matrix4.identity();
     });
+
+    _net.startPolling(settings.localUserName);
   }
 
   void refillRack(int rackSize) {
@@ -427,11 +429,7 @@ class _GameScreenState extends State<GameScreen> {
   Widget build(BuildContext context) {
     final localName = settings.localUserName;
 
-    // 🔹 C’est au joueur de gauche si isLeft == true
-    final bool isCurrentTurn =
-        _gameState.isLeft
-            ? (_gameState.leftName == localName)
-            : (_gameState.rightName == localName);
+    final bool isCurrentTurn = _gameState.isMyTurn(localName);
 
     return WillPopScope(
       onWillPop: () async => false, // ⛔ empêche flèche gauche

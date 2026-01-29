@@ -133,3 +133,5 @@ Refonte mode web en polling
     Ajout notion jocker dans placedLetter et draggedLetter
 2.5.2
     Ajout SOULOTE SOULOTES au dcitionaire FR
+2.5.3
+    stopPolling quand c'est son tour

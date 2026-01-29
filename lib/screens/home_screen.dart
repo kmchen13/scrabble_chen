@@ -200,6 +200,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
 
               ElevatedButton(
                 onPressed: () {
+                  _net.stopPolling();
                   Navigator.push(
                     context,
                     MaterialPageRoute(builder: (_) => const ParamScreen()),

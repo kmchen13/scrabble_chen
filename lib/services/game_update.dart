@@ -84,6 +84,12 @@ class GameUpdateHandler {
         });
 
         onFlushPending?.call();
+
+        final bool isCurrentTurn = incoming.isMyTurn(settings.localUserName);
+        if (isCurrentTurn)
+          net.stopPolling();
+        else
+          net.startPolling(settings.localUserName);
         return;
       }
 
