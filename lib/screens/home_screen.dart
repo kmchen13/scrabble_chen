@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:scrabble_P2P/services/game_storage.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
+import 'package:scrabble_P2P/services/app_log.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:scrabble_P2P/network/scrabble_net.dart';
 import '../constants.dart';
 import 'start_screen.dart';
@@ -213,6 +215,18 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                   SystemNavigator.pop();
                 },
                 child: const Text("Quitter"),
+              ),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.share),
+                label: const Text("Partager les logs"),
+                onPressed: () async {
+                  final file = await AppLog().getFile();
+                  if (file != null && await file.exists()) {
+                    await Share.shareXFiles([
+                      XFile(file.path),
+                    ], text: 'Logs Scrabble P2P');
+                  }
+                },
               ),
             ] else
               const Text("P2P non disponible sur navigateur"),

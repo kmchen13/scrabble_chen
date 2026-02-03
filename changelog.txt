@@ -137,3 +137,5 @@ Refonte mode web en polling
     stopPolling quand c'est son tour
 2.5.4
     Ajustements du polling
+2.6.0
+    Ajout de app_log, loging FIFO centralisé avec bouton partage watsap dans homeScreen, avant Remplacement des print() par applog.log()

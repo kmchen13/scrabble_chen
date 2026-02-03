@@ -1,4 +1,5 @@
 import 'package:logger/logger.dart';
+import 'app_log.dart';
 
 // Instance globale de logger
 var logger = Logger(
@@ -22,7 +23,8 @@ void logProjectStack([String msg = ""]) {
       .join('\n');
 
   if (msg.isNotEmpty) {
-    print("[$msg]");
+    AppLog().log('STACK', msg);
   }
-  print(trace);
+
+  AppLog().log('STACK', trace);
 }

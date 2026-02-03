@@ -4,6 +4,7 @@ import 'package:flutter/services.dart' show rootBundle;
 
 import 'package:hive_flutter/hive_flutter.dart';
 import 'services/settings_service.dart';
+import 'services/app_log.dart';
 import 'services/dictionary.dart';
 import 'services/game_storage.dart';
 import 'models/game_state.dart';
@@ -53,6 +54,7 @@ Future<void> loadDefaultDictionary() async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppLog().init();
   await loadSettings();
   await Hive.initFlutter();
   // Enregistrement des adapters générés
