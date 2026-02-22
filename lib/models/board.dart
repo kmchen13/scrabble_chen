@@ -19,11 +19,8 @@ typedef OnLetterReturnedCallback = void Function(PlacedLetter placedLetter);
 Future<void> openWiktionary(DictionaryService dictionary, String word) async {
   final canonical = dictionary.getCanonicalForm(word) ?? word;
 
-  // IMPORTANT : wiktionnaire utilise les minuscules
-  final wiktionaryWord = canonical.toLowerCase();
-
   final url = Uri.parse(
-    "https://fr.wiktionary.org/wiki/${Uri.encodeComponent(wiktionaryWord)}",
+    "https://fr.wiktionary.org/wiki/${Uri.encodeComponent(canonical)}",
   );
 
   await launchUrl(url, mode: LaunchMode.externalApplication);

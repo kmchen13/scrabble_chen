@@ -38,15 +38,17 @@ class DictionaryService {
 
     for (final raw in content.split('\n')) {
       final canonical = raw.trim();
-
       if (canonical.isEmpty) continue;
 
-      final normalized = _normalize(canonical, lang);
+      final normalized = _normalize(
+        canonical,
+        lang,
+      ); // MAJUSCULES pour Scrabble
 
       words.add(normalized);
 
-      /// store canonical version
-      canonicalMap[normalized] = canonical;
+      /// stocker canonical en minuscules pour Wiktionnaire
+      canonicalMap[normalized] = canonical.toLowerCase();
     }
 
     _wordsByLang[lang] = words;
