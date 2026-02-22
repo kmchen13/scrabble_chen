@@ -63,14 +63,14 @@ class UserSettings {
     return UserSettings(
       localUserName: '',
       language: 'fr',
-      communicationMode: 'local',
+      communicationMode: 'web',
       soundEnabled: true,
       localIP: '',
       localPort: 4567,
       udpPort: 4560,
       expectedUserName: '',
-      relayAddress: 'https://relay-server-3lv4.onrender.com',
-      relayPort: 8080,
+      relayAddress: 'https://relay-server-eu.onrender.com',
+      relayPort: 0,
       startTime: null,
       nameDisplayLimit: 5,
     );
