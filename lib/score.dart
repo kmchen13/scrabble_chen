@@ -184,3 +184,44 @@ bool _inBounds(int row, int col) {
 
   return (words: words.toList(), totalScore: totalScore);
 }
+
+String? getWordAtPosition({
+  required List<List<String>> board,
+  required int row,
+  required int col,
+}) {
+  if (board[row][col].isEmpty) return null;
+
+  final placedCoords = <(int, int), PlacedLetter>{};
+
+  final (horizontalWord, _) = _extractWordWithScore(
+    board,
+    bonusMap,
+    row,
+    col,
+    0,
+    1,
+    placedCoords,
+  );
+
+  final (verticalWord, _) = _extractWordWithScore(
+    board,
+    bonusMap,
+    row,
+    col,
+    1,
+    0,
+    placedCoords,
+  );
+
+  if (horizontalWord.length >= verticalWord.length &&
+      horizontalWord.length > 1) {
+    return horizontalWord;
+  }
+
+  if (verticalWord.length > 1) {
+    return verticalWord;
+  }
+
+  return null;
+}

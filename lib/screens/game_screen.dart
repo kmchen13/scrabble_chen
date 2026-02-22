@@ -455,6 +455,7 @@ class _GameScreenState extends State<GameScreen> {
                   child: buildScrabbleBoard(
                     boardKey: _boardKey,
                     board: _board,
+                    dictionary: dictionaryService,
                     lettersPlacedThisTurn:
                         _lettersPlacedThisTurn
                             .map(

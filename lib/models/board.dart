@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/services.dart';
+import 'package:scrabble_P2P/services/dictionary.dart';
 
 import 'package:scrabble_P2P/models/placed_letter.dart';
 import 'package:scrabble_P2P/models/dragged_letter.dart';
+import 'package:scrabble_P2P/score.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../bonus.dart';
 
 const boardSize = 15;
@@ -13,9 +16,23 @@ typedef OnLetterPlacedCallback =
 
 typedef OnLetterReturnedCallback = void Function(PlacedLetter placedLetter);
 
+Future<void> openWiktionary(DictionaryService dictionary, String word) async {
+  final canonical = dictionary.getCanonicalForm(word) ?? word;
+
+  // IMPORTANT : wiktionnaire utilise les minuscules
+  final wiktionaryWord = canonical.toLowerCase();
+
+  final url = Uri.parse(
+    "https://fr.wiktionary.org/wiki/${Uri.encodeComponent(wiktionaryWord)}",
+  );
+
+  await launchUrl(url, mode: LaunchMode.externalApplication);
+}
+
 Widget buildScrabbleBoard({
   required GlobalKey boardKey,
   required List<List<String>> board,
+  required DictionaryService dictionary,
   required List<PlacedLetter> lettersPlacedThisTurn,
   required OnLetterPlacedCallback onLetterPlaced,
   required OnLetterReturnedCallback onLetterReturned,
@@ -82,11 +99,26 @@ Widget buildScrabbleBoard({
                       currentlyDragged!.col == col;
 
                   return GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+
                     onTap: () {
                       if (cellLetterRecord != null) {
                         onLetterReturned(cellLetterRecord);
                       }
                     },
+
+                    onDoubleTap: () {
+                      final word = getWordAtPosition(
+                        board: board,
+                        row: row,
+                        col: col,
+                      );
+
+                      if (word != null) {
+                        openWiktionary(dictionary, word);
+                      }
+                    },
+
                     child: Container(
                       decoration: BoxDecoration(
                         border: Border.all(

@@ -135,3 +135,5 @@ Refonte mode web en polling
     Ajout SOULOTE SOULOTES au dcitionaire FR
 2.6.1
     Ajout de app_log, loging FIFO centralisé avec bouton partage watsap dans homeScreen, avant Remplacement des print() par applog.log()
+2.7.0
+    Ajout lien wiktionnaire
