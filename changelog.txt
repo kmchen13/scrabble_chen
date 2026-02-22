@@ -137,3 +137,5 @@ Refonte mode web en polling
     Ajout de app_log, loging FIFO centralisé avec bouton partage watsap dans homeScreen, avant Remplacement des print() par applog.log()
 2.7.0
     Ajout lien wiktionnaire
+2.7.1
+    Passage en minuscule pour les liens wiktionnaire
