@@ -17,8 +17,7 @@ class _GameStateDispatcher {
 
   void handleIncoming(GameState state, void Function(GameState)? callback) {
     // 🔴 PERSISTANCE IMMÉDIATE (clé de tout)
-    if (debug)
-      print("${logHeader('relaynet.handleIncoming')} Sauvegarde immédiate");
+    if (debug) print("${logHeader('handleIncoming')} Sauvegarde immédiate");
     gameStorage.save(state);
 
     if (callback != null) {
@@ -55,8 +54,8 @@ class RelayNet implements ScrabbleNet {
   Timer? _pollingTimer;
   bool _isConnected = false;
   bool _retrying = false;
-  int _timerFrequency = 10; // fréquence de polling en secondes
-  int _retryDelay = 30; // fré&quence de retry connect si "waiting" ou erreur
+  int _timerFrequency = 5; // fréquence de polling en secondes
+  int _retryDelay = 5; // fré&quence de retry connect si "waiting" ou erreur
 
   RelayNet() {
     _relayServerUrl = settings.relayServerUrl;

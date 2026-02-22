@@ -133,5 +133,5 @@ Refonte mode web en polling
     Ajout notion jocker dans placedLetter et draggedLetter
 2.5.2
     Ajout SOULOTE SOULOTES au dcitionaire FR
-2.6.0
+2.6.1
     Ajout de app_log, loging FIFO centralisé avec bouton partage watsap dans homeScreen, avant Remplacement des print() par applog.log()
