@@ -69,7 +69,7 @@ class UserSettings {
       localPort: 4567,
       udpPort: 4560,
       expectedUserName: '',
-      relayAddress: 'https://relay-server-eu.onrender.com',
+      relayAddress: '',
       relayPort: 0,
       startTime: null,
       nameDisplayLimit: 5,
