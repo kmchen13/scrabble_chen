@@ -43,6 +43,9 @@ class RelayNet implements ScrabbleNet {
   bool _gameIsOver = false;
   final _player = AudioPlayer();
 
+  GameState? _pendingGameState;
+  bool _sendingPending = false;
+
   Future<void> _playNotificationSound() async {
     try {
       await _player.play(AssetSource('sounds/notify.wav'));
@@ -222,43 +225,93 @@ class RelayNet implements ScrabbleNet {
     _retrying = false;
   }
 
+  Future<bool> _sendGameStateToServer(GameState state) async {
+    final String userName = settings.localUserName;
+    final String to = state.partnerFrom(userName);
+
+    final res = await http
+        .post(
+          Uri.parse("$_relayServerUrl/gamestate"),
+          body: jsonEncode({
+            'from': userName,
+            'to': to,
+            'type': 'gameState',
+            'message': state.toJson(),
+          }),
+          headers: {'Content-Type': 'application/json'},
+        )
+        .timeout(const Duration(seconds: 8));
+
+    if (res.statusCode != 200) {
+      return false;
+    }
+
+    final json = jsonDecode(res.body);
+
+    if (json['status'] != 'sent') {
+      if (debug) {
+        print("${logHeader("relayNet")} ⚠️ serveur: ${json['status']}");
+      }
+    }
+
+    return json['status'] == 'sent';
+  }
+
+  Future<void> retryPendingGameState() async {
+    if (_pendingGameState == null) return;
+    if (_sendingPending) return;
+
+    _sendingPending = true;
+
+    try {
+      final ok = await _sendGameStateToServer(_pendingGameState!);
+
+      if (ok) {
+        if (debug) {
+          print("${logHeader("relayNet")} 🔁 GameState en attente envoyé");
+        }
+
+        _pendingGameState = null;
+      }
+    } catch (e) {
+      if (debug) {
+        print("${logHeader("relayNet")} ⚠️ Retry échoué: $e");
+      }
+    } finally {
+      _sendingPending = false;
+    }
+  }
+
   @override
   Future<void> sendGameState(GameState state) async {
+    if (_pendingGameState != null && !_sendingPending) {
+      await retryPendingGameState();
+    }
     if (_gameIsOver) {
       logger.w("⚠️ Tentative d'envoi de GameState après fin de partie ignorée");
       return;
     }
-    final String userName = settings.localUserName;
-    try {
-      final String to = state.partnerFrom(userName);
-      if (debug)
-        print("${logHeader("relayNet")} ▶️ Envoi gameState de $userName à $to");
-      final res = await http.post(
-        Uri.parse("$_relayServerUrl/gamestate"),
-        body: jsonEncode({
-          'from': userName,
-          'to': to,
-          'type': 'gameState',
-          'message': state.toJson(),
-        }),
-        headers: {'Content-Type': 'application/json'},
-      );
 
-      final json = jsonDecode(res.body);
-      if (json['status'] == 'sent') {
-        if (debug)
+    try {
+      final ok = await _sendGameStateToServer(state);
+
+      if (ok) {
+        if (debug) {
           print(
-            "${logHeader("relayNet")} ✅ GameState envoyé de $userName à $to (hash=${state.hashCode})",
-            // "${logHeader("relayNet")} ✅ GameState envoyé : ${state.toString()}",
+            "${logHeader("relayNet")} ✅ GameState envoyé (hash=${state.hashCode})",
           );
-        _resumePolling(userName);
+        }
+
+        _pendingGameState = null;
+        _resumePolling(settings.localUserName);
       } else {
-        logger.w(
-          "⚠️ Erreur serveur envoi GameState from $userName to $to: $json",
-        );
+        throw Exception("Server refused gamestate");
       }
     } catch (e) {
-      logger.e("Erreur envoi GameState : $e");
+      logger.w("⚠️ Réseau indisponible, GameState mis en attente");
+
+      // garder seulement le dernier state
+      _pendingGameState = state;
     }
   }
 
@@ -347,6 +400,9 @@ class RelayNet implements ScrabbleNet {
   Future<void> pollMessages(String localName) async {
     http.Response? response;
     // if (debug) print('${logHeader("relayNet")} Poll de $localName');
+
+    await retryPendingGameState();
+
     try {
       response = await http.get(
         Uri.parse("$_relayServerUrl/poll?userName=$localName"),
