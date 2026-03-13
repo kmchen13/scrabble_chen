@@ -147,3 +147,5 @@ Refonte mode web en polling
     Ajout chargement PendingGameState à l'initialisation réseau pour protection si app fermée pendant réseau inaccessible
     Ajout accès wiktionnaire sur tap 2 lettres
     Correction bug retour joker vers rack
+2.8.1
+    Correctiàon bug appel wiktionaire avec joker

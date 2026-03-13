@@ -482,6 +482,7 @@ class _GameScreenState extends State<GameScreen> {
                             .toList(),
                     onLetterPlaced: onLetterPlaced,
                     onLetterReturned: _returnLetterToRack,
+                    isFirstLetter: _firstLetter,
                   ),
                 ),
               ),

@@ -33,6 +33,7 @@ Widget buildScrabbleBoard({
   required List<PlacedLetter> lettersPlacedThisTurn,
   required OnLetterPlacedCallback onLetterPlaced,
   required OnLetterReturnedCallback onLetterReturned,
+  required bool isFirstLetter,
 }) {
   DraggedLetter? currentlyDragged;
   (int, int)? _firstTappedCell;
@@ -101,7 +102,9 @@ Widget buildScrabbleBoard({
 
                     onTap: () {
                       // 1️⃣ lettre posée ce tour → retour rack
-                      if (isPlacedThisTurn && cellLetterRecord != null) {
+                      if (isPlacedThisTurn &&
+                          cellLetterRecord != null &&
+                          !isFirstLetter) {
                         onLetterReturned(cellLetterRecord);
                         return;
                       }
@@ -121,7 +124,12 @@ Widget buildScrabbleBoard({
                       final first = _firstTappedCell!;
                       _firstTappedCell = null;
 
-                      final word = getWordFromCells(board, first, current);
+                      final word = getWordFromCells(
+                        board,
+                        lettersPlacedThisTurn,
+                        first,
+                        current,
+                      );
 
                       if (word != null && word.length >= 2) {
                         openWiktionary(dictionary, word);
@@ -283,53 +291,68 @@ Widget _buildLetterTile(
   );
 }
 
-String? getWordFromCells(List<List<String>> board, (int, int) a, (int, int) b) {
+String? getWordFromCells(
+  List<List<String>> board,
+  List<PlacedLetter> lettersPlacedThisTurn,
+  (int, int) a,
+  (int, int) b,
+) {
+  String getLetter(int r, int c) {
+    final placed = lettersPlacedThisTurn.firstWhereOrNull(
+      (e) => e.row == r && e.col == c,
+    );
+
+    if (placed != null) {
+      return placed.displayLetter; // 🔥 jokerValue inclus
+    }
+
+    return board[r][c];
+  }
+
   final r1 = a.$1;
   final c1 = a.$2;
   final r2 = b.$1;
   final c2 = b.$2;
 
-  // déterminer direction
+  // HORIZONTAL
   if (r1 == r2) {
-    // HORIZONTAL
     int start = c1;
-    while (start > 0 && board[r1][start - 1].isNotEmpty) {
+    while (start > 0 && getLetter(r1, start - 1).isNotEmpty) {
       start--;
     }
 
     int end = c1;
-    while (end < board[r1].length - 1 && board[r1][end + 1].isNotEmpty) {
+    while (end < board[r1].length - 1 && getLetter(r1, end + 1).isNotEmpty) {
       end++;
     }
 
     String word = '';
     for (int c = start; c <= end; c++) {
-      word += board[r1][c];
+      word += getLetter(r1, c);
     }
 
     return word.length >= 2 ? word : null;
   }
 
+  // VERTICAL
   if (c1 == c2) {
-    // VERTICAL
     int start = r1;
-    while (start > 0 && board[start - 1][c1].isNotEmpty) {
+    while (start > 0 && getLetter(start - 1, c1).isNotEmpty) {
       start--;
     }
 
     int end = r1;
-    while (end < board.length - 1 && board[end + 1][c1].isNotEmpty) {
+    while (end < board.length - 1 && getLetter(end + 1, c1).isNotEmpty) {
       end++;
     }
 
     String word = '';
     for (int r = start; r <= end; r++) {
-      word += board[r][c1];
+      word += getLetter(r, c1);
     }
 
     return word.length >= 2 ? word : null;
   }
 
-  // diagonale → pas un mot scrabble
   return null;
 }
