@@ -20,11 +20,13 @@ class _GameStateDispatcher {
     if (debug) print("${logHeader('handleIncoming')} Sauvegarde immédiate");
     gameStorage.save(state);
 
+    // ⚡ Toujours notifier l'UI
     if (callback != null) {
       callback(state);
-    } else {
-      pending = state;
     }
+
+    // ⚡ Conserver pour flush si jamais callback était null à ce moment
+    pending = state;
   }
 
   void flush(void Function(GameState)? callback) {
@@ -45,6 +47,18 @@ class RelayNet implements ScrabbleNet {
 
   GameState? _pendingGameState;
   bool _sendingPending = false;
+
+  @override
+  Future<void> init() async {
+    _pendingGameState = gameStorage.loadPendingGameState();
+
+    if (_pendingGameState != null && debug) {
+      print(
+        "${logHeader("relayNet")} 🔁 GameState pending restauré "
+        "(hash=${_pendingGameState!.hashCode})",
+      );
+    }
+  }
 
   Future<void> _playNotificationSound() async {
     try {
@@ -272,6 +286,7 @@ class RelayNet implements ScrabbleNet {
         }
 
         _pendingGameState = null;
+        await gameStorage.clearPendingGameState();
       }
     } catch (e) {
       if (debug) {
@@ -312,6 +327,7 @@ class RelayNet implements ScrabbleNet {
 
       // garder seulement le dernier state
       _pendingGameState = state;
+      await gameStorage.savePendingGameState(state);
     }
   }
 
@@ -322,7 +338,6 @@ class RelayNet implements ScrabbleNet {
 
   void Function(GameState state)? _onGameStateReceived;
 
-  @override
   @override
   set onGameStateReceived(void Function(GameState state)? callback) {
     _onGameStateReceived = callback;

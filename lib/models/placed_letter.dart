@@ -1,16 +1,7 @@
 class PlacedLetter {
   final int row;
   final int col;
-
-  /// Lettre réelle posée sur le plateau
-  /// → pour un joker : '*'
-  final String letter;
-
-  /// Est-ce un joker ?
-  final bool isJoker;
-
-  /// Lettre que le joker représente (A–Z)
-  /// null si ce n'est pas un joker
+  final String letter; //' 'pour un joker
   final String? jokerValue;
 
   final bool placedThisTurn;
@@ -19,23 +10,19 @@ class PlacedLetter {
     required this.row,
     required this.col,
     required this.letter,
-    required this.isJoker,
     this.jokerValue,
     required this.placedThisTurn,
-  }) : assert(
-         isJoker == false || jokerValue != null,
-         'Un joker doit avoir une jokerValue',
-       );
+  });
 
-  /// Lettre à afficher sur le board
-  String get displayLetter => isJoker ? jokerValue! : letter;
+  bool get isJoker => letter == ' ';
+
+  String get displayLetter => jokerValue ?? letter;
 
   factory PlacedLetter.fromMap(Map<String, dynamic> map) {
     return PlacedLetter(
       row: map['row'] ?? 0,
       col: map['col'] ?? 0,
       letter: map['letter'] ?? '',
-      isJoker: map['isJoker'] ?? false, // ✅ valeur par défaut
       jokerValue: map['jokerValue'], // peut rester nullable
       placedThisTurn: map['placedThisTurn'] ?? false, // ✅ valeur par défaut
     );
@@ -66,7 +53,6 @@ extension PlacedLetterCopy on PlacedLetter {
       row: row ?? this.row,
       col: col ?? this.col,
       letter: letter ?? this.letter,
-      isJoker: isJoker ?? this.isJoker,
       jokerValue:
           isJoker == true
               ? (jokerValue ?? this.jokerValue)

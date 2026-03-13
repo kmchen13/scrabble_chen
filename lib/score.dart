@@ -59,11 +59,11 @@ bool _isLikelyHorizontal(List<PlacedLetter> letters, List<List<String>> board) {
   int wordMultiplier = 1;
 
   while (_inBounds(row, col) && board[row][col].isNotEmpty) {
-    final letter = board[row][col];
     final placed = placedCoords[(row, col)];
-    final isNewTile = placed != null;
+    final letter = placed?.displayLetter ?? board[row][col];
     final isJoker = placed?.isJoker ?? false;
     final bonus = bonusMap[row][col];
+    final isNewTile = placed != null;
 
     // ✅ JOKER = 0 POINT
     final baseScore = isJoker ? 0 : (letterPoints[letter.toUpperCase()] ?? 0);

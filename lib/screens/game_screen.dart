@@ -212,26 +212,24 @@ class _GameScreenState extends State<GameScreen> {
       context: context,
       barrierDismissible: false,
       builder: (_) {
-        String selected = 'A';
         return AlertDialog(
-          title: const Text('Joker'),
-          content: DropdownButton<String>(
-            value: selected,
-            items: List.generate(
-              26,
-              (i) => DropdownMenuItem(
-                value: String.fromCharCode(65 + i),
-                child: Text(String.fromCharCode(65 + i)),
-              ),
+          title: const Text('Choisissez la lettre du joker'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: GridView.count(
+              shrinkWrap: true,
+              crossAxisCount: 7, // 7 lettres par ligne
+              mainAxisSpacing: 4,
+              crossAxisSpacing: 4,
+              children: List.generate(26, (i) {
+                final letter = String.fromCharCode(65 + i);
+                return ElevatedButton(
+                  onPressed: () => Navigator.pop(context, letter),
+                  child: Text(letter),
+                );
+              }),
             ),
-            onChanged: (v) => selected = v!,
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, selected),
-              child: const Text('OK'),
-            ),
-          ],
         );
       },
     );
@@ -245,32 +243,41 @@ class _GameScreenState extends State<GameScreen> {
     int? oldCol,
   ) async {
     if (_board[row][col].isNotEmpty) return;
+    PlacedLetter? previous;
 
-    String effectiveLetter = letter;
-    bool isJoker = false;
+    if (oldRow != null && oldCol != null) {
+      previous =
+          _lettersPlacedThisTurn
+              .where((p) => p.row == oldRow && p.col == oldCol)
+              .firstOrNull;
+    }
+    String rackLetter = letter;
+    String? jokerValue;
 
-    if (letter == ' ') {
+    bool movingExistingJoker = previous?.isJoker ?? false;
+
+    if (rackLetter == ' ' || movingExistingJoker) {
       final chosen = await _askJokerLetter();
-      if (chosen == null) return; // sécurité
-      effectiveLetter = chosen;
-      isJoker = true;
+      if (chosen == null) return;
+
+      jokerValue = chosen;
+      rackLetter = ' ';
+    }
+
+    final placedLetter = PlacedLetter(
+      row: row,
+      col: col,
+      letter: rackLetter,
+      jokerValue: jokerValue,
+      placedThisTurn: true,
+    );
+
+    if (_firstLetter) {
+      clearLettersPlacedThisTurn();
+      _firstLetter = false;
     }
 
     setState(() {
-      if (_firstLetter) {
-        clearLettersPlacedThisTurn();
-        _firstLetter = false;
-      }
-
-      final placedLetter = PlacedLetter(
-        row: row,
-        col: col,
-        letter: effectiveLetter,
-        isJoker: isJoker,
-        jokerValue: isJoker ? effectiveLetter : null,
-        placedThisTurn: true,
-      );
-
       if (oldRow != null && oldCol != null) {
         final index = _lettersPlacedThisTurn.indexWhere(
           (e) => e.row == oldRow && e.col == oldCol,
@@ -284,14 +291,19 @@ class _GameScreenState extends State<GameScreen> {
         _lettersPlacedThisTurn.add(placedLetter);
       }
 
-      _board[row][col] = _gameState.board[row][col] = effectiveLetter;
+      _board[row][col] = placedLetter.displayLetter;
 
       _cachedTurnValid = false;
       _updateTitleWithProvisionalScore();
     });
 
     widget.onMovePlayed?.call(
-      GameMove(letter: effectiveLetter, row: row, col: col, isJoker: isJoker),
+      GameMove(
+        letter: placedLetter.displayLetter,
+        row: row,
+        col: col,
+        isJoker: placedLetter.isJoker,
+      ),
     );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -463,7 +475,6 @@ class _GameScreenState extends State<GameScreen> {
                                 row: e.row,
                                 col: e.col,
                                 letter: e.letter,
-                                isJoker: e.isJoker,
                                 jokerValue: e.jokerValue,
                                 placedThisTurn: e.placedThisTurn,
                               ),
@@ -707,8 +718,7 @@ class _GameScreenState extends State<GameScreen> {
   void _returnLetterToRack(PlacedLetter placedLetter) {
     setState(() {
       // ⚡ Déterminer la lettre à remettre
-      final letterToReturn = placedLetter.isJoker ? ' ' : placedLetter.letter;
-      _playerLetters.add(letterToReturn);
+      _playerLetters.add(placedLetter.letter);
 
       // ⚡ Retirer la bonne instance du plateau
       final idx = _lettersPlacedThisTurn.indexWhere(

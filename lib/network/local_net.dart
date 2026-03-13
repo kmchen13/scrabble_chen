@@ -33,6 +33,9 @@ class LocalNet implements ScrabbleNet {
   bool _gameIsOver = false;
 
   @override
+  Future<void> init() async {}
+
+  @override
   void Function({
     required String leftName,
     required String leftIP,

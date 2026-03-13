@@ -68,9 +68,20 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     });
   }
 
+  Future<void> _initNetwork() async {
+    await _net.init();
+
+    if (!mounted) return;
+
+    setState(() {
+      _loading = false;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
+    _initNetwork();
 
     _net.setOnConnectionClosed((partner, reason) {
       if (!mounted) return;

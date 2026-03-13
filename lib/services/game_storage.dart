@@ -31,8 +31,8 @@ Map<String, dynamic> deepCastMap(Map map) {
 class GameStorage {
   static const String _boxName = 'gameBox';
   static Box? _box;
-
   static String buildKey(String partner) => "game_$partner";
+  static const String pendingGameStateKey = "pending_game_state";
 
   Future<void> init() async {
     if (_box != null && _box!.isOpen) {
@@ -155,6 +155,39 @@ class GameStorage {
 
     if (debug) {
       print("${logHeader('GameStorage')} toutes les parties supprimées");
+    }
+  }
+
+  /// Sauvegarde un GameState en attente (ex: reçu via notification) sous une clé fixe
+  Future<void> savePendingGameState(GameState gameState) async {
+    if (_box == null) throw Exception("GameStorage not initialized");
+
+    await _box!.put(pendingGameStateKey, gameState.toMap());
+
+    if (debug) {
+      print("${logHeader('GameStorage')} pending GameState sauvegardé");
+    }
+  }
+
+  ///
+  GameState? loadPendingGameState() {
+    if (_box == null) return null;
+
+    final map = _box!.get(pendingGameStateKey);
+
+    if (map == null) return null;
+
+    return GameState.fromMap(deepCastMap(map));
+  }
+
+  /// Supprime le GameState en attente après l'avoir traité (ex: affiché à l'utilisateur) pour éviter de le traiter plusieurs fois
+  Future<void> clearPendingGameState() async {
+    if (_box == null) return;
+
+    await _box!.delete(pendingGameStateKey);
+
+    if (debug) {
+      print("${logHeader('GameStorage')} pending GameState supprimé");
     }
   }
 

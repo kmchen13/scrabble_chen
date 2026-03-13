@@ -11,6 +11,9 @@ abstract class ScrabbleNet {
       return LocalNet();
     }
   }
+
+  Future<void> init() async {}
+
   // Connexion des joueurs
   // Tous les joueurs font une demande de partenaire avec leur nom et le nom éventuel souhaité d'un partenaire
   // Si deux joueurs "matchent" on execute un callback définit dans la couche métier (start_screen)

@@ -35,6 +35,7 @@ Widget buildScrabbleBoard({
   required OnLetterReturnedCallback onLetterReturned,
 }) {
   DraggedLetter? currentlyDragged;
+  (int, int)? _firstTappedCell;
 
   return LayoutBuilder(
     builder: (context, constraints) {
@@ -99,19 +100,30 @@ Widget buildScrabbleBoard({
                     behavior: HitTestBehavior.opaque,
 
                     onTap: () {
-                      if (cellLetterRecord != null) {
+                      // 1️⃣ lettre posée ce tour → retour rack
+                      if (isPlacedThisTurn && cellLetterRecord != null) {
                         onLetterReturned(cellLetterRecord);
+                        return;
                       }
-                    },
 
-                    onDoubleTap: () {
-                      final word = getWordAtPosition(
-                        board: board,
-                        row: row,
-                        col: col,
-                      );
+                      // 2️⃣ on ne traite que les cases contenant une lettre
+                      if (cellLetter.isEmpty) return;
 
-                      if (word != null) {
+                      final current = (row, col);
+
+                      // 3️⃣ premier tap
+                      if (_firstTappedCell == null) {
+                        _firstTappedCell = current;
+                        return;
+                      }
+
+                      // 4️⃣ deuxième tap
+                      final first = _firstTappedCell!;
+                      _firstTappedCell = null;
+
+                      final word = getWordFromCells(board, first, current);
+
+                      if (word != null && word.length >= 2) {
                         openWiktionary(dictionary, word);
                       }
                     },
@@ -269,4 +281,55 @@ Widget _buildLetterTile(
       ],
     ),
   );
+}
+
+String? getWordFromCells(List<List<String>> board, (int, int) a, (int, int) b) {
+  final r1 = a.$1;
+  final c1 = a.$2;
+  final r2 = b.$1;
+  final c2 = b.$2;
+
+  // déterminer direction
+  if (r1 == r2) {
+    // HORIZONTAL
+    int start = c1;
+    while (start > 0 && board[r1][start - 1].isNotEmpty) {
+      start--;
+    }
+
+    int end = c1;
+    while (end < board[r1].length - 1 && board[r1][end + 1].isNotEmpty) {
+      end++;
+    }
+
+    String word = '';
+    for (int c = start; c <= end; c++) {
+      word += board[r1][c];
+    }
+
+    return word.length >= 2 ? word : null;
+  }
+
+  if (c1 == c2) {
+    // VERTICAL
+    int start = r1;
+    while (start > 0 && board[start - 1][c1].isNotEmpty) {
+      start--;
+    }
+
+    int end = r1;
+    while (end < board.length - 1 && board[end + 1][c1].isNotEmpty) {
+      end++;
+    }
+
+    String word = '';
+    for (int r = start; r <= end; r++) {
+      word += board[r][c1];
+    }
+
+    return word.length >= 2 ? word : null;
+  }
+
+  // diagonale → pas un mot scrabble
+  return null;
 }
