@@ -18,12 +18,14 @@ abstract class ScrabbleNet {
   // Tous les joueurs font une demande de partenaire avec leur nom et le nom éventuel souhaité d'un partenaire
   // Si deux joueurs "matchent" on execute un callback définit dans la couche métier (start_screen)
   Future<void> connect({
+    required String language,
     required String localName,
     required String expectedName,
     required int startTime,
   });
 
   void Function({
+    required String language,
     required String leftName,
     required String leftIP,
     required int leftPort,
@@ -38,6 +40,7 @@ abstract class ScrabbleNet {
   // Deux joueurs matchent si leur local et expected names correspondent ou si leurs expected sont vides
   // Si plus de 2 joueurs n'ont pas défini expected les 2 premiers trouvés sont connectés
   static bool match(
+    String language,
     String localUser,
     String expectedUser,
     String remoteUser,
@@ -61,7 +64,7 @@ abstract class ScrabbleNet {
 
   // Spécifique au mode web (RelayNet)
   // @todo ne devrait pas être ici.
-  void startPolling(String localName) {}
+  void startPolling(String language, String localName) {}
   void stopPolling() {}
 
   /// Quitte la partie en cours
@@ -83,5 +86,9 @@ abstract class ScrabbleNet {
   /// Réinitialise l'état de fin de partie pour permettre d'envoyer des GameState à nouveau
   void resetGameOver();
 
+  /// Callback pour mettre à jour la liste des joueurs libres (RelayNet)
+  void Function(List<String>)? onFreePlayersUpdated;
+
+  /// Callback d'erreur pour les erreurs de connexion ou d'envoi de GameState
   void Function(String message)? onError;
 }

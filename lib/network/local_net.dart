@@ -37,6 +37,7 @@ class LocalNet implements ScrabbleNet {
 
   @override
   void Function({
+    required String language,
     required String leftName,
     required String leftIP,
     required int leftPort,
@@ -53,6 +54,7 @@ class LocalNet implements ScrabbleNet {
 
   @override
   Future<void> connect({
+    required String language,
     required String localName,
     required String expectedName,
     required int startTime,
@@ -104,6 +106,7 @@ class LocalNet implements ScrabbleNet {
             return; //Les joueurs voient leurs propres broadcasts
 
           final accepted = ScrabbleNet.match(
+            language,
             localName,
             expectedName,
             remoteName,
@@ -161,6 +164,7 @@ class LocalNet implements ScrabbleNet {
 
               // 🔹 Déclenchement pur du match
               onMatched?.call(
+                language: language,
                 leftName: localName,
                 leftIP: localIP,
                 leftPort: localPort,
@@ -232,6 +236,8 @@ class LocalNet implements ScrabbleNet {
             if (parts.length < 9) return;
 
             onMatched?.call(
+              language:
+                  parts[0], //Ajouté pour compatibilité, [0] n'existe pas, à retravailler
               leftName: parts[1],
               leftIP: parts[2],
               leftPort: int.tryParse(parts[3]) ?? 0,
@@ -413,7 +419,7 @@ class LocalNet implements ScrabbleNet {
   }
 
   @override
-  void startPolling(String localName) {
+  void startPolling(String language, String localName) {
     // Rien à faire ici pour LocalNet
   }
 
@@ -435,4 +441,7 @@ class LocalNet implements ScrabbleNet {
 
   @override
   void flushPending() {}
+
+  @override
+  void Function(List<String>)? onFreePlayersUpdated;
 }

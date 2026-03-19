@@ -20,13 +20,13 @@ class _GameStateDispatcher {
     if (debug) print("${logHeader('handleIncoming')} Sauvegarde immédiate");
     gameStorage.save(state);
 
-    // ⚡ Toujours notifier l'UI
-    if (callback != null) {
-      callback(state);
-    }
+    pending = state; // toujours mémorisé
 
-    // ⚡ Conserver pour flush si jamais callback était null à ce moment
-    pending = state;
+    if (callback != null) {
+      final s = pending!;
+      pending = null;
+      callback(s);
+    }
   }
 
   void flush(void Function(GameState)? callback) {
@@ -81,6 +81,7 @@ class RelayNet implements ScrabbleNet {
 
   @override
   void Function({
+    required String language,
     required String leftName,
     required String leftIP,
     required int leftPort,
@@ -94,6 +95,7 @@ class RelayNet implements ScrabbleNet {
 
   @override
   Future<void> connect({
+    required String language,
     required String localName,
     required String expectedName,
     required int startTime,
@@ -139,9 +141,10 @@ class RelayNet implements ScrabbleNet {
       if (json['status'] == 'matched') {
         onStatusUpdate?.call("Partenaire trouvé (${json['partner']})");
         _isConnected = true;
-        startPolling(localName);
+        startPolling(language, localName);
 
         onMatched?.call(
+          language: language,
           leftName: localName,
           leftIP: '',
           leftPort: 0,
@@ -160,7 +163,7 @@ class RelayNet implements ScrabbleNet {
         onStatusUpdate?.call(
           "Connecté au serveur WEB relais $_relayServerUrl, en attente d'un partenaire...",
         );
-        startPolling(localName);
+        startPolling(language, localName);
       } else {
         if (debug)
           print(
@@ -170,6 +173,7 @@ class RelayNet implements ScrabbleNet {
           if (!_isConnected && _retrying) {
             _retrying = true;
             connect(
+              language: language,
               localName: localName,
               expectedName: expectedName,
               startTime: startTime,
@@ -185,6 +189,7 @@ class RelayNet implements ScrabbleNet {
       logger.e("Erreur lors de la connexion : $e\nurl: $_relayServerUrl");
       Future.delayed(Duration(seconds: _retryDelay), () {
         connect(
+          language: language,
           localName: localName,
           expectedName: expectedName,
           startTime: startTime,
@@ -194,7 +199,7 @@ class RelayNet implements ScrabbleNet {
   }
 
   @override
-  void startPolling(String localName) {
+  void startPolling(String language,String localName) {
     if (_pollingTimer != null) {
       if (debug)
         print(
@@ -208,7 +213,7 @@ class RelayNet implements ScrabbleNet {
       _,
     ) async {
       try {
-        await pollMessages(localName);
+        await pollMessages(language,localName);
       } catch (e) {
         // Log l'erreur et la stack trace pour le débogage
         if (debug) {
@@ -228,9 +233,9 @@ class RelayNet implements ScrabbleNet {
   }
 
   // ⭐️ reprend explicitement
-  void _resumePolling(String localName) {
+  void _resumePolling(String language, String localName) {
     if (debug) print("${logHeader("relayNet")} ▶️ Polling repris");
-    startPolling(localName);
+    startPolling(language, localName);
   }
 
   void _pauseConnecting() {
@@ -318,7 +323,7 @@ class RelayNet implements ScrabbleNet {
         }
 
         _pendingGameState = null;
-        _resumePolling(settings.localUserName);
+        _resumePolling(settings.language, settings.localUserName);
       } else {
         throw Exception("Server refused gamestate");
       }
@@ -412,15 +417,14 @@ class RelayNet implements ScrabbleNet {
     }
   }
 
-  Future<void> pollMessages(String localName) async {
+Future<void> pollMessages(String language,String localName) async {
     http.Response? response;
-    // if (debug) print('${logHeader("relayNet")} Poll de $localName');
 
     await retryPendingGameState();
 
     try {
       response = await http.get(
-        Uri.parse("$_relayServerUrl/poll?userName=$localName"),
+        Uri.parse("$_relayServerUrl/poll?userName=$localName&language=$language"),
       );
     } catch (e) {
       logger.e("Erreur pollMessages: $e");
@@ -428,6 +432,23 @@ class RelayNet implements ScrabbleNet {
     }
 
     final json = jsonDecode(response.body);
+
+    // 🔥 NOUVEAU : mise à jour des joueurs libres
+    try {
+      if (json['freePlayers'] != null) {
+        final players = List<String>.from(json['freePlayers']);
+
+        // optionnel : enlever soi-même (sécurité côté client)
+        players.removeWhere((p) => p == localName);
+
+        onFreePlayersUpdated?.call(players);
+      }
+    } catch (e) {
+      if (debug) {
+        print("${logHeader("relayNet")} erreur parsing freePlayers: $e");
+      }
+    }
+
     final String partner = json['from'] ?? json['partner'] ?? '';
     bool shouldAck = false;
 
@@ -442,7 +463,6 @@ class RelayNet implements ScrabbleNet {
               _playNotificationSound();
               final gameState = GameState.fromJson(json['message']);
 
-              // 🔐 persistance immédiate
               _dispatcher.handleIncoming(gameState, onGameStateReceived);
               _dispatcher.flush(onGameStateReceived);
 
@@ -461,7 +481,7 @@ class RelayNet implements ScrabbleNet {
               _gameIsOver = true;
 
               final gameState = GameState.fromJson(json['message']);
-              gameStorage.save(gameState); // 🔐 CRUCIAL
+              gameStorage.save(gameState);
 
               if (_onGameOverReceived != null) {
                 _onGameOverReceived!(gameState);
@@ -486,6 +506,7 @@ class RelayNet implements ScrabbleNet {
               final partnerTime = json['partnerStartTime'] ?? 0;
 
               onMatched?.call(
+                language: language,
                 leftName: localTime > partnerTime ? localName : json['partner'],
                 leftIP: '',
                 leftPort: 0,
@@ -539,19 +560,23 @@ class RelayNet implements ScrabbleNet {
           break;
 
         case 'no_message':
-          return;
+          return; // ✅ OK car freePlayers déjà traité
       }
 
       //send acknowledgement
       if (!shouldAck) return;
+
       final res = await http.get(
         Uri.parse(
           '$_relayServerUrl/acknowledgement?userName=$localName&partner=$partner&type=${json['type']}',
         ),
       );
+
       final jsonResponse = jsonDecode(res.body);
-      if (debug)
+
+      if (debug) {
         print('${logHeader("relayNet")} ack $localName-$partner envoyé');
+      }
 
       if (jsonResponse['status'] != 'ok') {
         print('${logHeader("relayNet")} erreur serveur traitement ack');
@@ -559,7 +584,7 @@ class RelayNet implements ScrabbleNet {
     } catch (e, st) {
       if (debug) {
         logger.e("Erreur pollMessages : $e\n$st");
-        print("message reçu: ${json}");
+        print("message reçu: $json");
         print("type reçu: ${json['type']}");
       }
     }
@@ -658,4 +683,7 @@ class RelayNet implements ScrabbleNet {
   ) {
     _onConnectionClosed = callback;
   }
+  
+  @override
+  void Function(List<String> )? onFreePlayersUpdated;
 }

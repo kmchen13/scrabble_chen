@@ -3,9 +3,12 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:scrabble_P2P/services/game_storage.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
+import 'package:scrabble_P2P/services/game_initializer.dart';
 import 'package:scrabble_P2P/services/app_log.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:scrabble_P2P/network/scrabble_net.dart';
+import 'package:scrabble_P2P/models/game_state.dart';
+import 'package:scrabble_P2P/screens/start_screen.dart';
 import '../constants.dart';
 import 'start_screen.dart';
 import 'game_screen.dart';
@@ -25,6 +28,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   bool _loading = true;
   late ModalRoute? _route;
   List<String> _savedGames = [];
+  List<String> _freePlayers = [];
 
   @override
   void didChangeDependencies() {
@@ -68,9 +72,36 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     });
   }
 
+  void _startGameWith(String partner) {
+    final gameState = GameInitializer.createGame(
+      isLeft: true,
+      leftName: settings.localUserName,
+      leftIP: settings.localIP,
+      leftPort: settings.localPort,
+      rightName: partner,
+      rightIP: '',
+      rightPort: 0,
+    );
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder:
+              (_) => GameScreen(
+                net: _net,
+                gameState: gameState,
+                onGameStateUpdated: (gs) => _net.sendGameState(gs),
+              ),
+        ),
+      );
+    });
+  }
+
   Future<void> _initNetwork() async {
     await _net.init();
-
     if (!mounted) return;
 
     setState(() {
@@ -111,6 +142,14 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
       });
     });
 
+    _net.onFreePlayersUpdated = (players) {
+      if (!mounted) return;
+
+      setState(() {
+        _freePlayers = players;
+      });
+    };
+
     // ⚡ Différer l'appel à load() pour s'assurer que gameStorage.init() est terminé
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await gameStorage.init(); // s'assure que Hive est ouvert
@@ -126,7 +165,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
             _loading = false;
           });
           // ⚡ Démarrage systématique du polling
-          _net.startPolling(settings.localUserName);
+          _net.startPolling(settings.language, settings.localUserName);
         }
       } catch (e) {
         print('[HomeScreen] Erreur lors du chargement des GameStates: $e');
@@ -142,6 +181,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     }
 
     String myName = settings.localUserName;
+    String language = settings.language;
 
     return Scaffold(
       appBar: AppBar(title: Text("$appName-v$version ;-) $myName")),
@@ -157,7 +197,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     MaterialPageRoute(builder: (_) => StartScreen(net: _net)),
                   );
                 },
-                child: const Text("Commencer une partie"),
+                child: const Text("Trouver un adversaire"),
               ),
               if (_savedGames.isNotEmpty) ...[
                 const Text("Reprendre une partie :"),
@@ -190,11 +230,11 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                               if (saved.isMyTurn(myName)) {
                                 _net.onGameStateReceived?.call(saved);
                               } else {
-                                _net.startPolling(myName);
+                                _net.startPolling(language, myName);
                               }
                             });
                           },
-                          child: Text("Partie avec $partner"),
+                          child: Text("$partner"),
                         ),
                       ),
                       IconButton(
@@ -209,6 +249,11 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                       ),
                     ],
                   ),
+                if (_freePlayers.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  const Text("Commencer une partie avec :"),
+                  _buildFreePlayersList(),
+                ],
               ],
 
               ElevatedButton(
@@ -243,6 +288,51 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildFreePlayersList() {
+    if (_freePlayers.isEmpty) {
+      return const Text(
+        "Aucun joueur disponible",
+        style: TextStyle(color: Colors.grey),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Joueurs disponibles",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+
+        ..._freePlayers.map((player) {
+          return Card(
+            child: ListTile(
+              title: Text(player),
+              trailing: ElevatedButton(
+                onPressed: () => _challengePlayer(player),
+                child: const Text("Défier"),
+              ),
+            ),
+          );
+        }).toList(),
+      ],
+    );
+  }
+
+  void _challengePlayer(String player) {
+    if (debug) {
+      print("[HomeScreen] Défi envoyé à $player");
+    }
+
+    _net.connect(
+      language: settings.language,
+      localName: settings.localUserName,
+      expectedName: player,
+      startTime: DateTime.now().millisecondsSinceEpoch,
     );
   }
 }

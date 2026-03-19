@@ -109,7 +109,7 @@ class _GameScreenState extends State<GameScreen> {
         setState(() {});
 
         // ▶️ relancer le polling pour recevoir les coups du partenaire
-        _net.startPolling(settings.localUserName);
+        _net.startPolling(settings.language, settings.localUserName);
       },
     );
   }

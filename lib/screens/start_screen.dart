@@ -39,6 +39,7 @@ class _StartScreenState extends State<StartScreen> {
     };
 
     _net.onMatched = ({
+      required String language,
       required String leftName,
       required String rightName,
       required int leftStartTime,
@@ -87,6 +88,7 @@ class _StartScreenState extends State<StartScreen> {
     };
 
     _net.connect(
+      language: settings.language,
       localName: settings.localUserName,
       expectedName: settings.expectedUserName,
       startTime: DateTime.now().millisecondsSinceEpoch,

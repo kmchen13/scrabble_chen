@@ -97,7 +97,7 @@ class GameUpdateHandler {
       onBackgroundMove?.call(incoming);
 
       // ▶️ Reprise polling
-      net.startPolling(settings.localUserName);
+      net.startPolling(settings.language, settings.localUserName);
     };
 
     // ─────────────────────────────────────────────
