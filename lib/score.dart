@@ -3,8 +3,7 @@ import 'package:scrabble_P2P/models/dragged_letter.dart';
 import 'package:scrabble_P2P/models/placed_letter.dart';
 import 'package:scrabble_P2P/services/dictionary.dart';
 
-String _normalize(String word) =>
-    word.toUpperCase(); // ou removeAccents + upper
+String _normalize(String word) => word.toUpperCase();
 
 class InvalidWordException implements Exception {
   final String word;
@@ -14,32 +13,40 @@ class InvalidWordException implements Exception {
   String toString() => 'Mot invalide: $word';
 }
 
-/* Fonctions utilitaires pour calcul score */
-bool _isLikelyHorizontal(List<PlacedLetter> letters, List<List<String>> board) {
+// ==============================
+// 🔍 ORIENTATION
+// ==============================
+bool _isLikelyHorizontal(
+  List<PlacedLetter> letters,
+  List<List<PlacedLetter?>> board,
+) {
   if (letters.length == 1) {
     final l = letters.first;
-    final hasLeft = l.col > 0 && board[l.row][l.col - 1].isNotEmpty;
-    final hasRight = l.col < 14 && board[l.row][l.col + 1].isNotEmpty;
+
+    final hasLeft =
+        l.col > 0 && (board[l.row][l.col - 1]?.displayLetter ?? '').isNotEmpty;
+
+    final hasRight =
+        l.col < 14 && (board[l.row][l.col + 1]?.displayLetter ?? '').isNotEmpty;
+
     return hasLeft || hasRight;
   } else {
     return letters.every((l) => l.row == letters.first.row);
   }
 }
 
-(bool, PlacedLetter?) _inPlaced(
-  int row,
-  int col,
-  Map<(int, int), PlacedLetter> placedCoords,
-) {
-  final key = (row, col);
-  if (placedCoords.containsKey(key)) {
-    return (true, placedCoords[key]);
-  }
-  return (false, null);
+// ==============================
+// 🔧 UTILS
+// ==============================
+bool _inBounds(int row, int col) {
+  return row >= 0 && row < 15 && col >= 0 && col < 15;
 }
 
+// ==============================
+// 🔠 EXTRACTION MOT + SCORE
+// ==============================
 (String word, int score) _extractWordWithScore(
-  List<List<String>> board,
+  List<List<PlacedLetter?>> board,
   List<List<BonusType>> bonusMap,
   int row,
   int col,
@@ -47,9 +54,9 @@ bool _isLikelyHorizontal(List<PlacedLetter> letters, List<List<String>> board) {
   int dCol,
   Map<(int, int), PlacedLetter> placedCoords,
 ) {
-  // Reculer jusqu’au début du mot
+  // 🔙 reculer au début du mot
   while (_inBounds(row - dRow, col - dCol) &&
-      board[row - dRow][col - dCol].isNotEmpty) {
+      (board[row - dRow][col - dCol]?.displayLetter ?? '').isNotEmpty) {
     row -= dRow;
     col -= dCol;
   }
@@ -58,19 +65,23 @@ bool _isLikelyHorizontal(List<PlacedLetter> letters, List<List<String>> board) {
   int wordScore = 0;
   int wordMultiplier = 1;
 
-  while (_inBounds(row, col) && board[row][col].isNotEmpty) {
+  while (_inBounds(row, col) &&
+      (board[row][col]?.displayLetter ?? '').isNotEmpty) {
     final placed = placedCoords[(row, col)];
-    final letter = placed?.displayLetter ?? board[row][col];
-    final isJoker = placed?.isJoker ?? false;
+    final boardLetter = board[row][col];
+
+    final letter = placed?.displayLetter ?? boardLetter?.displayLetter ?? '';
+    final isJoker = placed?.isJoker ?? boardLetter?.isJoker ?? false;
+
     final bonus = bonusMap[row][col];
     final isNewTile = placed != null;
 
-    // ✅ JOKER = 0 POINT
+    // ✅ Joker = 0 point
     final baseScore = isJoker ? 0 : (letterPoints[letter.toUpperCase()] ?? 0);
 
     int letterScore = baseScore;
 
-    // Bonus uniquement pour les lettres posées ce tour
+    // bonus seulement pour lettres posées ce tour
     if (isNewTile) {
       switch (bonus) {
         case BonusType.doubleLetter:
@@ -101,13 +112,11 @@ bool _isLikelyHorizontal(List<PlacedLetter> letters, List<List<String>> board) {
   return (word, wordScore * wordMultiplier);
 }
 
-bool _inBounds(int row, int col) {
-  return row >= 0 && row < 15 && col >= 0 && col < 15;
-}
-
-/* Détection de tous les mots formés et calcul score total */
+// ==============================
+// 🧠 CALCUL GLOBAL
+// ==============================
 ({List<String> words, int totalScore}) getWordsCreatedAndScore({
-  required List<List<String>> board,
+  required List<List<PlacedLetter?>> board,
   required List<PlacedLetter> lettersPlacedThisTurn,
   required DictionaryService dictionary,
 }) {
@@ -118,19 +127,16 @@ bool _inBounds(int row, int col) {
   final words = <String>{};
   int totalScore = 0;
 
-  // Pose temporaire des lettres
-  for (final l in lettersPlacedThisTurn) {
-    board[l.row][l.col] = l.letter;
-  }
-
-  final isHorizontal = _isLikelyHorizontal(lettersPlacedThisTurn, board);
-
-  // 🔥 On garde l’info joker
+  // 🔥 map rapide des lettres posées
   final placedCoords = {
     for (final l in lettersPlacedThisTurn) (l.row, l.col): l,
   };
 
-  // --- Mot principal ---
+  final isHorizontal = _isLikelyHorizontal(lettersPlacedThisTurn, board);
+
+  // =============================
+  // 🟥 MOT PRINCIPAL
+  // =============================
   final start =
       isHorizontal
           ? lettersPlacedThisTurn.reduce((a, b) => a.col < b.col ? a : b)
@@ -148,14 +154,18 @@ bool _inBounds(int row, int col) {
 
   if (mainWord.length > 1) {
     final normalized = _normalize(mainWord);
+
     if (!dictionary.contains(normalized)) {
       throw InvalidWordException(normalized);
     }
+
     words.add(mainWord);
     totalScore += mainScore;
   }
 
-  // --- Mots secondaires ---
+  // =============================
+  // 🟦 MOTS SECONDAIRES
+  // =============================
   for (final l in lettersPlacedThisTurn) {
     final (perpWord, perpScore) = _extractWordWithScore(
       board,
@@ -169,15 +179,17 @@ bool _inBounds(int row, int col) {
 
     if (perpWord.length > 1) {
       final normalized = _normalize(perpWord);
+
       if (!dictionary.contains(normalized)) {
         throw InvalidWordException(normalized);
       }
+
       words.add(perpWord);
       totalScore += perpScore;
     }
   }
 
-  // 🎁 Bonus Scrabble
+  // 🎁 bonus Scrabble
   if (lettersPlacedThisTurn.length == 7) {
     totalScore += 50;
   }
@@ -185,12 +197,16 @@ bool _inBounds(int row, int col) {
   return (words: words.toList(), totalScore: totalScore);
 }
 
+// ==============================
+// 🔎 MOT À UNE POSITION
+// ==============================
 String? getWordAtPosition({
-  required List<List<String>> board,
+  required List<List<PlacedLetter?>> board,
   required int row,
   required int col,
 }) {
-  if (board[row][col].isEmpty) return null;
+  final cell = board[row][col];
+  if (cell == null) return null;
 
   final placedCoords = <(int, int), PlacedLetter>{};
 

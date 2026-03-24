@@ -4,9 +4,16 @@ import 'local_net.dart';
 import 'relay_net.dart';
 
 abstract class ScrabbleNet {
+  static ScrabbleNet? _instance;
+
   factory ScrabbleNet() {
+    _instance ??= _createInstance();
+    return _instance!;
+  }
+
+  static ScrabbleNet _createInstance() {
     if (settings.communicationMode == 'web') {
-      return RelayNet(); // Assure-toi que cette classe existe
+      return RelayNet();
     } else {
       return LocalNet();
     }

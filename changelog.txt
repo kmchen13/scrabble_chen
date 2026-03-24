@@ -151,4 +151,7 @@ Refonte mode web en polling
     Correction bug appel wiktionaire avec joker
 2.9.0
     Ajout liste joueurs libres getFreePlayers
+    Ajout paramètre language dans connect et match
+2.10.0
+    Instantiation réseau au niveau de main
     

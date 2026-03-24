@@ -10,9 +10,11 @@ import 'services/game_storage.dart';
 import 'models/game_state.dart';
 import 'screens/home_screen.dart';
 import 'screens/param_screen.dart';
+import 'network/scrabble_net.dart';
 
 final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+final ScrabbleNet globalNet = ScrabbleNet();
 
 ScrabbleLanguage scrabbleLanguageFromString(String lang) {
   switch (lang.toLowerCase()) {
@@ -69,11 +71,12 @@ void main() async {
     exit(0);
   });
 
-  runApp(ScrabbleApp());
+  runApp(ScrabbleApp(net: globalNet));
 }
 
 class ScrabbleApp extends StatelessWidget {
-  ScrabbleApp({Key? key}) : super(key: key);
+  final ScrabbleNet net;
+  const ScrabbleApp({required this.net});
 
   @override
   Widget build(BuildContext context) {
@@ -86,10 +89,10 @@ class ScrabbleApp extends StatelessWidget {
             // Rediriger vers ParamScreen si le userName est vide
             if (settings.localUserName.isEmpty ||
                 settings.relayAddress.substring(0, 8) == 'https//:') {
-              return ParamScreen();
+              return ParamScreen(net: net);
             } else {
               // Sinon, aller à HomeScreen
-              return HomeScreen();
+              return HomeScreen(net: net);
             }
           }
           // Affiche un écran de chargement pendant que les paramètres sont chargés

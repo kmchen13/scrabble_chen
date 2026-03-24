@@ -7,15 +7,18 @@ import 'package:scrabble_P2P/services/settings_service.dart';
 import 'package:scrabble_P2P/screens/home_screen.dart';
 import 'package:scrabble_P2P/services/game_storage.dart';
 import 'package:scrabble_P2P/services/dictionary.dart';
+import 'package:scrabble_P2P/network/scrabble_net.dart';
 
 class ParamScreen extends StatefulWidget {
-  const ParamScreen({super.key});
+  final ScrabbleNet net;
+  const ParamScreen({required this.net});
 
   @override
   State<ParamScreen> createState() => _ParamScreenState();
 }
 
 class _ParamScreenState extends State<ParamScreen> {
+  late final ScrabbleNet net = widget.net;
   static const String settingsKey = 'usersettings';
 
   final TextEditingController _nameController = TextEditingController();
@@ -82,7 +85,10 @@ class _ParamScreenState extends State<ParamScreen> {
 
     await saveSettings();
     if (!context.mounted) return;
-    Navigator.push(context, MaterialPageRoute(builder: (_) => HomeScreen()));
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => HomeScreen(net: net)),
+    );
   }
 
   Future<void> clearSettings() async {

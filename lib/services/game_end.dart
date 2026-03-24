@@ -55,7 +55,7 @@ class GameEndService {
 
         // 🏠 navigation
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(builder: (_) => HomeScreen(net: net)),
           (_) => false,
         );
       },

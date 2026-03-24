@@ -17,14 +17,15 @@ import 'param_screen.dart';
 final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final ScrabbleNet net;
+  const HomeScreen({required this.net});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> with RouteAware {
-  late final ScrabbleNet _net = ScrabbleNet();
+  late final ScrabbleNet _net = widget.net;
   bool _loading = true;
   late ModalRoute? _route;
   List<String> _savedGames = [];
@@ -197,7 +198,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                     MaterialPageRoute(builder: (_) => StartScreen(net: _net)),
                   );
                 },
-                child: const Text("Trouver un adversaire"),
+                child: const Text("Attendre un partenaire"),
               ),
               if (_savedGames.isNotEmpty) ...[
                 const Text("Reprendre une partie :"),
@@ -249,18 +250,19 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                       ),
                     ],
                   ),
-                if (_freePlayers.isNotEmpty) ...[
-                  const SizedBox(height: 20),
-                  const Text("Commencer une partie avec :"),
-                  _buildFreePlayersList(),
-                ],
+              ],
+
+              if (_freePlayers.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                const Text("Joueurs disponibles :"),
+                _buildFreePlayersList(),
               ],
 
               ElevatedButton(
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const ParamScreen()),
+                    MaterialPageRoute(builder: (_) => ParamScreen(net: _net)),
                   );
                 },
                 child: const Text("Paramètres"),
@@ -302,10 +304,6 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          "Joueurs disponibles",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
         const SizedBox(height: 8),
 
         ..._freePlayers.map((player) {

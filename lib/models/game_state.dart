@@ -1,3 +1,6 @@
+/* Après toutes les modifications, n'oubliez pas de régénérer les fichiers Hive avec la commande suivante :
+flutter pub run build_runner build --delete-conflicting-outputs
+*/
 import 'package:hive/hive.dart';
 import 'dart:convert';
 import 'placed_letter.dart';
@@ -29,7 +32,7 @@ class GameState {
   int rightPort;
 
   @HiveField(7)
-  List<List<String>> board;
+  List<List<PlacedLetter?>> board;
 
   @HiveField(8)
   BagModel bag;
@@ -90,42 +93,71 @@ class GameState {
       'rightName': rightName,
       'rightIP': rightIP,
       'rightPort': rightPort,
-      'board': board.map((row) => row.toList()).toList(),
+
+      'board':
+          board
+              .map(
+                (row) =>
+                    row
+                        .map((cell) => cell?.toMap()) // 🔥 IMPORTANT
+                        .toList(),
+              )
+              .toList(),
+
       'bag': bag.toMap(),
-      'leftLetters': leftLetters.toList(),
-      'rightLetters': rightLetters.toList(),
+      'leftLetters': leftLetters,
+      'rightLetters': rightLetters,
       'leftScore': leftScore,
       'rightScore': rightScore,
 
       'lettersPlacedThisTurn':
           lettersPlacedThisTurn.map((e) => e.toMap()).toList(),
-      'gameId': gameId, // <--- sérialisation
+
+      'gameId': gameId,
     };
   }
 
   factory GameState.fromMap(Map<String, dynamic> map) {
     return GameState(
-      isLeft: map['isLeft'] as bool,
-      leftName: map['leftName'] as String,
-      leftIP: map['leftIP'] as String,
-      leftPort: map['leftPort'] as int,
-      rightName: map['rightName'] as String,
-      rightIP: map['rightIP'] as String,
-      rightPort: map['rightPort'] as int,
+      isLeft: map['isLeft'],
+      leftName: map['leftName'],
+      leftIP: map['leftIP'],
+      leftPort: map['leftPort'],
+      rightName: map['rightName'],
+      rightIP: map['rightIP'],
+      rightPort: map['rightPort'],
+
       board:
-          (map['board'] as List).map((row) => List<String>.from(row)).toList(),
+          (map['board'] as List)
+              .map(
+                (row) =>
+                    (row as List)
+                        .map(
+                          (cell) =>
+                              cell != null
+                                  ? PlacedLetter.fromMap(
+                                    Map<String, dynamic>.from(cell),
+                                  )
+                                  : null,
+                        )
+                        .toList(),
+              )
+              .toList(),
+
       bag: BagModel.fromMap(Map<String, dynamic>.from(map['bag'])),
+
       leftLetters: List<String>.from(map['leftLetters']),
       rightLetters: List<String>.from(map['rightLetters']),
-      leftScore: map['leftScore'] as int,
-      rightScore: map['rightScore'] as int,
+
+      leftScore: map['leftScore'],
+      rightScore: map['rightScore'],
+
       lettersPlacedThisTurn:
-          (map['lettersPlacedThisTurn'] as List<dynamic>? ?? [])
-              .map(
-                (e) => PlacedLetter.fromMap(e),
-              ) // ici isJoker sera lu correctement
+          (map['lettersPlacedThisTurn'] as List? ?? [])
+              .map((e) => PlacedLetter.fromMap(Map<String, dynamic>.from(e)))
               .toList(),
-      gameId: map['gameId'] as String, // <--- désérialisation
+
+      gameId: map['gameId'],
     );
   }
 
@@ -139,7 +171,7 @@ class GameState {
   /// Méthode pour créer une copie modifiée
   GameState copyWith({
     bool? isLeft,
-    List<List<String>>? board,
+    List<List<PlacedLetter?>>? board,
     BagModel? bag,
     List<String>? leftLetters,
     List<String>? rightLetters,
@@ -156,7 +188,9 @@ class GameState {
       rightName: rightName,
       rightIP: rightIP,
       rightPort: rightPort,
+
       board: board ?? this.board,
+
       bag: bag ?? this.bag,
       leftLetters: leftLetters ?? this.leftLetters,
       rightLetters: rightLetters ?? this.rightLetters,
@@ -164,27 +198,32 @@ class GameState {
       rightScore: rightScore ?? this.rightScore,
       lettersPlacedThisTurn:
           lettersPlacedThisTurn ?? this.lettersPlacedThisTurn,
-      gameId: gameId ?? this.gameId, // <--- copie du gameId
+      gameId: gameId ?? this.gameId,
     );
   }
 
   /// Méthode pour copier depuis un autre GameState
   void copyFrom(GameState other) {
-    // 🔥 IDENTITÉ DE LA PARTIE
     leftName = other.leftName;
     rightName = other.rightName;
 
-    // 🔥 LOGIQUE DE JEU
     isLeft = other.isLeft;
     leftScore = other.leftScore;
     rightScore = other.rightScore;
 
-    // 🔥 CONTENU
     leftLetters = List<String>.from(other.leftLetters);
     rightLetters = List<String>.from(other.rightLetters);
-    board = other.board.map((row) => List<String>.from(row)).toList();
+
+    // 🔥 CORRECTION MAJEURE (joker conservé)
+    board =
+        other.board
+            .map((row) => row.map((cell) => cell?.copyWith()).toList())
+            .toList();
+
     bag = BagModel.fromJson(other.bag.toJson());
-    lettersPlacedThisTurn = List.from(other.lettersPlacedThisTurn);
+
+    lettersPlacedThisTurn =
+        other.lettersPlacedThisTurn.map((e) => e.copyWith()).toList();
   }
 
   bool isMyTurn(myName) {

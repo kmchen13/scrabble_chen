@@ -28,7 +28,7 @@ Future<void> openWiktionary(DictionaryService dictionary, String word) async {
 
 Widget buildScrabbleBoard({
   required GlobalKey boardKey,
-  required List<List<String>> board,
+  required List<List<PlacedLetter?>> board,
   required DictionaryService dictionary,
   required List<PlacedLetter> lettersPlacedThisTurn,
   required OnLetterPlacedCallback onLetterPlaced,
@@ -57,9 +57,15 @@ Widget buildScrabbleBoard({
             (e) => e.row == row && e.col == col,
           );
 
-          final bool isJoker = cellLetterRecord?.isJoker ?? false;
+          final PlacedLetter? boardLetter = board[row][col];
+
+          final bool isJoker =
+              cellLetterRecord?.isJoker ?? boardLetter?.isJoker ?? false;
+
           final String cellLetter =
-              cellLetterRecord?.displayLetter ?? board[row][col];
+              cellLetterRecord?.displayLetter ??
+              boardLetter?.displayLetter ??
+              '';
 
           final bonus = bonusMap[row][col];
           final bgColor = getColorForBonus(bonus);
@@ -71,7 +77,7 @@ Widget buildScrabbleBoard({
             builder: (context, setState) {
               return DragTarget<DraggedLetter>(
                 onWillAccept: (_) {
-                  if (board[row][col].isEmpty) {
+                  if (board[row][col] == null) {
                     setState(() => isHovered = true);
                     return true;
                   }
@@ -80,7 +86,7 @@ Widget buildScrabbleBoard({
                 onLeave: (_) => setState(() => isHovered = false),
                 onAcceptWithDetails: (details) {
                   final dragged = details.data;
-                  if (board[row][col].isEmpty) {
+                  if (board[row][col] == null) {
                     setState(() => isHovered = false);
                     onLetterPlaced(
                       dragged.letter,
@@ -99,9 +105,8 @@ Widget buildScrabbleBoard({
 
                   return GestureDetector(
                     behavior: HitTestBehavior.opaque,
-
                     onTap: () {
-                      // 1️⃣ lettre posée ce tour → retour rack
+                      // retour rack si lettre posée ce tour
                       if (isPlacedThisTurn &&
                           cellLetterRecord != null &&
                           !isFirstLetter) {
@@ -109,18 +114,15 @@ Widget buildScrabbleBoard({
                         return;
                       }
 
-                      // 2️⃣ on ne traite que les cases contenant une lettre
                       if (cellLetter.isEmpty) return;
 
                       final current = (row, col);
 
-                      // 3️⃣ premier tap
                       if (_firstTappedCell == null) {
                         _firstTappedCell = current;
                         return;
                       }
 
-                      // 4️⃣ deuxième tap
                       final first = _firstTappedCell!;
                       _firstTappedCell = null;
 
@@ -135,7 +137,6 @@ Widget buildScrabbleBoard({
                         openWiktionary(dictionary, word);
                       }
                     },
-
                     child: Container(
                       decoration: BoxDecoration(
                         border: Border.all(
@@ -160,7 +161,10 @@ Widget buildScrabbleBoard({
                                 ? (isPlacedThisTurn && !isCurrentlyDragged
                                     ? Draggable<DraggedLetter>(
                                       data: DraggedLetter(
-                                        letter: cellLetter,
+                                        letter:
+                                            cellLetterRecord?.letter ??
+                                            boardLetter?.letter ??
+                                            '',
                                         fromIndex: -1,
                                         row: row,
                                         col: col,
@@ -245,9 +249,7 @@ Widget _buildLetterTile(
   bool isJoker = false,
 }) {
   final point = isJoker ? 0 : (letterPoints[letter.toUpperCase()] ?? 0);
-  if (isJoker) {
-    print('Building tile for joker letter: "$letter"');
-  }
+
   return Container(
     width: size,
     height: size,
@@ -255,7 +257,7 @@ Widget _buildLetterTile(
     decoration: BoxDecoration(
       color:
           isJoker
-              ? Colors.amber[400] // 🟫 joker plus sombre
+              ? Colors.amber[400]
               : (highlight
                   ? Colors.amber[600]?.withOpacity(0.6)
                   : Colors.amber[200]),
@@ -292,7 +294,7 @@ Widget _buildLetterTile(
 }
 
 String? getWordFromCells(
-  List<List<String>> board,
+  List<List<PlacedLetter?>> board,
   List<PlacedLetter> lettersPlacedThisTurn,
   (int, int) a,
   (int, int) b,
@@ -303,10 +305,10 @@ String? getWordFromCells(
     );
 
     if (placed != null) {
-      return placed.displayLetter; // 🔥 jokerValue inclus
+      return placed.displayLetter;
     }
 
-    return board[r][c];
+    return board[r][c]?.displayLetter ?? '';
   }
 
   final r1 = a.$1;
@@ -314,17 +316,14 @@ String? getWordFromCells(
   final r2 = b.$1;
   final c2 = b.$2;
 
-  // HORIZONTAL
+  // horizontal
   if (r1 == r2) {
     int start = c1;
-    while (start > 0 && getLetter(r1, start - 1).isNotEmpty) {
-      start--;
-    }
+    while (start > 0 && getLetter(r1, start - 1).isNotEmpty) start--;
 
     int end = c1;
-    while (end < board[r1].length - 1 && getLetter(r1, end + 1).isNotEmpty) {
+    while (end < board[r1].length - 1 && getLetter(r1, end + 1).isNotEmpty)
       end++;
-    }
 
     String word = '';
     for (int c = start; c <= end; c++) {
@@ -334,17 +333,13 @@ String? getWordFromCells(
     return word.length >= 2 ? word : null;
   }
 
-  // VERTICAL
+  // vertical
   if (c1 == c2) {
     int start = r1;
-    while (start > 0 && getLetter(start - 1, c1).isNotEmpty) {
-      start--;
-    }
+    while (start > 0 && getLetter(start - 1, c1).isNotEmpty) start--;
 
     int end = r1;
-    while (end < board.length - 1 && getLetter(end + 1, c1).isNotEmpty) {
-      end++;
-    }
+    while (end < board.length - 1 && getLetter(end + 1, c1).isNotEmpty) end++;
 
     String word = '';
     for (int r = start; r <= end; r++) {

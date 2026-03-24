@@ -1,5 +1,6 @@
 import 'package:scrabble_P2P/models/game_state\.dart';
 import 'package:scrabble_P2P/models/bag.dart';
+import 'package:scrabble_P2P/models/placed_letter.dart';
 
 class GameInitializer {
   static GameState createGame({
@@ -15,9 +16,9 @@ class GameInitializer {
     final List<String> leftLetters = bag.drawLetters(7);
     final List<String> rightLetters = bag.drawLetters(7);
 
-    final List<List<String>> board = List.generate(
+    final List<List<PlacedLetter?>> board = List.generate(
       15,
-      (_) => List.generate(15, (_) => ''),
+      (_) => List.generate(15, (_) => null),
     );
 
     final gameId = DateTime.now().millisecondsSinceEpoch.toString();

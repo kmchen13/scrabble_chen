@@ -24,10 +24,9 @@ class GameStateAdapter extends TypeAdapter<GameState> {
       rightName: fields[4] as String,
       rightIP: fields[5] as String,
       rightPort: fields[6] as int,
-      board:
-          (fields[7] as List)
-              .map((dynamic e) => (e as List).cast<String>())
-              .toList(),
+      board: (fields[7] as List)
+          .map((dynamic e) => (e as List).cast<PlacedLetter?>())
+          .toList(),
       bag: fields[8] as BagModel,
       leftLetters: (fields[9] as List).cast<String>(),
       rightLetters: (fields[10] as List).cast<String>(),

@@ -139,21 +139,24 @@ class RelayNet implements ScrabbleNet {
       }
 
       if (json['status'] == 'matched') {
-        onStatusUpdate?.call("Partenaire trouvé (${json['partner']})");
-        _isConnected = true;
-        startPolling(language, localName);
+        if (localName == json['partner']) {
+          onStatusUpdate?.call("Partenaire trouvé (${json['partner']})");
+        } else {
+          _isConnected = true;
+          startPolling(language, localName);
 
-        onMatched?.call(
-          language: language,
-          leftName: localName,
-          leftIP: '',
-          leftPort: 0,
-          leftStartTime: startTime,
-          rightName: json['partner'],
-          rightIP: '',
-          rightPort: 0,
-          rightStartTime: json['partnerStartTime'] ?? startTime,
-        );
+          onMatched?.call(
+            language: language,
+            leftName: localName,
+            leftIP: '',
+            leftPort: 0,
+            leftStartTime: startTime,
+            rightName: json['partner'],
+            rightIP: '',
+            rightPort: 0,
+            rightStartTime: json['partnerStartTime'] ?? startTime,
+          );
+        }
       } else if (json['status'] == 'waiting') {
         if (debug)
           print(
@@ -199,7 +202,7 @@ class RelayNet implements ScrabbleNet {
   }
 
   @override
-  void startPolling(String language,String localName) {
+  void startPolling(String language, String localName) {
     if (_pollingTimer != null) {
       if (debug)
         print(
@@ -213,7 +216,7 @@ class RelayNet implements ScrabbleNet {
       _,
     ) async {
       try {
-        await pollMessages(language,localName);
+        await pollMessages(language, localName);
       } catch (e) {
         // Log l'erreur et la stack trace pour le débogage
         if (debug) {
@@ -417,14 +420,16 @@ class RelayNet implements ScrabbleNet {
     }
   }
 
-Future<void> pollMessages(String language,String localName) async {
+  Future<void> pollMessages(String language, String localName) async {
     http.Response? response;
 
     await retryPendingGameState();
 
     try {
       response = await http.get(
-        Uri.parse("$_relayServerUrl/poll?userName=$localName&language=$language"),
+        Uri.parse(
+          "$_relayServerUrl/poll?userName=$localName&language=$language",
+        ),
       );
     } catch (e) {
       logger.e("Erreur pollMessages: $e");
@@ -683,7 +688,7 @@ Future<void> pollMessages(String language,String localName) async {
   ) {
     _onConnectionClosed = callback;
   }
-  
+
   @override
-  void Function(List<String> )? onFreePlayersUpdated;
+  void Function(List<String>)? onFreePlayersUpdated;
 }

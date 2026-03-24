@@ -56,7 +56,7 @@ class _GameScreenState extends State<GameScreen> {
   String _appBarTitle = defaultTitle;
   late ScrabbleNet _net;
   late List<String> _playerLetters;
-  late List<List<String>> _board;
+  late List<List<PlacedLetter?>> _board;
   late List<String> _initialRack;
   final List<PlacedLetter> _lettersPlacedThisTurn = [];
   final TransformationController _boardController = TransformationController();
@@ -76,7 +76,8 @@ class _GameScreenState extends State<GameScreen> {
       _gameState = newState;
 
       final localName = settings.localUserName;
-      _board = _gameState.board.map((row) => List<String>.from(row)).toList();
+      _board =
+          _gameState.board.map((row) => List<PlacedLetter?>.from(row)).toList();
 
       _playerLetters = _gameState.localRack(localName);
       _initialRack = List.from(_playerLetters);
@@ -129,7 +130,8 @@ class _GameScreenState extends State<GameScreen> {
     _gameState = widget.gameState;
 
     _net = widget.net;
-    _board = _gameState.board.map((row) => List<String>.from(row)).toList();
+    _board =
+        _gameState.board.map((row) => List<PlacedLetter?>.from(row)).toList();
 
     _playerLetters = _gameState.localRack(settings.localUserName);
     _initialRack = List.from(_playerLetters);
@@ -242,7 +244,7 @@ class _GameScreenState extends State<GameScreen> {
     int? oldRow,
     int? oldCol,
   ) async {
-    if (_board[row][col].isNotEmpty) return;
+    if (_board[row][col] != null) return;
     PlacedLetter? previous;
 
     if (oldRow != null && oldCol != null) {
@@ -291,7 +293,7 @@ class _GameScreenState extends State<GameScreen> {
         _lettersPlacedThisTurn.add(placedLetter);
       }
 
-      _board[row][col] = placedLetter.displayLetter;
+      _board[row][col] = placedLetter;
 
       _cachedTurnValid = false;
       _updateTitleWithProvisionalScore();
@@ -376,7 +378,9 @@ class _GameScreenState extends State<GameScreen> {
 
       // Placer définitivement les lettres sur le plateau
       for (final placed in _lettersPlacedThisTurn) {
-        _gameState.board[placed.row][placed.col] = placed.letter;
+        _gameState.board[placed.row][placed.col] = placed.copyWith(
+          placedThisTurn: false,
+        );
       }
       // Transmettre les _lettersPlacedThisTurn pour surbrillance
       _gameState.lettersPlacedThisTurn = List.from(_lettersPlacedThisTurn);
@@ -614,7 +618,9 @@ class _GameScreenState extends State<GameScreen> {
               onPressed: () {
                 Navigator.pushAndRemoveUntil(
                   context,
-                  MaterialPageRoute(builder: (_) => const HomeScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => HomeScreen(net: widget.net),
+                  ),
                   (route) => false, // supprime toute la pile
                 );
               },
@@ -748,7 +754,7 @@ class _GameScreenState extends State<GameScreen> {
 
     try {
       final result = getWordsCreatedAndScore(
-        board: _gameState.board,
+        board: _board,
         lettersPlacedThisTurn: _lettersPlacedThisTurn,
         dictionary: dictionaryService,
       );
@@ -771,7 +777,8 @@ class _GameScreenState extends State<GameScreen> {
 
   void clearBoard(row, col) {
     setState(() {
-      _gameState.board[row][col] = _board[row][col] = '';
+      _gameState.board[row][col] = null;
+      _board[row][col] = null;
     });
   }
 
