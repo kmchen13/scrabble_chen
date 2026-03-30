@@ -197,6 +197,7 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                           child: Text("Partie avec $partner"),
                         ),
                       ),
+                      // Bouton "Supprimer"
                       IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red),
                         onPressed: () async {
@@ -205,6 +206,23 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                           setState(() {
                             _savedGames.remove(partner);
                           });
+                        },
+                      ),
+                      // Bouton "Replay"
+                      IconButton(
+                        icon: const Icon(Icons.refresh, color: Colors.blue),
+                        onPressed: () async {
+                          final saved = await gameStorage.load(partner);
+                          if (saved != null) {
+                            _net.sendGameState(saved);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  "Partie renvoyée au partenaire !",
+                                ),
+                              ),
+                            );
+                          }
                         },
                       ),
                     ],
