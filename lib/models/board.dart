@@ -104,7 +104,7 @@ Widget buildScrabbleBoard({
                       }
                     },
 
-                    onDoubleTap: () {
+                    onLongPress: () {
                       final word = getWordAtPosition(
                         board: board,
                         row: row,

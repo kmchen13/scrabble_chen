@@ -145,3 +145,5 @@ Refonte mode web en polling
     Ajout de PendingGameState et retryPendingGameState dans relay_net pour les cas mode avion ou rupture conexion réseau
 2.7.4
     Ajout Replay
+2.7.5
+    longPress au lieu de doubleTap pour appel wiktionnaire
