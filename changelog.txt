@@ -149,3 +149,5 @@ Refonte mode web en polling
     Correction bug retour joker vers rack
 2.8.1
     Correctiàon bug appel wiktionaire avec joker
+2.8.3
+    Ajout bouton Replay
