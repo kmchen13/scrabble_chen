@@ -143,3 +143,5 @@ Refonte mode web en polling
     Merge des modif du commit 2.5.2+ pour les paramètres server et mode par défaut
 2.7.3
     Ajout de PendingGameState et retryPendingGameState dans relay_net pour les cas mode avion ou rupture conexion réseau
+2.7.4
+    Ajout Replay
