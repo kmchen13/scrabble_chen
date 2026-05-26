@@ -154,4 +154,6 @@ Refonte mode web en polling
     Ajout paramètre language dans connect et match
 2.10.0
     Instantiation réseau au niveau de main
+2.10.1
+    Changement de dictionnaire pour hunspell
     

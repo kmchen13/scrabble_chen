@@ -1,5 +1,5 @@
 name: scrabble_P2P
-description: "A new Flutter project."
+description: "An open source scrabble game with peer-to-peer connectivity, built using Flutter. The game allows players to connect directly to each other without the need for a central server, providing a seamless and interactive gaming experience. Players can enjoy classic scrabble gameplay while leveraging the power of Flutter for a smooth and responsive user interface."
 publish_to: 'none'
 
 version: 1.0.1+2
