@@ -139,3 +139,8 @@ Refonte mode web en polling
     Ajout lien wiktionnaire
 2.7.1
     Passage en minuscule pour les liens wiktionnaire
+2.7.6
+    Changement de dictionnaire pour hunspell
+2.7.7
+    Changement de dictionnaire pour lexique383
+    
