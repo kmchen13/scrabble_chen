@@ -147,3 +147,7 @@ Refonte mode web en polling
     Ajout Replay
 2.7.5
     longPress au lieu de doubleTap pour appel wiktionnaire
+2.7.9
+    Copie dictionary.txt au lieu de lien symbolique
+    Suppression des mots <=4 lettres invalides pour ODS
+    
