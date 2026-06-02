@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:math' as math;
-
+import 'dart:async';
 import 'package:scrabble_P2P/models/board.dart';
 import 'package:scrabble_P2P/models/game_state.dart';
 import 'package:scrabble_P2P/models/player_rack.dart';
@@ -11,6 +10,7 @@ import 'package:scrabble_P2P/services/utility.dart';
 import 'package:scrabble_P2P/services/game_end.dart';
 import 'package:scrabble_P2P/services/game_update.dart';
 import 'package:scrabble_P2P/services/dictionary.dart';
+import 'package:scrabble_P2P/services/dictionary_loader.dart';
 import 'package:scrabble_P2P/models/placed_letter.dart';
 import 'package:scrabble_P2P/screens/show_bag.dart';
 import 'package:scrabble_P2P/screens/home_screen.dart';
@@ -126,6 +126,8 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
+
+    unawaited(loadDefaultDictionary());
     _gameState = widget.gameState;
 
     _net = widget.net;

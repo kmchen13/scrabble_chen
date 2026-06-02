@@ -143,4 +143,7 @@ Refonte mode web en polling
     Changement de dictionnaire pour hunspell
 2.7.7
     Changement de dictionnaire pour lexique383
+2.7.8
+    Retour wiktionaire mais avec wiktionary_validator suppression des mots <=3 lettres invalides
+    Chargement du wiktionaire dans game_screen au lieu de modularisation
     
