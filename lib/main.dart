@@ -1,56 +1,15 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
 
 import 'package:hive_flutter/hive_flutter.dart';
 import 'services/settings_service.dart';
 import 'services/app_log.dart';
-import 'services/dictionary.dart';
 import 'services/game_storage.dart';
 import 'models/game_state.dart';
 import 'screens/home_screen.dart';
 import 'screens/param_screen.dart';
 
 final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
-final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-
-ScrabbleLanguage scrabbleLanguageFromString(String lang) {
-  switch (lang.toLowerCase()) {
-    case 'fr':
-      return ScrabbleLanguage.fr;
-    case 'en':
-      return ScrabbleLanguage.en;
-    case 'es':
-      return ScrabbleLanguage.es;
-    default:
-      return ScrabbleLanguage.fr; // valeur par défaut
-  }
-}
-
-Future<void> loadDefaultDictionary() async {
-  try {
-    final content = await rootBundle.loadString('assets/dictionary.txt');
-    final langEnum = scrabbleLanguageFromString(settings.language);
-
-    dictionaryService.replaceFromText(content, langEnum);
-    dictionaryService.setLanguage(langEnum);
-  } catch (e) {
-    // Affiche un snackbar si impossible de charger le dictionnaire
-    final context = navigatorKey.currentContext;
-    if (context != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '⚠️ Impossible de charger le dictionnaire par défaut: $e',
-            style: const TextStyle(fontSize: 14),
-          ),
-          backgroundColor: Colors.redAccent,
-          duration: const Duration(seconds: 4),
-        ),
-      );
-    }
-  }
-}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,8 +20,6 @@ void main() async {
   Hive.registerAdapter(GameStateAdapter());
   // Ouverture de la box via ton wrapper
   await gameStorage.init();
-  // Charger le dictionnaire par défaut
-  await loadDefaultDictionary();
   // Intercepter la fermeture de l'app
   ProcessSignal.sigint.watch().listen((_) async {
     await gameStorage.close();
