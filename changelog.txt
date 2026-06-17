@@ -156,3 +156,5 @@ Refonte mode web en polling
 3.0.0
     Adaptation relay_server en mode POLL LONG.
     Ajout assets_manager
+3.0.1
+    Correction notification son de gameState reçu sans rafraichissement écran

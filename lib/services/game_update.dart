@@ -76,13 +76,16 @@ class GameUpdateHandler {
       // ✅ Même partie OU revanche → appliquer immédiatement
       // ✅ Même partie OU revanche → appliquer immédiatement
       if (mounted && (sameGame || isRematch)) {
-        WidgetsBinding.instance.addPostFrameCallback((_) async {
-          if (!isMounted()) return;
+        // Applique immédiatement le nouvel état
+        await applyIncomingState(incoming, updateUI: true);
 
-          await applyIncomingState(incoming, updateUI: true);
+        // seulement après mise à jour
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (isMounted()) {
+            onFlushPending?.call();
+          }
         });
 
-        onFlushPending?.call();
         return;
       }
 
