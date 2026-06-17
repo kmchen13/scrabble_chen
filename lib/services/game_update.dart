@@ -3,10 +3,7 @@ import 'package:scrabble_P2P/services/game_storage.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
 import 'package:scrabble_P2P/network/scrabble_net.dart';
 import 'package:scrabble_P2P/services/game_initializer.dart';
-import 'utility.dart';
-import 'game_end.dart';
 import 'package:scrabble_P2P/models/game_state.dart';
-import 'package:scrabble_P2P/screens/game_screen.dart';
 import '../constants.dart';
 
 typedef ApplyIncomingState =
@@ -77,9 +74,11 @@ class GameUpdateHandler {
       }
 
       // ✅ Même partie OU revanche → appliquer immédiatement
+      // ✅ Même partie OU revanche → appliquer immédiatement
       if (mounted && (sameGame || isRematch)) {
         WidgetsBinding.instance.addPostFrameCallback((_) async {
-          if (!mounted) return;
+          if (!isMounted()) return;
+
           await applyIncomingState(incoming, updateUI: true);
         });
 

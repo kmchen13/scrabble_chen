@@ -40,7 +40,7 @@ class ScrabbleApp extends StatelessWidget {
         future: Future.value(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done) {
-            // Rediriger vers ParamScreen si le userName est vide
+            // Rediriger vers ParamScreen si le user est vide
             if (settings.localUserName.isEmpty ||
                 settings.relayAddress.substring(0, 8) == 'https//:') {
               return ParamScreen();

@@ -15,7 +15,7 @@ import '../constants.dart';
  *  LocalNet is a class that implements the ScrabbleNet interface
  *  for local network play using UDP and TCP.
  *  It handles player matching, game state transmission, and network communication. 
- * Connection starts though UDP broadcast with userName, expectedPartner and startTime.
+ * Connection starts though UDP broadcast with user, expectedPartner and startTime.
  * When match occurs it sends an ACK via TCP to the partner.
  * When ACK received 
  */
@@ -387,9 +387,9 @@ class LocalNet implements ScrabbleNet {
   }
 
   @override
-  Future<void> quit(userName, partner) async {
+  Future<void> quit(user, partner) async {
     // Prévenir le partenaire via TCP
-    final quitMessage = 'SCRABBLE_QUIT:$userName:$partner';
+    final quitMessage = 'SCRABBLE_QUIT:$user:$partner';
     _peerSocket?.writeln(quitMessage);
 
     if (debug)

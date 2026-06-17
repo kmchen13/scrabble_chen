@@ -127,7 +127,6 @@ class _GameScreenState extends State<GameScreen> {
   void initState() {
     super.initState();
 
-    unawaited(loadDefaultDictionary());
     _gameState = widget.gameState;
 
     _net = widget.net;
@@ -187,6 +186,19 @@ class _GameScreenState extends State<GameScreen> {
     );
 
     _updateHandler.attach();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+
+      await loadDefaultDictionary();
+
+      if (debug) {
+        print(
+          '[GameScreen] dictionnaire prêt après affichage '
+          '${dictionaryService.size} mots',
+        );
+      }
+    });
 
     _net.onGameOverReceived = (finalState) {
       if (!mounted) return;
@@ -675,12 +687,12 @@ class _GameScreenState extends State<GameScreen> {
                         if (confirmQuit != true)
                           return; // ✅ Si l’utilisateur annule, on quitte sans rien faire
 
-                        final userName = settings.localUserName;
-                        final partner = _gameState.partnerFrom(userName);
+                        final user = settings.localUserName;
+                        final partner = _gameState.partnerFrom(user);
 
                         try {
                           // ensure quit completes before clearing / navigating
-                          await widget.net.quit(userName, partner);
+                          await widget.net.quit(user, partner);
                           widget.net.resetGameOver();
                         } catch (e) {
                           print("⛔ Erreur abandon: $e");

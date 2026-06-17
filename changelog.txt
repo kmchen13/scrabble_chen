@@ -153,4 +153,6 @@ Refonte mode web en polling
 2.7.9
     Copie dictionary.txt au lieu de lien symbolique
     Suppression des mots <=4 lettres invalides pour ODS
-    
+3.0.0
+    Adaptation relay_server en mode POLL LONG.
+    Ajout assets_manager

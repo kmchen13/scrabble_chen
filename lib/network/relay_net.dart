@@ -7,9 +7,10 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:scrabble_P2P/models/game_state\.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
 import 'package:scrabble_P2P/services/game_storage.dart';
+import 'package:scrabble_P2P/services/assets_manager.dart';
 import 'package:scrabble_P2P/services/log.dart';
 import 'scrabble_net.dart';
-import '../constants.dart';
+import 'package:scrabble_P2P/constants.dart';
 import 'package:scrabble_P2P/services/utility.dart';
 
 class _GameStateDispatcher {
@@ -48,9 +49,20 @@ class RelayNet implements ScrabbleNet {
 
   Future<void> _playNotificationSound() async {
     try {
-      await _player.play(AssetSource('sounds/notify.wav'));
+      if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+        await _player.play(
+          DeviceFileSource(
+            AssetManager.desktopPath('assets/sounds/notify.wav'),
+          ),
+        );
+      } else {
+        await _player.play(AssetSource('sounds/notify.wav'));
+      }
     } catch (e) {
-      print('${logHeader("relayNet")} Erreur lecture son : $e');
+      print(
+        '${logHeader("relayNet")} '
+        'Erreur lecture son : $e',
+      );
     }
   }
 
@@ -96,9 +108,10 @@ class RelayNet implements ScrabbleNet {
       final res = await http.post(
         Uri.parse("$_relayServerUrl/connect"),
         body: jsonEncode({
-          'userName': localName,
+          'user': localName,
           'expectedName': expectedName,
-          'startTime': startTime,
+          'startTime':
+              startTime, //startTime est conservé pour compatibilité localNet
         }),
         headers: {'Content-Type': 'application/json'},
       );
@@ -122,11 +135,7 @@ class RelayNet implements ScrabbleNet {
         print("${logHeader("relayNet")} Réponse serveur: $json");
       }
 
-      if (json['status'] == 'matched') {
-        onStatusUpdate?.call("Partenaire trouvé (${json['partner']})");
-        _isConnected = true;
-        startPolling(localName);
-
+      if (json['status'] == 'MATCHED') {
         onMatched?.call(
           leftName: localName,
           leftIP: '',
@@ -137,7 +146,7 @@ class RelayNet implements ScrabbleNet {
           rightPort: 0,
           rightStartTime: json['partnerStartTime'] ?? startTime,
         );
-      } else if (json['status'] == 'waiting') {
+      } else if (json['status'] == 'WAITING') {
         if (debug)
           print(
             "${logHeader("relayNet")} En attente de partenaire… démarrage du polling",
@@ -153,7 +162,7 @@ class RelayNet implements ScrabbleNet {
             "${logHeader("relayNet")} Pas de réponse du serveur → retry dans $_retryDelay s",
           );
         Future.delayed(Duration(seconds: _retryDelay), () {
-          if (!_isConnected && _retrying) {
+          if (!_isConnected && !_retrying) {
             _retrying = true;
             connect(
               localName: localName,
@@ -226,15 +235,15 @@ class RelayNet implements ScrabbleNet {
   }
 
   Future<bool> _sendGameStateToServer(GameState state) async {
-    final String userName = settings.localUserName;
-    final String to = state.partnerFrom(userName);
+    final String user = settings.localUserName;
+    final String to = state.partnerFrom(user);
 
     final res = await http
         .post(
           Uri.parse("$_relayServerUrl/gamestate"),
           body: jsonEncode({
-            'from': userName,
-            'to': to,
+            'user': user,
+            'partner': to,
             'type': 'gameState',
             'message': state.toJson(),
           }),
@@ -248,13 +257,13 @@ class RelayNet implements ScrabbleNet {
 
     final json = jsonDecode(res.body);
 
-    if (json['status'] != 'sent') {
+    if (json['status'] != 'SENT') {
       if (debug) {
         print("${logHeader("relayNet")} ⚠️ serveur: ${json['status']}");
       }
     }
 
-    return json['status'] == 'sent';
+    return json['status'] == 'SENT';
   }
 
   Future<void> retryPendingGameState() async {
@@ -323,7 +332,6 @@ class RelayNet implements ScrabbleNet {
   void Function(GameState state)? _onGameStateReceived;
 
   @override
-  @override
   set onGameStateReceived(void Function(GameState state)? callback) {
     _onGameStateReceived = callback;
     print(
@@ -376,6 +384,7 @@ class RelayNet implements ScrabbleNet {
     required String localName,
     required String partner,
     required String type,
+    required int date,
     required Future<void> Function() handler,
   }) async {
     // 1️⃣ traiter / persister AVANT ack
@@ -385,12 +394,12 @@ class RelayNet implements ScrabbleNet {
     final res = await http.get(
       Uri.parse(
         '$_relayServerUrl/acknowledgement'
-        '?userName=$localName&partner=$partner&type=$type',
+        '?user=$localName&partner=$partner&type=$type&date=$date',
       ),
     );
 
     final json = jsonDecode(res.body);
-    if (json['status'] != 'ok') {
+    if (json['status'] != 'OK') {
       logger.w('[relayNet] ACK échoué pour type=$type');
     } else if (debug) {
       print('${logHeader("relayNet")} ack $type envoyé');
@@ -405,7 +414,7 @@ class RelayNet implements ScrabbleNet {
 
     try {
       response = await http.get(
-        Uri.parse("$_relayServerUrl/poll?userName=$localName"),
+        Uri.parse("$_relayServerUrl/poll?user=$localName"),
       );
     } catch (e) {
       logger.e("Erreur pollMessages: $e");
@@ -413,19 +422,26 @@ class RelayNet implements ScrabbleNet {
     }
 
     final json = jsonDecode(response.body);
-    final String partner = json['from'] ?? json['partner'] ?? '';
-    bool shouldAck = false;
-
+    if (json['result'] == 'NO_MESSAGE') {
+      return;
+    }
+    final String user = json['user'] ?? '';
+    final String partner = json['partner'] ?? '';
+    final String type = json['type'] ?? '';
+    final String message = json['message'] ?? '';
+    final int date = json['date'] ?? 0;
+    if (debug) print("POLL RECV $user $partner $type DATE=$date");
     try {
-      switch (json['type']) {
-        case 'gameState':
+      switch (type) {
+        case 'GAMESTATE':
           await _handleAndAck(
-            localName: localName,
+            localName: user,
             partner: partner,
-            type: 'gameState',
+            type: type,
+            date: date,
             handler: () async {
               _playNotificationSound();
-              final gameState = GameState.fromJson(json['message']);
+              final gameState = GameState.fromJson(message);
 
               // 🔐 persistance immédiate
               _dispatcher.handleIncoming(gameState, onGameStateReceived);
@@ -436,16 +452,17 @@ class RelayNet implements ScrabbleNet {
           );
           break;
 
-        case 'gameOver':
+        case 'GAMEOVER':
           await _handleAndAck(
-            localName: localName,
+            localName: user,
             partner: partner,
-            type: 'gameOver',
+            type: type,
+            date: date,
             handler: () async {
               _playNotificationSound();
               _gameIsOver = true;
 
-              final gameState = GameState.fromJson(json['message']);
+              final gameState = GameState.fromJson(message);
               gameStorage.save(gameState); // 🔐 CRUCIAL
 
               if (_onGameOverReceived != null) {
@@ -459,39 +476,35 @@ class RelayNet implements ScrabbleNet {
           );
           break;
 
-        case 'matched':
+        case 'MATCHED':
           await _handleAndAck(
-            localName: localName,
+            localName: user,
             partner: partner,
-            type: 'matched',
+            type: type,
+            date: date,
             handler: () async {
               _isConnected = true;
 
-              final localTime = json['startTime'] ?? 0;
-              final partnerTime = json['partnerStartTime'] ?? 0;
-
               onMatched?.call(
-                leftName: localTime > partnerTime ? localName : json['partner'],
+                leftName: partner,
                 leftIP: '',
                 leftPort: 0,
-                leftStartTime:
-                    localTime > partnerTime ? localTime : partnerTime,
-                rightName:
-                    localTime > partnerTime ? json['partner'] : localName,
+                leftStartTime: 0,
+                rightName: localName,
                 rightIP: '',
                 rightPort: 0,
-                rightStartTime:
-                    localTime > partnerTime ? partnerTime : localTime,
+                rightStartTime: 0,
               );
             },
           );
           break;
 
-        case 'quit':
+        case 'GAMEQUIT':
           await _handleAndAck(
-            localName: localName,
+            localName: user,
             partner: partner,
-            type: 'quit',
+            type: type,
+            date: date,
             handler: () async {
               if (partner.isNotEmpty) {
                 await gameStorage.delete(partner);
@@ -507,39 +520,20 @@ class RelayNet implements ScrabbleNet {
           );
           break;
 
-        case 'message':
+        case 'CHAT':
           await _handleAndAck(
-            localName: localName,
+            localName: user,
             partner: partner,
-            type: 'message',
+            type: type,
+            date: date,
             handler: () async {
               _playNotificationSound();
               if (debug) {
-                print(
-                  "${logHeader("relayNet")} Message reçu: ${json['message']}",
-                );
+                print("${logHeader("relayNet")} Message reçu: ${message}");
               }
             },
           );
           break;
-
-        case 'no_message':
-          return;
-      }
-
-      //send acknowledgement
-      if (!shouldAck) return;
-      final res = await http.get(
-        Uri.parse(
-          '$_relayServerUrl/acknowledgement?userName=$localName&partner=$partner&type=${json['type']}',
-        ),
-      );
-      final jsonResponse = jsonDecode(res.body);
-      if (debug)
-        print('${logHeader("relayNet")} ack $localName-$partner envoyé');
-
-      if (jsonResponse['status'] != 'ok') {
-        print('${logHeader("relayNet")} erreur serveur traitement ack');
       }
     } catch (e, st) {
       if (debug) {
@@ -552,13 +546,13 @@ class RelayNet implements ScrabbleNet {
 
   @override
   void sendGameOver(GameState finalState) async {
-    final String userName = settings.localUserName;
+    final String user = settings.localUserName;
     try {
       final res = await http.post(
         Uri.parse("$_relayServerUrl/gameover"), // ⭐️ endpoint dédié
         body: jsonEncode({
-          'from': userName,
-          'to': finalState.partnerFrom(userName),
+          'user': user,
+          'partner': finalState.partnerFrom(user),
           'type': 'gameOver',
           'message': finalState.toJson(),
         }),
@@ -566,7 +560,7 @@ class RelayNet implements ScrabbleNet {
       );
 
       final json = jsonDecode(res.body);
-      if (json['status'] == 'sent') {
+      if (json['status'] == 'SENT') {
         print("${logHeader("relayNet")} ✅ GameOver envoyé : $finalState");
       } else {
         logger.w("⚠️ Erreur serveur GameOver: $json");
@@ -602,11 +596,11 @@ class RelayNet implements ScrabbleNet {
       final res = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'userName': me, 'partner': partner}),
+        body: jsonEncode({'user': me, 'partner': partner}),
       );
       if (res.statusCode == 200) {
         final json = jsonDecode(res.body);
-        if (json['status'] == 'quit_success') {
+        if (json['status'] == 'QUIT_SUCCESS') {
           onStatusUpdate?.call('Vous avez quitté la partie avec $partner');
           _gameIsOver = false;
           if (debug)

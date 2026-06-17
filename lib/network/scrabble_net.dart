@@ -62,7 +62,7 @@ abstract class ScrabbleNet {
   void stopPolling() {}
 
   /// Quitte la partie en cours
-  Future<void> quit(userName, partner);
+  Future<void> quit(user, partner);
 
   void Function(String message)? onStatusUpdate;
 

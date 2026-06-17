@@ -127,7 +127,7 @@ class GameStorage {
     }
   }
 
-  /// Supprime une entrée par clé complète (ex: "game_partnerName")
+  /// Supprime une entrée par clé complète (ex: "game_partner")
   Future<void> delete(String partner) async {
     if (_box == null) throw Exception("GameStorage not initialized");
     final key = buildKey(partner);
