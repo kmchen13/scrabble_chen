@@ -160,3 +160,8 @@ Refonte mode web en polling
     Correction notification son de gameState reçu sans rafraichissement écran
 3.0.2
     Correction Quitter lié à /disconnect
+3.0.3 
+    Correction Correction notification son de gameState reçu sans rafraichissement écran
+3.1.0
+    Ajout notifications système, affichage même si en background avec nombre de notifications sur icone
+    

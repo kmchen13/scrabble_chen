@@ -9,6 +9,7 @@ import 'package:scrabble_P2P/services/settings_service.dart';
 import 'package:scrabble_P2P/services/game_storage.dart';
 import 'package:scrabble_P2P/services/assets_manager.dart';
 import 'package:scrabble_P2P/services/log.dart';
+import 'package:scrabble_P2P/services/notification.dart';
 import 'scrabble_net.dart';
 import 'package:scrabble_P2P/constants.dart';
 import 'package:scrabble_P2P/services/utility.dart';
@@ -46,6 +47,7 @@ class RelayNet implements ScrabbleNet {
 
   GameState? _pendingGameState;
   bool _sendingPending = false;
+  bool appInForeground = true;
 
   Future<void> _playNotificationSound() async {
     try {
@@ -440,12 +442,16 @@ class RelayNet implements ScrabbleNet {
             type: type,
             date: date,
             handler: () async {
-              _playNotificationSound();
+              final msg = "$partner a joué";
+              if (appInForeground) {
+                _playNotificationSound();
+              } else {
+                NotificationService.showGameMessage(msg);
+              }
               final gameState = GameState.fromJson(message);
 
               // 🔐 persistance immédiate
               _dispatcher.handleIncoming(gameState, onGameStateReceived);
-              _dispatcher.flush(onGameStateReceived);
 
               if (_gameIsOver) _gameIsOver = false;
             },
@@ -459,7 +465,13 @@ class RelayNet implements ScrabbleNet {
             type: type,
             date: date,
             handler: () async {
-              _playNotificationSound();
+              final msg =
+                  "derniers coups de la partie avec $partner. Celui qui a joué en deuxième joue le dernier coup";
+              if (appInForeground) {
+                _playNotificationSound();
+              } else {
+                NotificationService.showGameMessage(msg);
+              }
               _gameIsOver = true;
 
               final gameState = GameState.fromJson(message);
@@ -527,7 +539,12 @@ class RelayNet implements ScrabbleNet {
             type: type,
             date: date,
             handler: () async {
-              _playNotificationSound();
+              final msg = "$partner: $message";
+              if (appInForeground) {
+                _playNotificationSound();
+              } else {
+                NotificationService.showGameMessage(msg);
+              }
               if (debug) {
                 print("${logHeader("relayNet")} Message reçu: ${message}");
               }

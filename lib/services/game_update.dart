@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:scrabble_P2P/services/game_storage.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
@@ -76,15 +77,22 @@ class GameUpdateHandler {
       // ✅ Même partie OU revanche → appliquer immédiatement
       // ✅ Même partie OU revanche → appliquer immédiatement
       if (mounted && (sameGame || isRematch)) {
-        // Applique immédiatement le nouvel état
-        await applyIncomingState(incoming, updateUI: true);
+        final completer = Completer<void>();
 
-        // seulement après mise à jour
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (isMounted()) {
-            onFlushPending?.call();
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          if (!isMounted()) {
+            completer.complete();
+            return;
           }
+
+          await applyIncomingState(incoming, updateUI: true);
+
+          onFlushPending?.call();
+
+          completer.complete();
         });
+
+        await completer.future;
 
         return;
       }
