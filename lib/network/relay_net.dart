@@ -430,7 +430,7 @@ class RelayNet implements ScrabbleNet {
     final String type = json['type'] ?? '';
     final String message = json['message'] ?? '';
     final int date = json['date'] ?? 0;
-    if (debug) print("POLL RECV $user $partner $type DATE=$date");
+
     try {
       switch (type) {
         case 'GAMESTATE':
@@ -575,16 +575,21 @@ class RelayNet implements ScrabbleNet {
     }
   }
 
+  ///Déconnecter, ne plus faire partie de la liste des joueurs "libres" (en attente de n'importe quel joueur)
   @override
   Future<void> disconnect() async {
     try {
-      _pauseConnecting();
+      final user = settings.localUserName;
 
-      print("${logHeader("relayNet")} ✅ recherche de joueurs suspendue");
+      await http.get(Uri.parse('$_relayServerUrl/disconnect?user=$user'));
+
+      if (debug) {
+        print('[relayNet] disconnect envoyé pour $user');
+      }
     } catch (e) {
-      logger.e("Erreur lors de la déconnexion : $e");
-    } finally {
-      _isConnected = false;
+      if (debug) {
+        print('[relayNet] disconnect erreur: $e');
+      }
     }
   }
 

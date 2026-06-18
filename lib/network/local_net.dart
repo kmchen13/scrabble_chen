@@ -354,12 +354,18 @@ class LocalNet implements ScrabbleNet {
   @override
   void Function(GameState finalState)? onGameOverReceived;
 
-  void disconnect() {
+  Future<void> disconnect() async {
     _closeBroadcast();
-    _tcpServer?.close();
+
+    await _tcpServer?.close();
+
     _peerSocket?.destroy();
+
     onStatusUpdate?.call('Déconnecté');
-    if (debug) debugPrint('${logHeader("LocalNet")} Déconnecté');
+
+    if (debug) {
+      debugPrint('${logHeader("LocalNet")} Déconnecté');
+    }
   }
 
   void Function(String error)? onError;

@@ -228,7 +228,9 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                 child: const Text("Paramètres"),
               ),
               ElevatedButton(
-                onPressed: () {
+                onPressed: () async {
+                  await _net.disconnect();
+
                   SystemNavigator.pop();
                 },
                 child: const Text("Quitter"),

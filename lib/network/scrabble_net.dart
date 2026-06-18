@@ -67,7 +67,7 @@ abstract class ScrabbleNet {
   void Function(String message)? onStatusUpdate;
 
   /// En mode local déconnecte TDP ert UDP. En mode WEB rien à faire
-  void disconnect();
+  Future<void> disconnect();
 
   /// La connexion est fermée (par quit ou déconnexion)
   void setOnConnectionClosed(
