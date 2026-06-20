@@ -102,7 +102,19 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
 
     // ⚡ Différer l'appel à load() pour s'assurer que gameStorage.init() est terminé
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await gameStorage.init(); // s'assure que Hive est ouvert
+      await gameStorage.init();
+
+      // 🔒 Pas de pseudo = pas d'accès au jeu
+      if (settings.localUserName.trim().isEmpty) {
+        if (!mounted) return;
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const ParamScreen()),
+        );
+        return;
+      }
+
       try {
         final ids = await gameStorage.listSavedGames();
         if (mounted) {

@@ -164,4 +164,6 @@ Refonte mode web en polling
     Correction Correction notification son de gameState reçu sans rafraichissement écran
 3.1.0
     Ajout notifications système, affichage même si en background avec nombre de notifications sur icone
-    
+3.1.1
+    Correction blocage sur paramètres si pseudo vide
+    Corrections notifications système

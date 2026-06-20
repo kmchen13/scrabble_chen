@@ -13,9 +13,18 @@ class NotificationService {
     final settings = InitializationSettings(
       android: android,
       linux: LinuxInitializationSettings(defaultActionName: 'open'),
+      iOS: DarwinInitializationSettings(),
     );
 
     await _plugin.initialize(settings);
+
+    final androidPlugin =
+        _plugin
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >();
+
+    await androidPlugin?.requestNotificationsPermission();
   }
 
   static Future<void> showGameMessage(String message) async {
@@ -23,24 +32,29 @@ class NotificationService {
 
     await AppBadgePlus.updateBadge(badgeCount);
 
-    const details = NotificationDetails(
+    final details = NotificationDetails(
       android: AndroidNotificationDetails(
         'scrabble_game',
         'Scrabble',
         channelDescription: 'Coups reçus',
         importance: Importance.high,
         priority: Priority.high,
+        number: badgeCount,
       ),
+
+      iOS: DarwinNotificationDetails(badgeNumber: badgeCount),
 
       linux: LinuxNotificationDetails(),
     );
 
-    await _plugin.show(badgeCount, 'Scrabble', '$message', details);
+    await _plugin.show(badgeCount, 'Scrabble', message, details);
   }
 
   static Future<void> clearBadge() async {
     badgeCount = 0;
 
     await AppBadgePlus.updateBadge(0);
+
+    await _plugin.cancelAll();
   }
 }

@@ -60,6 +60,17 @@ class _ParamScreenState extends State<ParamScreen> {
   }
 
   Future<void> _saveSettings() async {
+    final name = _nameController.text.trim();
+
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Veuillez entrer un pseudo avant de commencer"),
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
     settings = UserSettings(
       localUserName: _nameController.text,
       language: settings.language,

@@ -9,8 +9,10 @@ import 'services/notification.dart';
 import 'models/game_state.dart';
 import 'screens/home_screen.dart';
 import 'screens/param_screen.dart';
+import 'package:scrabble_P2P/services/app_lifecycle.dart';
 
 final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
+final appLifecycle = AppLifecycle();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,7 +28,8 @@ void main() async {
     await gameStorage.close();
     exit(0);
   });
-  await NotificationService.init();
+  final appLifecycle = AppLifecycle();
+  appLifecycle.start();
   runApp(ScrabbleApp());
 }
 
