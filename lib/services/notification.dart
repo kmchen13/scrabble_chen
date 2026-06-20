@@ -23,7 +23,7 @@ class NotificationService {
             .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin
             >();
-
+    await androidPlugin?.deleteNotificationChannel('scrabble_game');
     await androidPlugin?.requestNotificationsPermission();
   }
 

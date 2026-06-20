@@ -227,25 +227,66 @@ class _GameScreenState extends State<GameScreen> {
       barrierDismissible: false,
       builder: (_) {
         String selected = 'A';
-        return AlertDialog(
-          title: const Text('Joker'),
-          content: DropdownButton<String>(
-            value: selected,
-            items: List.generate(
-              26,
-              (i) => DropdownMenuItem(
-                value: String.fromCharCode(65 + i),
-                child: Text(String.fromCharCode(65 + i)),
+
+        final letters = List.generate(26, (i) => String.fromCharCode(65 + i));
+
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Choisir la lettre du joker'),
+
+              content: SizedBox(
+                width: 260,
+                height: 220,
+
+                child: GridView.builder(
+                  physics: const NeverScrollableScrollPhysics(),
+
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 6,
+                    mainAxisSpacing: 6,
+                    crossAxisSpacing: 6,
+                    childAspectRatio: 1.2,
+                  ),
+
+                  itemCount: letters.length,
+
+                  itemBuilder: (context, index) {
+                    final letter = letters[index];
+
+                    return ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        backgroundColor:
+                            selected == letter ? Colors.orange : null,
+                      ),
+
+                      onPressed: () {
+                        setState(() {
+                          selected = letter;
+                        });
+                      },
+
+                      child: Text(
+                        letter,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
-            ),
-            onChanged: (v) => selected = v!,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, selected),
-              child: const Text('OK'),
-            ),
-          ],
+
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, selected),
+                  child: Text('OK ($selected)'),
+                ),
+              ],
+            );
+          },
         );
       },
     );

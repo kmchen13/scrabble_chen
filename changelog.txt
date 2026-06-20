@@ -167,3 +167,6 @@ Refonte mode web en polling
 3.1.1
     Correction blocage sur paramètres si pseudo vide
     Corrections notifications système
+3.1.2
+    Modification askJoker montre la lettre choisie
+    Correction notifications  système pour Samsung S7

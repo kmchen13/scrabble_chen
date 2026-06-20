@@ -19,4 +19,4 @@ A la première execution vous devrez entrer un identifiant, valider pour pouvoir
 Mode d'emploi à venir
 
 ## Contact
-Suggestions, questions à tmp6@webologix.com
+Suggestions, questions à webologix@gmail.com
