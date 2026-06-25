@@ -499,7 +499,7 @@ class _GameScreenState extends State<GameScreen> {
     int missing = rackSize - _playerLetters.length;
     if (missing > 0) {
       final drawn = _gameState.bag.drawLetters(missing);
-      // _playerLetters.addAll(drawn);
+      _playerLetters.addAll(drawn);
 
       // ✅ MISE À JOUR du GameState avec les nouvelles lettres
       if (_gameState.isLeft) {
