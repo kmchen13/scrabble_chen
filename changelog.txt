@@ -177,3 +177,5 @@ Refonte mode web en polling
 3.1.4
     MAJ white_page.txt
     Correction notification son sans rafraichissement jeu
+3.1.5
+    Débridage fin de partie
