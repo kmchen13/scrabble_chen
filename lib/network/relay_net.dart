@@ -18,7 +18,10 @@ import 'package:scrabble_P2P/services/utility.dart';
 class _GameStateDispatcher {
   GameState? pending;
 
-  void handleIncoming(GameState state, void Function(GameState)? callback) {
+  Future<void> handleIncoming(
+    GameState state,
+    void Function(GameState)? callback,
+  ) async {
     // 🔴 PERSISTANCE IMMÉDIATE (clé de tout)
     if (debug) print("${logHeader('handleIncoming')} Sauvegarde immédiate");
     gameStorage.save(state);
@@ -463,6 +466,12 @@ class RelayNet implements ScrabbleNet {
             type: type,
             date: date,
             handler: () async {
+              final gameState = GameState.fromJson(message);
+
+              // 🔐 persistance immédiate
+              await _dispatcher.handleIncoming(gameState, onGameStateReceived);
+
+              // 🔔 notification logique vers l'UI
               if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
                 // Sur desktop, on considère que l'app est toujours en foreground
                 // OU on utilise un autre mécanisme
@@ -473,10 +482,6 @@ class RelayNet implements ScrabbleNet {
                 final msg = "$partner a joué";
                 await NotificationService.showGameMessage(msg);
               }
-              final gameState = GameState.fromJson(message);
-
-              // 🔐 persistance immédiate
-              _dispatcher.handleIncoming(gameState, onGameStateReceived);
 
               if (_gameIsOver) _gameIsOver = false;
             },

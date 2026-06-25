@@ -1,0 +1,33 @@
+ALGORITHMES FIN DE PARTIE
+_________________________
+
+DEFINITIONS
+G = Gauche finit
+popup = Appel du popup de fin
+joue = affiche le nouveau gameState, joue et envoie
+rematch = affiche la popup de fin de partie avec proposition de revanche
+
+ALGORITHMES
+game_screen:
+...
+handleSubmit:
+Si rack gauche vide: 
+    Si G, sendGameOver (j'ai fini mais D doit jouer un dernier coup)
+    si D, joue, sendGameOver (G a fini puisque son rack est vide, je dois jouer un dernier coup et envoyer gameOver)
+Si rack droit vide: 
+    si G, popup (D a fini la partie est terminée)
+    si D, popup, sendGameOver (j'ai fini, je popup et sendGameOver)
+
+GameUpdate.onGameOverReceived:
+Si G popup, rematch 
+Si D joue, sendGameOver, popup, rematch
+
+rematch:
+si G et perd: gamStateInitializer, joue, sendGameState, startpolling
+si G et gagne: startPolling
+si D et perd: gamStateInitializer inverser, joue, sendGameState, startPolling
+si D et gagne: startPolling
+
+SCENARIES
+G finit: sendGameOver, startpolling - D onGameOverReceived: joue, sendGameOver, popup, rematch - G ongameOverReceived: popup, rematch
+D finit: popup, sendGameOver - G onGameOverReceived: popup, rematch
