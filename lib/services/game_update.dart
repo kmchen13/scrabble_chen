@@ -5,6 +5,7 @@ import 'package:scrabble_P2P/services/settings_service.dart';
 import 'package:scrabble_P2P/network/scrabble_net.dart';
 import 'package:scrabble_P2P/services/game_initializer.dart';
 import 'package:scrabble_P2P/models/game_state.dart';
+import 'package:scrabble_P2P/services/utility.dart';
 import '../constants.dart';
 
 typedef ApplyIncomingState =
@@ -20,7 +21,6 @@ class GameUpdateHandler {
   final bool Function() isMounted;
   final GameState Function() getCurrentGame;
 
-  // 🔥 Callbacks UI (injectés par l’écran)
   final GameStateCallback? onBackgroundMove;
   final GameStateCallback? onGameOver;
   final StringCallback? onError;
@@ -39,99 +39,104 @@ class GameUpdateHandler {
     this.onRematch,
   });
 
-  /// Compare deux GameState → même partie ?
   bool _sameGame(GameState a, GameState b) {
     final setA = {a.leftName, a.rightName};
     final setB = {b.leftName, b.rightName};
+
     return setA.length == 2 && setA.containsAll(setB);
   }
 
   void attach() {
     if (debug) {
-      print('[GameUpdateHandler] attach (net=${net.hashCode})');
+      print('[GameUpdateHandler] attach');
     }
 
-    // ─────────────────────────────────────────────
-    // GameState reçu
-    // ─────────────────────────────────────────────
+    // =================================================
+    // GAMESTATE
+    // =================================================
     net.onGameStateReceived = (incoming) async {
       final mounted = isMounted();
       final currentGame = getCurrentGame();
+
       final sameGame = _sameGame(incoming, currentGame);
 
-      // 👉 Détection REVANCHE (sans isGameOver / isInitial)
       final bool isRematch =
           mounted &&
-          !sameGame &&
-          incoming.lettersPlacedThisTurn.isEmpty &&
+          sameGame &&
           incoming.leftScore == 0 &&
-          incoming.rightScore == 0;
+          incoming.rightScore == 0 &&
+          incoming.lettersPlacedThisTurn.isEmpty &&
+          incoming.board.every((row) => row.every((c) => c.isEmpty));
 
-      if (debug) {
-        print(
-          '[GameUpdateHandler] GameState reçu '
-          '(sameGame=$sameGame, isRematch=$isRematch, mounted=$mounted)',
-        );
-      }
-
-      // ✅ Même partie OU revanche → appliquer immédiatement
-      // ✅ Même partie OU revanche → appliquer immédiatement
       if (mounted && (sameGame || isRematch)) {
-        final completer = Completer<void>();
+        await applyIncomingState(incoming, updateUI: true);
 
-        WidgetsBinding.instance.addPostFrameCallback((_) async {
-          if (!isMounted()) {
-            completer.complete();
-            return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (isMounted()) {
+            onFlushPending?.call();
           }
-
-          await applyIncomingState(incoming, updateUI: true);
-
-          onFlushPending?.call();
-
-          completer.complete();
         });
-
-        await completer.future;
 
         return;
       }
 
-      // ❌ Autre partie → sauvegarde
-      if (debug) {
-        print('[GameUpdateHandler] Sauvegarde gameState (autre partie)');
-      }
+      // autre partie sauvegardée
+
       await gameStorage.save(incoming);
 
-      // 🔔 Notification passive (UI déléguée)
       onBackgroundMove?.call(incoming);
 
-      // ▶️ Reprise polling
       net.startPolling(settings.localUserName);
     };
 
-    // ─────────────────────────────────────────────
-    // Game over
-    // ─────────────────────────────────────────────
+    // =================================================
+    // GAMEOVER
+    // =================================================
     net.onGameOverReceived = (finalState) async {
       if (!isMounted()) return;
 
-      await gameStorage.delete(finalState.partnerFrom(settings.localUserName));
+      // applique le dernier état reçu
+      await applyIncomingState(finalState, updateUI: true);
 
-      onGameOver?.call(finalState);
+      final me = settings.localUserName;
+
+      final iAmLeft = me == finalState.leftName;
+      final iAmRight = me == finalState.rightName;
+
+      if (iAmLeft) {
+        // Je suis G, je reçois le GAMEOVER de D la partie e
+        if (debug)
+          print(
+            "$logHeader( GameUpdateHandler) Je suis G, je reçois le GAMEOVER de D, partie terminée affichage du popup si $onGameOver != null",
+          );
+        await gameStorage.delete(finalState.partnerFrom(me));
+        if (onGameOver != null) {
+          onGameOver!.call(finalState);
+        } else {
+          print("⚠️ onGameOver est NULL !");
+        }
+        return;
+      }
+
+      if (iAmRight) {
+        // Je suis D, je reçois le GAMEOVER de G je joue le dernier coup. handleSubmit détectera que G est vide donc la partie est finie. popup
+        return;
+      }
     };
 
-    // ─────────────────────────────────────────────
-    // Erreur réseau
-    // ─────────────────────────────────────────────
+    // =================================================
+    // ERREUR
+    // =================================================
     net.onError = (message) {
       if (!isMounted()) return;
+
       onError?.call(message);
     };
 
-    // ─────────────────────────────────────────────
-    // Flush initial (sécurité)
-    // ─────────────────────────────────────────────
+    // =================================================
+    // flush initial
+    // =================================================
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (isMounted()) {
         onFlushPending?.call();
@@ -140,18 +145,11 @@ class GameUpdateHandler {
   }
 
   void detach() {
-    if (debug) {
-      print('[GameUpdateHandler] detach');
-    }
-
     net.onGameStateReceived = null;
     net.onGameOverReceived = null;
     net.onError = null;
   }
 
-  // ─────────────────────────────────────────────
-  // Revanche (logique pure, UI déléguée)
-  // ─────────────────────────────────────────────
   void handleRematch(GameState oldGameState) {
     final newGameState = GameInitializer.createGame(
       isLeft: oldGameState.isLeft,
@@ -164,6 +162,7 @@ class GameUpdateHandler {
     );
 
     net.resetGameOver();
+
     onRematch?.call(newGameState);
   }
 }

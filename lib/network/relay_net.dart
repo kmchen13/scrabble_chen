@@ -231,12 +231,6 @@ class RelayNet implements ScrabbleNet {
     startPolling(localName);
   }
 
-  void _pauseConnecting() {
-    if (debug) print("${logHeader("relayNet")} 🛑 Connecting suspendu");
-    _retryDelay = 5;
-    _retrying = false;
-  }
-
   Future<bool> _sendGameStateToServer(GameState state) async {
     final String user = settings.localUserName;
     final String to = state.partnerFrom(user);
@@ -327,6 +321,34 @@ class RelayNet implements ScrabbleNet {
     }
   }
 
+  @override
+  void sendGameOver(GameState finalState) async {
+    final String user = settings.localUserName;
+    try {
+      final res = await http.post(
+        Uri.parse("$_relayServerUrl/gameover"), // ⭐️ endpoint dédié
+        body: jsonEncode({
+          'user': user,
+          'partner': finalState.partnerFrom(user),
+          'type': 'gameOver',
+          'message': finalState.toJson(),
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      final json = jsonDecode(res.body);
+      if (json['status'] == 'SENT') {
+        print("${logHeader("relayNet")} ✅ GameOver envoyé : $finalState");
+      } else {
+        logger.w("⚠️ Erreur serveur GameOver: $json");
+      }
+
+      _gameIsOver = true;
+    } catch (e) {
+      logger.e("Erreur envoi GameOver : $e");
+    }
+  }
+
   // Implémentation du getter pour satisfaire l'interface
   @override
   void Function(GameState state)? get onGameStateReceived =>
@@ -345,12 +367,6 @@ class RelayNet implements ScrabbleNet {
     _dispatcher.flush(callback);
   }
 
-  void _handleIncomingGameState(GameState state) {
-    print("${logHeader("relayNet")} GameState reçu (hash=${state.hashCode})");
-
-    _dispatcher.handleIncoming(state, _onGameStateReceived);
-  }
-
   ///Attachement du callback pour GameOver
   @override
   void Function(GameState state)? get onGameOverReceived => _onGameOverReceived;
@@ -360,15 +376,19 @@ class RelayNet implements ScrabbleNet {
   @override
   set onGameOverReceived(void Function(GameState state)? callback) {
     _onGameOverReceived = callback;
+
     print(
-      "${logHeader("relayNet")} onGameOverReceived setter called (newHash=${callback?.hashCode}) for net=${hashCode}",
+      "${logHeader("relayNet")} onGameOverReceived setter "
+      "(hash=${callback?.hashCode})",
     );
 
     if (callback != null && _pendingGameOver != null) {
-      if (debug)
-        print(
-          "${logHeader("relayNet")} ⚡ GameOver en attente détecté, exécution différée",
-        );
+      final pending = _pendingGameOver!;
+      _pendingGameOver = null;
+
+      Future.microtask(() {
+        callback(pending);
+      });
     }
   }
 
@@ -443,10 +463,14 @@ class RelayNet implements ScrabbleNet {
             type: type,
             date: date,
             handler: () async {
-              final msg = "$partner a joué";
-              if (AppLifecycle.isForeground) {
+              if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+                // Sur desktop, on considère que l'app est toujours en foreground
+                // OU on utilise un autre mécanisme
+                await _playNotificationSound();
+              } else if (AppLifecycle.isForeground) {
                 await _playNotificationSound();
               } else {
+                final msg = "$partner a joué";
                 await NotificationService.showGameMessage(msg);
               }
               final gameState = GameState.fromJson(message);
@@ -467,24 +491,29 @@ class RelayNet implements ScrabbleNet {
             date: date,
             handler: () async {
               final msg =
-                  "derniers coups de la partie avec $partner. Celui qui a joué en deuxième joue le dernier coup";
+                  "dernier coup de la partie avec $partner. Celui qui a joué en deuxième joue le dernier coup";
+
               if (AppLifecycle.isForeground) {
                 await _playNotificationSound();
               } else {
                 await NotificationService.showGameMessage(msg);
               }
+
               _gameIsOver = true;
 
               final gameState = GameState.fromJson(message);
-              gameStorage.save(gameState); // 🔐 CRUCIAL
 
+              // sauvegarde immédiate
+              await gameStorage.save(gameState);
+
+              // même pipeline que GAMESTATE
               if (_onGameOverReceived != null) {
                 _onGameOverReceived!(gameState);
-              } else {
-                _pendingGameOver = gameState;
               }
 
-              stopPolling();
+              // ⚠️ surtout ne pas arrêter le polling ici
+              // Le joueur droit doit recevoir son dernier tour
+              // stopPolling();  <-- supprimer
             },
           );
           break;
@@ -519,16 +548,19 @@ class RelayNet implements ScrabbleNet {
             type: type,
             date: date,
             handler: () async {
+              if (debug) {
+                print("${logHeader("relayNet")} GAMEQUIT reçu de $partner");
+              }
+
+              // 🧹 suppression de la partie sauvegardée
               if (partner.isNotEmpty) {
                 await gameStorage.delete(partner);
               }
 
-              disconnect();
               _gameIsOver = false;
-              _onConnectionClosed?.call(
-                partner,
-                "$partner a quitté la partie.",
-              );
+
+              // 🔔 notification logique vers l'UI
+              onGameQuit?.call(partner);
             },
           );
           break;
@@ -559,37 +591,6 @@ class RelayNet implements ScrabbleNet {
         print("message reçu: ${json}");
         print("type reçu: ${json['type']}");
       }
-    }
-  }
-
-  @override
-  void sendGameOver(GameState finalState) async {
-    final String user = settings.localUserName;
-    try {
-      final res = await http.post(
-        Uri.parse("$_relayServerUrl/gameover"), // ⭐️ endpoint dédié
-        body: jsonEncode({
-          'user': user,
-          'partner': finalState.partnerFrom(user),
-          'type': 'gameOver',
-          'message': finalState.toJson(),
-        }),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      final json = jsonDecode(res.body);
-      if (json['status'] == 'SENT') {
-        print("${logHeader("relayNet")} ✅ GameOver envoyé : $finalState");
-      } else {
-        logger.w("⚠️ Erreur serveur GameOver: $json");
-      }
-
-      _gameIsOver = true;
-
-      // ⭐️ après avoir déclaré la fin, on ne redémarre PAS le polling
-      stopPolling();
-    } catch (e) {
-      logger.e("Erreur envoi GameOver : $e");
     }
   }
 
@@ -653,6 +654,8 @@ class RelayNet implements ScrabbleNet {
   }
 
   void Function(String partner, String reason)? _onConnectionClosed;
+
+  void Function(String partner)? onGameQuit;
 
   @override
   void setOnConnectionClosed(

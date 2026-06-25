@@ -20,6 +20,7 @@ abstract class ScrabbleNet {
     required int startTime,
   });
 
+  /// Callback appelé quand deux joueurs matchent
   void Function({
     required String leftName,
     required String leftIP,
@@ -73,6 +74,9 @@ abstract class ScrabbleNet {
   void setOnConnectionClosed(
     void Function(String partner, String reason)? callback,
   );
+
+  /// Callback appelé quand un joueur quitte la partie
+  void Function(String partner)? onGameQuit;
 
   /// Vide le buffer des GameState en attente (RelayNet)
   void flushPending() {}

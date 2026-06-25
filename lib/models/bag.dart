@@ -33,7 +33,7 @@ class BagModel {
 
   /// Constructeur vide privé
   BagModel._empty() {
-    totalTiles = 102; // ✅ valeur par défaut constante (Scrabble FR)
+    totalTiles = _bag.length; // ✅ valeur par défaut constante (Scrabble FR)
   }
 
   /// Sérialisation

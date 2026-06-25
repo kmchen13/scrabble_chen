@@ -170,3 +170,8 @@ Refonte mode web en polling
 3.1.2
     Modification askJoker montre la lettre choisie
     Correction notifications  système pour Samsung S7
+3.1.3
+    Corrections fin de partie
+    Corrections GAMEQUIT
+    Ajout de OM au dictionary
+    

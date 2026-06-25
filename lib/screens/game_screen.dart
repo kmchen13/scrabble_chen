@@ -130,6 +130,28 @@ class _GameScreenState extends State<GameScreen> {
     _gameState = widget.gameState;
 
     _net = widget.net;
+
+    _net.onGameQuit = (partner) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$partner a quitté la partie'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+
+      // si je suis actuellement dans cette partie
+      final currentPartner = _gameState.partnerFrom(settings.localUserName);
+
+      if (currentPartner == partner) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (!mounted) return;
+
+          Navigator.of(context).popUntil((route) => route.isFirst);
+        });
+      }
+    };
     _board = _gameState.board.map((row) => List<String>.from(row)).toList();
 
     _playerLetters = _gameState.localRack(settings.localUserName);
@@ -183,6 +205,7 @@ class _GameScreenState extends State<GameScreen> {
           ),
         );
       },
+      onGameOver: _onGameOver,
     );
 
     _updateHandler.attach();
@@ -199,25 +222,6 @@ class _GameScreenState extends State<GameScreen> {
         );
       }
     });
-
-    _net.onGameOverReceived = (finalState) {
-      if (!mounted) return;
-
-      debugPrint(
-        '[GameScreen] Application du GameState FINAL avant affichage fin '
-        '(hash=${finalState.hashCode})',
-      );
-
-      // 🔑 APPLIQUER LE BOARD FINAL
-      _applyGameState(finalState);
-
-      // 🔄 FORCER LE RAFRAÎCHISSEMENT
-      setState(() {});
-
-      // 🧠 Ensuite seulement : popup de fin
-      _onGameOver(finalState);
-    };
-
     saveSettings();
   }
 
@@ -435,11 +439,45 @@ class _GameScreenState extends State<GameScreen> {
       // Un joueur n’a plus de lettres
       final leftEmpty = _gameState.leftLetters.isEmpty;
       final rightEmpty = _gameState.rightLetters.isEmpty;
-      if ((leftEmpty || rightEmpty) &&
-          settings.localUserName == _gameState.rightName) {
-        _net.sendGameOver(GameState.fromJson(_gameState.toJson()));
 
-        _onGameOver(_gameState);
+      if (leftEmpty || rightEmpty) {
+        final finalState = GameState.fromJson(_gameState.toJson());
+        final iAmLeft = settings.localUserName == finalState.leftName;
+        final iAmRight = settings.localUserName == finalState.rightName;
+
+        if (leftEmpty) {
+          if (iAmLeft) {
+            //G(gauche) a fini. Je suis G. J’ai joué mon dernier coup. Je dois attendre le dernier coup de D.
+            _net.sendGameOver(finalState);
+            _net.startPolling(settings.localUserName);
+            return;
+          }
+
+          if (iAmRight) {
+            //G a fini. Je suis D. J’ai reçu le GAMEOVER de G. Je dois jouer mon dernier coup.
+            setState(() {
+              _appBarTitle = "Dernier coup";
+            });
+            _net.sendGameOver(finalState);
+            _onGameOver(finalState);
+            return;
+          }
+        }
+
+        if (rightEmpty) {
+          //D a fini. Je suis D. J'envois gameOver à G et j'affiche le popup de fin de partie.
+          if (iAmRight) {
+            _net.sendGameOver(finalState);
+            _onGameOver(finalState);
+            return;
+          }
+
+          if (iAmLeft) {
+            //D a fini. Je suis G. j'affiche le popup de fin de partie.
+            _onGameOver(finalState);
+            return;
+          }
+        }
       } else {
         // ⚡️ Envoyer le nouvel état de jeu
         widget.onGameStateUpdated?.call(_gameState);
@@ -461,7 +499,7 @@ class _GameScreenState extends State<GameScreen> {
     int missing = rackSize - _playerLetters.length;
     if (missing > 0) {
       final drawn = _gameState.bag.drawLetters(missing);
-      _playerLetters.addAll(drawn);
+      // _playerLetters.addAll(drawn);
 
       // ✅ MISE À JOUR du GameState avec les nouvelles lettres
       if (_gameState.isLeft) {

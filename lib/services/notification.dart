@@ -30,7 +30,13 @@ class NotificationService {
   static Future<void> showGameMessage(String message) async {
     badgeCount++;
 
-    await AppBadgePlus.updateBadge(badgeCount);
+    try {
+      await AppBadgePlus.updateBadge(badgeCount);
+    } catch (e) {
+      // Sur Linux, cette méthode n'existe pas, on ignore
+      print("⚠️ updateBadge non supporté sur cette plateforme: $e");
+      return;
+    }
 
     final details = NotificationDetails(
       android: AndroidNotificationDetails(

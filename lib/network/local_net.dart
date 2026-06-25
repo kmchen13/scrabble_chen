@@ -431,6 +431,9 @@ class LocalNet implements ScrabbleNet {
   @override
   void Function()? onConnectionClosed;
 
+  /// Callback appelé quand un joueur quitte la partie
+  void Function(String partner)? onGameQuit;
+
   @override
   void resetGameOver() {
     _gameIsOver = false;
