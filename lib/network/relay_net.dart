@@ -53,6 +53,10 @@ class RelayNet implements ScrabbleNet {
   bool _sendingPending = false;
   bool appInForeground = true;
 
+  // Cache pour éviter les doublons
+  String? _lastProcessedGameId;
+  DateTime? _lastProcessedTime;
+
   Future<void> _playNotificationSound() async {
     try {
       if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
@@ -468,13 +472,28 @@ class RelayNet implements ScrabbleNet {
             handler: () async {
               final gameState = GameState.fromJson(message);
 
-              // 🔐 persistance immédiate
+              // 🔥 Utiliser gameId directement (non-nullable)
+              final String stateId = gameState.gameId;
+              final now = DateTime.now();
+
+              // 🔥 Vérifier les doublons
+              if (_lastProcessedGameId == stateId &&
+                  _lastProcessedTime != null &&
+                  now.difference(_lastProcessedTime!) <
+                      const Duration(seconds: 2)) {
+                print('⚠️ Doublon détecté pour gameId: $stateId, ignoré');
+                return;
+              }
+
+              // Mettre à jour le cache
+              _lastProcessedGameId = stateId;
+              _lastProcessedTime = now;
+
+              // 🔐 Attendre que le traitement soit terminé
               await _dispatcher.handleIncoming(gameState, onGameStateReceived);
 
-              // 🔔 notification logique vers l'UI
+              // ✅ Jouer le son
               if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
-                // Sur desktop, on considère que l'app est toujours en foreground
-                // OU on utilise un autre mécanisme
                 await _playNotificationSound();
               } else if (AppLifecycle.isForeground) {
                 await _playNotificationSound();

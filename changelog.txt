@@ -181,3 +181,7 @@ Refonte mode web en polling
     Débridage fin de partie manquant
 3.1.6
     Débridage fin de partie
+3.1.7
+    Correction double notification
+3.2.0
+    Ajout admob

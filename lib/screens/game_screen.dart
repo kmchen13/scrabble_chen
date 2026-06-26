@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:io';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:scrabble_P2P/models/board.dart';
 import 'package:scrabble_P2P/models/game_state.dart';
 import 'package:scrabble_P2P/models/player_rack.dart';
@@ -66,6 +68,10 @@ class _GameScreenState extends State<GameScreen> {
   late GameState _gameState;
   ({List<String> words, int totalScore})? _cachedTurnResult;
   bool _cachedTurnValid = false;
+
+  BannerAd? _bannerAd;
+  bool _isAdLoaded = false;
+  AdSize? _adSize;
 
   void _applyGameState(GameState newState) {
     _appBarTitle = defaultTitle;
@@ -513,7 +519,80 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void dispose() {
     _net.onError = null;
+    _bannerAd?.dispose();
     super.dispose();
+  }
+
+  void _loadAdaptiveBannerAd() async {
+    if (_bannerAd != null) return;
+
+    final String adUnitId =
+        Platform.isAndroid
+            ? 'ca-app-pub-3940256099942544/9214589741'
+            : 'ca-app-pub-3940256099942544/2435281174';
+
+    final AdSize? adSize =
+        await AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(
+          MediaQuery.of(context).size.width.truncate(),
+        );
+
+    if (adSize == null) {
+      print('⚠️ Impossible d\'obtenir la taille adaptative');
+      return;
+    }
+    _adSize = adSize;
+
+    _bannerAd = BannerAd(
+      adUnitId: adUnitId,
+      size: adSize, // Maintenant c'est un AdSize valide
+      request: const AdRequest(),
+      listener: BannerAdListener(
+        onAdLoaded: (ad) {
+          setState(() {
+            _isAdLoaded = true;
+          });
+          print('✅ Bannière adaptative chargée');
+          print('📐 Taille: ${_adSize!.width} x ${_adSize!.height}');
+        },
+        onAdFailedToLoad: (ad, error) {
+          ad.dispose();
+          _bannerAd = null;
+          _isAdLoaded = false;
+          print('❌ Échec chargement: $error');
+
+          // Tentative de réessayer
+          Future.delayed(const Duration(seconds: 10), () {
+            if (mounted && _bannerAd == null) {
+              _loadAdaptiveBannerAd();
+            }
+          });
+        },
+      ),
+    )..load();
+  }
+
+  Widget _buildAdaptiveBannerAd() {
+    // Vérifier si la plateforme est supportée
+    if (!Platform.isAndroid && !Platform.isIOS) {
+      return const SizedBox.shrink();
+    }
+
+    if (_bannerAd == null || !_isAdLoaded) {
+      // Pendant le chargement, afficher un petit espace
+      return Container(
+        height: 50,
+        color: Colors.grey[900],
+        child: const Center(
+          child: Text('Chargement...', style: TextStyle(color: Colors.grey)),
+        ),
+      );
+    }
+
+    return Container(
+      height: _adSize!.height.toDouble(),
+      color: Colors.grey[900],
+      child: AdWidget(ad: _bannerAd!),
+    );
   }
 
   @override
@@ -603,7 +682,15 @@ class _GameScreenState extends State<GameScreen> {
             ),
           ],
         ),
-        bottomNavigationBar: _buildBottomBar(isCurrentTurn),
+        bottomNavigationBar: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // La barre inférieure existante
+            _buildBottomBar(isCurrentTurn),
+            // La bannière publicitaire EN DESSOUS
+            _buildAdaptiveBannerAd(),
+          ],
+        ),
       ),
     );
   }
