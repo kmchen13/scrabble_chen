@@ -602,19 +602,29 @@ class _GameScreenState extends State<GameScreen> {
   @override
   Widget build(BuildContext context) {
     final localName = settings.localUserName;
-
-    // 🔹 C’est au joueur de gauche si isLeft == true
-    final bool isCurrentTurn =
+    final isCurrentTurn =
         _gameState.isLeft
             ? (_gameState.leftName == localName)
             : (_gameState.rightName == localName);
 
+    // ✅ Détection des petits écrans
+    final screenHeight = MediaQuery.of(context).size.height;
+    final isSmallScreen = screenHeight < 700;
+    final isVerySmallScreen = screenHeight < 600;
+
     return WillPopScope(
-      onWillPop: () async => false, // ⛔ empêche flèche gauche
+      onWillPop: () async => false,
       child: Scaffold(
         appBar: AppBar(
-          automaticallyImplyLeading: false, // ⛔ flèche UI
-          title: Text(_appBarTitle),
+          automaticallyImplyLeading: false,
+          title: Text(
+            _appBarTitle,
+            style: TextStyle(
+              fontSize: isSmallScreen ? 16 : 20, // 👈 Texte plus petit
+            ),
+          ),
+          toolbarHeight: isSmallScreen ? 40 : 56, // 👈 Barre moins haute
+          elevation: isSmallScreen ? 0 : 4, // 👈 Ombre réduite
         ),
         body: Column(
           children: [
@@ -651,9 +661,10 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
+            // ✅ RACK ADAPTATIF
             SizedBox(
-              height: 60,
+              height: isSmallScreen ? 48 : 60, // 👈 Rack moins haut
               child: PlayerRack(
                 letters: _playerLetters,
                 onMove: (fromIndex, toIndex) {
@@ -663,7 +674,6 @@ class _GameScreenState extends State<GameScreen> {
                   });
                 },
                 onAddLetter: (String letter, {int? hoveredIndex}) {
-                  // Utilisez un paramètre nommé
                   setState(() {
                     if (hoveredIndex != null) {
                       _playerLetters.insert(hoveredIndex, letter);
@@ -689,9 +699,8 @@ class _GameScreenState extends State<GameScreen> {
         bottomNavigationBar: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // La barre inférieure existante
-            _buildBottomBar(isCurrentTurn),
-            // La bannière publicitaire EN DESSOUS
+            // ✅ BOTTOM BAR ADAPTATIVE
+            _buildBottomBar(isCurrentTurn, compact: isSmallScreen),
             _buildAdaptiveBannerAd(),
           ],
         ),
@@ -773,27 +782,38 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  Widget _buildBottomBar(bool isCurrentTurn) {
+  Widget _buildBottomBar(bool isCurrentTurn, {bool compact = false}) {
+    final iconSize = compact ? 20.0 : 24.0;
+    final fontSize = compact ? 10.0 : 14.0;
+    final padding =
+        compact
+            ? const EdgeInsets.symmetric(horizontal: 8, vertical: 6)
+            : const EdgeInsets.symmetric(horizontal: 16, vertical: 8);
+    final buttonPadding =
+        compact
+            ? const EdgeInsets.symmetric(horizontal: 12, vertical: 6)
+            : const EdgeInsets.symmetric(horizontal: 24, vertical: 12);
+    final buttonTextSize = compact ? 12.0 : 16.0;
+
     return BottomAppBar(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: padding,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             IconButton(
               tooltip: 'Retour à l’accueil',
-              icon: const Icon(Icons.home),
+              icon: Icon(Icons.home, size: iconSize),
               onPressed: () {
                 Navigator.pushAndRemoveUntil(
                   context,
                   MaterialPageRoute(builder: (_) => const HomeScreen()),
-                  (route) => false, // supprime toute la pile
+                  (route) => false,
                 );
               },
             ),
-
             IconButton(
-              icon: const Icon(Icons.undo),
+              icon: Icon(Icons.undo, size: iconSize),
               tooltip: "Annuler",
               onPressed: _handleUndo,
             ),
@@ -802,31 +822,30 @@ class _GameScreenState extends State<GameScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color.fromARGB(255, 141, 23, 15),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(compact ? 12 : 20),
                 ),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 12,
-                ),
+                padding: buttonPadding,
+                minimumSize: compact ? const Size(40, 28) : null,
               ),
-              child: const Text(
+              child: Text(
                 "Envoyer",
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
+                  fontSize: buttonTextSize,
                 ),
               ),
             ),
             IconButton(
               tooltip: "Afficher le sac de lettres",
-              icon: const Icon(Icons.inventory_2),
+              icon: Icon(Icons.inventory_2, size: iconSize),
               onPressed: () {
                 _gameState.bag.showContents(context);
               },
             ),
             IconButton(
-              tooltip: 'Abandonner la partie', // ✅ Affiche ce texte au survol
-              icon: const Icon(Icons.exit_to_app),
+              tooltip: 'Abandonner la partie',
+              icon: Icon(Icons.exit_to_app, size: iconSize),
               onPressed:
                   isCurrentTurn
                       ? () async {
@@ -854,24 +873,20 @@ class _GameScreenState extends State<GameScreen> {
                           },
                         );
 
-                        if (confirmQuit != true)
-                          return; // ✅ Si l’utilisateur annule, on quitte sans rien faire
+                        if (confirmQuit != true) return;
 
                         final user = settings.localUserName;
                         final partner = _gameState.partnerFrom(user);
 
                         try {
-                          // ensure quit completes before clearing / navigating
                           await widget.net.quit(user, partner);
                           widget.net.resetGameOver();
                         } catch (e) {
                           print("⛔ Erreur abandon: $e");
                         }
 
-                        // Supprime le GameState local
                         await gameStorage.delete(partner);
 
-                        // Retourne à l’écran d’accueil
                         if (context.mounted) {
                           Navigator.of(
                             context,
