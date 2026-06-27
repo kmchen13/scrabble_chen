@@ -188,3 +188,5 @@ Refonte mode web en polling
     Ajout soulote, soulotes au dictionary
 3.2.1
     Adaptation gameScreen petits écrans
+3.2.2
+    Adaptations gamScreen petits écrans

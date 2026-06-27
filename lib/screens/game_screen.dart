@@ -555,8 +555,6 @@ class _GameScreenState extends State<GameScreen> {
           setState(() {
             _isAdLoaded = true;
           });
-          print('✅ Bannière adaptative chargée');
-          print('📐 Taille: ${_adSize!.width} x ${_adSize!.height}');
         },
         onAdFailedToLoad: (ad, error) {
           ad.dispose();
@@ -661,7 +659,7 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
             // ✅ RACK ADAPTATIF
             SizedBox(
               height: isSmallScreen ? 48 : 60, // 👈 Rack moins haut
@@ -783,24 +781,25 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Widget _buildBottomBar(bool isCurrentTurn, {bool compact = false}) {
-    final iconSize = compact ? 20.0 : 24.0;
+    final iconSize = compact ? 18.0 : 24.0;
     final fontSize = compact ? 10.0 : 14.0;
-    final padding =
-        compact
-            ? const EdgeInsets.symmetric(horizontal: 8, vertical: 6)
-            : const EdgeInsets.symmetric(horizontal: 16, vertical: 8);
-    final buttonPadding =
-        compact
-            ? const EdgeInsets.symmetric(horizontal: 12, vertical: 6)
-            : const EdgeInsets.symmetric(horizontal: 24, vertical: 12);
-    final buttonTextSize = compact ? 12.0 : 16.0;
+    final buttonText = compact ? "Ok" : "Envoyer";
 
+    // ✅ Padding ZÉRO sur le BottomAppBar
     return BottomAppBar(
+      padding: EdgeInsets.zero, // 👈 Supprimer le padding interne
       child: Padding(
-        padding: padding,
+        padding:
+            compact
+                ? const EdgeInsets.symmetric(
+                  horizontal: 4,
+                  vertical: 4,
+                ) // 👈 Réduit
+                : const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
+            // ✅ IconButton sans padding
             IconButton(
               tooltip: 'Retour à l’accueil',
               icon: Icon(Icons.home, size: iconSize),
@@ -811,40 +810,66 @@ class _GameScreenState extends State<GameScreen> {
                   (route) => false,
                 );
               },
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              splashRadius: 18, // 👈 Animation plus petite
             ),
+
             IconButton(
               icon: Icon(Icons.undo, size: iconSize),
               tooltip: "Annuler",
               onPressed: _handleUndo,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              splashRadius: 18,
             ),
+
+            // ✅ Bouton Envoyer plus compact
             ElevatedButton(
               onPressed: isCurrentTurn ? _handleSubmit : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color.fromARGB(255, 141, 23, 15),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(compact ? 12 : 20),
+                  borderRadius: BorderRadius.circular(compact ? 10 : 20),
                 ),
-                padding: buttonPadding,
-                minimumSize: compact ? const Size(40, 28) : null,
+                padding:
+                    compact
+                        ? const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ) // 👈 Très compact
+                        : const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                minimumSize: compact ? const Size(32, 24) : null,
+                tapTargetSize:
+                    MaterialTapTargetSize
+                        .shrinkWrap, // 👈 Réduire la zone de clic
               ),
               child: Text(
-                "Envoyer",
+                buttonText,
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
-                  fontSize: buttonTextSize,
+                  fontSize: fontSize,
                 ),
               ),
             ),
+
             IconButton(
-              tooltip: "Afficher le sac de lettres",
+              tooltip: "Sac",
               icon: Icon(Icons.inventory_2, size: iconSize),
               onPressed: () {
                 _gameState.bag.showContents(context);
               },
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              splashRadius: 18,
             ),
+
             IconButton(
-              tooltip: 'Abandonner la partie',
+              tooltip: 'Abandonner',
               icon: Icon(Icons.exit_to_app, size: iconSize),
               onPressed:
                   isCurrentTurn
@@ -894,6 +919,9 @@ class _GameScreenState extends State<GameScreen> {
                         }
                       }
                       : null,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              splashRadius: 18,
             ),
           ],
         ),
