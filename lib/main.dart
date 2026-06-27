@@ -1,11 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'services/settings_service.dart';
 import 'services/app_log.dart';
 import 'services/game_storage.dart';
-import 'services/notification.dart';
 import 'models/game_state.dart';
 import 'screens/home_screen.dart';
 import 'screens/param_screen.dart';
@@ -30,7 +29,17 @@ void main() async {
   });
   final appLifecycle = AppLifecycle();
   appLifecycle.start();
+  _initializeAdMob();
   runApp(ScrabbleApp());
+}
+
+void _initializeAdMob() async {
+  try {
+    await MobileAds.instance.initialize();
+    print('✅ AdMob initialized successfully');
+  } catch (e) {
+    print('❌ AdMob initialization failed: $e');
+  }
 }
 
 class ScrabbleApp extends StatelessWidget {

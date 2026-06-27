@@ -228,6 +228,10 @@ class _GameScreenState extends State<GameScreen> {
         );
       }
     });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadAdaptiveBannerAd();
+    });
     saveSettings();
   }
 

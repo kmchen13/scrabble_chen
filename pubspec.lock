@@ -401,10 +401,10 @@ packages:
     dependency: "direct main"
     description:
       name: google_mobile_ads
-      sha256: "7b8915f0ad358f49ba7d547b5187204cfe72ca668fb83aa303f96a2eacdc4033"
+      sha256: "010b7a7a81b5c8f760eb2e5add8eaa7e429b4982dc8c8e465b709611f52887be"
       url: "https://pub.dev"
     source: hosted
-    version: "3.1.0"
+    version: "2.4.0"
   graphs:
     dependency: transitive
     description:
@@ -1030,10 +1030,10 @@ packages:
     dependency: transitive
     description:
       name: visibility_detector
-      sha256: dd5cc11e13494f432d15939c3aa8ae76844c42b723398643ce9addb88a5ed420
+      sha256: "15c54a459ec2c17b4705450483f3d5a2858e733aee893dcee9d75fd04814940d"
       url: "https://pub.dev"
     source: hosted
-    version: "0.4.0+2"
+    version: "0.3.3"
   vm_service:
     dependency: transitive
     description:
@@ -1066,38 +1066,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.4.0"
-  webview_flutter:
-    dependency: transitive
-    description:
-      name: webview_flutter
-      sha256: ec81f57aa1611f8ebecf1d2259da4ef052281cb5ad624131c93546c79ccc7736
-      url: "https://pub.dev"
-    source: hosted
-    version: "4.9.0"
-  webview_flutter_android:
-    dependency: transitive
-    description:
-      name: webview_flutter_android
-      sha256: "47a8da40d02befda5b151a26dba71f47df471cddd91dfdb7802d0a87c5442558"
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.16.9"
-  webview_flutter_platform_interface:
-    dependency: transitive
-    description:
-      name: webview_flutter_platform_interface
-      sha256: "63d26ee3aca7256a83ccb576a50272edd7cfc80573a4305caa98985feb493ee0"
-      url: "https://pub.dev"
-    source: hosted
-    version: "2.14.0"
-  webview_flutter_wkwebview:
-    dependency: transitive
-    description:
-      name: webview_flutter_wkwebview
-      sha256: fb46db8216131a3e55bcf44040ca808423539bc6732e7ed34fb6d8044e3d512f
-      url: "https://pub.dev"
-    source: hosted
-    version: "3.23.0"
   win32:
     dependency: transitive
     description:

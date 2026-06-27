@@ -185,3 +185,4 @@ Refonte mode web en polling
     Correction double notification
 3.2.0
     Ajout admob
+    Ajout soulote, soulotes au dictionary

@@ -27,7 +27,7 @@ dependencies:
   url_launcher: ^6.2.5  
   flutter_local_notifications: ^19.0.0
   app_badge_plus: ^1.2.3
-  google_mobile_ads: ^3.1.0
+  google_mobile_ads: ^2.3.0
 
 flutter_icons:
   android: true
