@@ -605,7 +605,6 @@ class _GameScreenState extends State<GameScreen> {
             ? (_gameState.leftName == localName)
             : (_gameState.rightName == localName);
 
-    // ✅ Détection des petits écrans
     final screenHeight = MediaQuery.of(context).size.height;
     final isSmallScreen = screenHeight < 700;
     final isVerySmallScreen = screenHeight < 600;
@@ -613,18 +612,16 @@ class _GameScreenState extends State<GameScreen> {
     return WillPopScope(
       onWillPop: () async => false,
       child: Scaffold(
-        extendBody:
-            true, // 👈 PERMET AU CONTENU DE PASSER DERRIÈRE LE BOTTOMBAR
         appBar: AppBar(
           automaticallyImplyLeading: false,
           title: Text(
             _appBarTitle,
             style: TextStyle(
-              fontSize: isSmallScreen ? 16 : 20, // 👈 Texte plus petit
+              fontSize: isVerySmallScreen ? 12 : (isSmallScreen ? 14 : 20),
             ),
           ),
-          toolbarHeight: isSmallScreen ? 40 : 56, // 👈 Barre moins haute
-          elevation: isSmallScreen ? 0 : 4, // 👈 Ombre réduite
+          toolbarHeight: isVerySmallScreen ? 32 : (isSmallScreen ? 38 : 56),
+          elevation: isSmallScreen ? 0 : 4,
         ),
         body: Column(
           children: [
@@ -661,10 +658,10 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 8),
-            // ✅ RACK ADAPTATIF
+            // ✅ RACK - Réduire l'espacement
+            const SizedBox(height: 4),
             SizedBox(
-              height: isSmallScreen ? 48 : 60, // 👈 Rack moins haut
+              height: isSmallScreen ? 44 : 60,
               child: PlayerRack(
                 letters: _playerLetters,
                 onMove: (fromIndex, toIndex) {
@@ -694,17 +691,22 @@ class _GameScreenState extends State<GameScreen> {
                     (i) => setState(() => _playerLetters.removeAt(i)),
               ),
             ),
-            // 👈 ESPACE RÉSERVÉ POUR LE BOTTOMBAR
-            SizedBox(height: isSmallScreen ? 40 : 56), // Hauteur du BottomBar
+            // ✅ SUPPRIMER LE SizedBox(height: 40) - IL FAIT DISPARAÎTRE LE RACK
+            // const SizedBox(height: 40), // 👈 SUPPRIMEZ CETTE LIGNE
           ],
         ),
-        bottomNavigationBar: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // ✅ BOTTOM BAR ADAPTATIVE
-            _buildBottomBar(isCurrentTurn, compact: isSmallScreen),
-            _buildAdaptiveBannerAd(),
-          ],
+        bottomNavigationBar: Container(
+          color: Colors.grey[900],
+          padding: EdgeInsets.zero, // 👈 Supprimer tout padding
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildBottomBar(isCurrentTurn, compact: isSmallScreen),
+              // ✅ SUPPRIMER LA MARGE ENTRE BOTTOMBAR ET BANNIÈRE
+              // const SizedBox(height: 0), // Pas de marge
+              _buildAdaptiveBannerAd(),
+            ],
+          ),
         ),
       ),
     );
@@ -787,7 +789,7 @@ class _GameScreenState extends State<GameScreen> {
   Widget _buildBottomBar(bool isCurrentTurn, {bool compact = false}) {
     final iconSize = compact ? 18.0 : 24.0;
     final fontSize = compact ? 10.0 : 14.0;
-    final buttonText = compact ? "Ok" : "Envoyer";
+    final buttonText = "Envoyer";
 
     // ✅ Padding ZÉRO sur le BottomAppBar
     return BottomAppBar(
