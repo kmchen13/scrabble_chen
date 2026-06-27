@@ -609,6 +609,10 @@ class _GameScreenState extends State<GameScreen> {
     final isSmallScreen = screenHeight < 700;
     final isVerySmallScreen = screenHeight < 600;
 
+    final bottomBarHeight = isSmallScreen ? 32.0 : 48.0;
+    final bannerHeight =
+        _isAdLoaded && _adSize != null ? _adSize!.height.toDouble() : 0.0;
+
     return WillPopScope(
       onWillPop: () async => false,
       child: Scaffold(
@@ -623,90 +627,98 @@ class _GameScreenState extends State<GameScreen> {
           toolbarHeight: isVerySmallScreen ? 32 : (isSmallScreen ? 38 : 56),
           elevation: isSmallScreen ? 0 : 4,
         ),
-        body: Column(
+        body: Stack(
           children: [
-            _buildScoreBar(),
-            Expanded(
-              flex: 5,
-              child: GestureDetector(
-                onDoubleTap: () => _boardController.value = Matrix4.identity(),
-                child: InteractiveViewer(
-                  transformationController: _boardController,
-                  panEnabled: true,
-                  minScale: 1.0,
-                  maxScale: 15 / 12,
-                  child: buildScrabbleBoard(
-                    boardKey: _boardKey,
-                    board: _board,
-                    dictionary: dictionaryService,
-                    lettersPlacedThisTurn:
-                        _lettersPlacedThisTurn
-                            .map(
-                              (e) => PlacedLetter(
-                                row: e.row,
-                                col: e.col,
-                                letter: e.letter,
-                                isJoker: e.isJoker,
-                                jokerValue: e.jokerValue,
-                                placedThisTurn: e.placedThisTurn,
-                              ),
-                            )
-                            .toList(),
-                    onLetterPlaced: onLetterPlaced,
-                    onLetterReturned: _returnLetterToRack,
+            // CONTENU PRINCIPAL
+            Column(
+              children: [
+                _buildScoreBar(),
+                Expanded(
+                  flex: 5,
+                  child: GestureDetector(
+                    onDoubleTap:
+                        () => _boardController.value = Matrix4.identity(),
+                    child: InteractiveViewer(
+                      transformationController: _boardController,
+                      panEnabled: true,
+                      minScale: 1.0,
+                      maxScale: 15 / 12,
+                      child: buildScrabbleBoard(
+                        boardKey: _boardKey,
+                        board: _board,
+                        dictionary: dictionaryService,
+                        lettersPlacedThisTurn:
+                            _lettersPlacedThisTurn
+                                .map(
+                                  (e) => PlacedLetter(
+                                    row: e.row,
+                                    col: e.col,
+                                    letter: e.letter,
+                                    isJoker: e.isJoker,
+                                    jokerValue: e.jokerValue,
+                                    placedThisTurn: e.placedThisTurn,
+                                  ),
+                                )
+                                .toList(),
+                        onLetterPlaced: onLetterPlaced,
+                        onLetterReturned: _returnLetterToRack,
+                      ),
+                    ),
                   ),
+                ),
+                const SizedBox(height: 4),
+                SizedBox(
+                  height: isSmallScreen ? 44 : 60,
+                  child: PlayerRack(
+                    letters: _playerLetters,
+                    onMove: (fromIndex, toIndex) {
+                      setState(() {
+                        final letter = _playerLetters.removeAt(fromIndex);
+                        _playerLetters.insert(toIndex, letter);
+                      });
+                    },
+                    onAddLetter: (String letter, {int? hoveredIndex}) {
+                      setState(() {
+                        if (hoveredIndex != null) {
+                          _playerLetters.insert(hoveredIndex, letter);
+                        } else {
+                          _playerLetters.add(letter);
+                        }
+                      });
+                    },
+                    onRemoveFromBoard: (row, col) {
+                      setState(() {
+                        clearBoard(row, col);
+                        _lettersPlacedThisTurn.removeWhere(
+                          (placed) => placed.row == row && placed.col == col,
+                        );
+                      });
+                    },
+                    onRemoveLetter:
+                        (i) => setState(() => _playerLetters.removeAt(i)),
+                  ),
+                ),
+                // Espace pour le BottomBar + Bannière
+                SizedBox(height: bottomBarHeight + bannerHeight),
+              ],
+            ),
+            // BOTTOMBAR + BANNIÈRE COLLÉS EN BAS
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                color: Colors.grey[900],
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildBottomBar(isCurrentTurn, compact: isSmallScreen),
+                    _buildAdaptiveBannerAd(),
+                  ],
                 ),
               ),
             ),
-            // ✅ RACK - Réduire l'espacement
-            const SizedBox(height: 4),
-            SizedBox(
-              height: isSmallScreen ? 44 : 60,
-              child: PlayerRack(
-                letters: _playerLetters,
-                onMove: (fromIndex, toIndex) {
-                  setState(() {
-                    final letter = _playerLetters.removeAt(fromIndex);
-                    _playerLetters.insert(toIndex, letter);
-                  });
-                },
-                onAddLetter: (String letter, {int? hoveredIndex}) {
-                  setState(() {
-                    if (hoveredIndex != null) {
-                      _playerLetters.insert(hoveredIndex, letter);
-                    } else {
-                      _playerLetters.add(letter);
-                    }
-                  });
-                },
-                onRemoveFromBoard: (row, col) {
-                  setState(() {
-                    clearBoard(row, col);
-                    _lettersPlacedThisTurn.removeWhere(
-                      (placed) => placed.row == row && placed.col == col,
-                    );
-                  });
-                },
-                onRemoveLetter:
-                    (i) => setState(() => _playerLetters.removeAt(i)),
-              ),
-            ),
-            // ✅ SUPPRIMER LE SizedBox(height: 40) - IL FAIT DISPARAÎTRE LE RACK
-            // const SizedBox(height: 40), // 👈 SUPPRIMEZ CETTE LIGNE
           ],
-        ),
-        bottomNavigationBar: Container(
-          color: Colors.grey[900],
-          padding: EdgeInsets.zero, // 👈 Supprimer tout padding
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildBottomBar(isCurrentTurn, compact: isSmallScreen),
-              // ✅ SUPPRIMER LA MARGE ENTRE BOTTOMBAR ET BANNIÈRE
-              // const SizedBox(height: 0), // Pas de marge
-              _buildAdaptiveBannerAd(),
-            ],
-          ),
         ),
       ),
     );
