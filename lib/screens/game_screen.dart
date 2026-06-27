@@ -613,6 +613,8 @@ class _GameScreenState extends State<GameScreen> {
     return WillPopScope(
       onWillPop: () async => false,
       child: Scaffold(
+        extendBody:
+            true, // 👈 PERMET AU CONTENU DE PASSER DERRIÈRE LE BOTTOMBAR
         appBar: AppBar(
           automaticallyImplyLeading: false,
           title: Text(
@@ -659,7 +661,7 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
             // ✅ RACK ADAPTATIF
             SizedBox(
               height: isSmallScreen ? 48 : 60, // 👈 Rack moins haut
@@ -692,6 +694,8 @@ class _GameScreenState extends State<GameScreen> {
                     (i) => setState(() => _playerLetters.removeAt(i)),
               ),
             ),
+            // 👈 ESPACE RÉSERVÉ POUR LE BOTTOMBAR
+            SizedBox(height: isSmallScreen ? 40 : 56), // Hauteur du BottomBar
           ],
         ),
         bottomNavigationBar: Column(
