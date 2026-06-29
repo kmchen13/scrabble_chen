@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'dart:io';
-import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:scrabble_P2P/models/board.dart';
 import 'package:scrabble_P2P/models/game_state.dart';
 import 'package:scrabble_P2P/models/player_rack.dart';
 import 'package:scrabble_P2P/network/scrabble_net.dart';
+import 'package:scrabble_P2P/services/admob_manager.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
 import 'package:scrabble_P2P/services/game_storage.dart';
 import 'package:scrabble_P2P/services/utility.dart';
@@ -16,6 +15,7 @@ import 'package:scrabble_P2P/services/dictionary_loader.dart';
 import 'package:scrabble_P2P/models/placed_letter.dart';
 import 'package:scrabble_P2P/screens/show_bag.dart';
 import 'package:scrabble_P2P/screens/home_screen.dart';
+import 'package:scrabble_P2P/screens/admob_widgets.dart';
 import 'package:scrabble_P2P/score.dart';
 import 'package:scrabble_P2P/constants.dart';
 
@@ -68,10 +68,7 @@ class _GameScreenState extends State<GameScreen> {
   late GameState _gameState;
   ({List<String> words, int totalScore})? _cachedTurnResult;
   bool _cachedTurnValid = false;
-
-  BannerAd? _bannerAd;
-  bool _isAdLoaded = false;
-  AdSize? _adSize;
+  final AdMobManager _adMobManager = AdMobManager();
 
   void _applyGameState(GameState newState) {
     _appBarTitle = defaultTitle;
@@ -230,8 +227,13 @@ class _GameScreenState extends State<GameScreen> {
     });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadAdaptiveBannerAd();
+      _adMobManager.setCallbacks(
+        onLoaded: () => setState(() {}),
+        onFailed: () => setState(() {}),
+      );
+      _adMobManager.loadBothBanners(context);
     });
+
     saveSettings();
   }
 
@@ -523,78 +525,8 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void dispose() {
     _net.onError = null;
-    _bannerAd?.dispose();
+    _adMobManager.dispose();
     super.dispose();
-  }
-
-  void _loadAdaptiveBannerAd() async {
-    if (_bannerAd != null) return;
-
-    final String adUnitId =
-        Platform.isAndroid
-            ? 'ca-app-pub-3940256099942544/9214589741'
-            : 'ca-app-pub-3940256099942544/2435281174';
-
-    final AdSize? adSize =
-        await AdSize.getCurrentOrientationAnchoredAdaptiveBannerAdSize(
-          MediaQuery.of(context).size.width.truncate(),
-        );
-
-    if (adSize == null) {
-      print('⚠️ Impossible d\'obtenir la taille adaptative');
-      return;
-    }
-    _adSize = adSize;
-
-    _bannerAd = BannerAd(
-      adUnitId: adUnitId,
-      size: adSize, // Maintenant c'est un AdSize valide
-      request: const AdRequest(),
-      listener: BannerAdListener(
-        onAdLoaded: (ad) {
-          setState(() {
-            _isAdLoaded = true;
-          });
-        },
-        onAdFailedToLoad: (ad, error) {
-          ad.dispose();
-          _bannerAd = null;
-          _isAdLoaded = false;
-          print('❌ Échec chargement: $error');
-
-          // Tentative de réessayer
-          Future.delayed(const Duration(seconds: 10), () {
-            if (mounted && _bannerAd == null) {
-              _loadAdaptiveBannerAd();
-            }
-          });
-        },
-      ),
-    )..load();
-  }
-
-  Widget _buildAdaptiveBannerAd() {
-    // Vérifier si la plateforme est supportée
-    if (!Platform.isAndroid && !Platform.isIOS) {
-      return const SizedBox.shrink();
-    }
-
-    if (_bannerAd == null || !_isAdLoaded) {
-      // Pendant le chargement, afficher un petit espace
-      return Container(
-        height: 50,
-        color: Colors.grey[900],
-        child: const Center(
-          child: Text('Chargement...', style: TextStyle(color: Colors.grey)),
-        ),
-      );
-    }
-
-    return Container(
-      height: _adSize!.height.toDouble(),
-      color: Colors.grey[900],
-      child: AdWidget(ad: _bannerAd!),
-    );
   }
 
   @override
@@ -606,118 +538,105 @@ class _GameScreenState extends State<GameScreen> {
             : (_gameState.rightName == localName);
 
     final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenHeight < 700;
     final isVerySmallScreen = screenHeight < 600;
+    final isLargeScreen = screenWidth > 600;
 
-    final bottomBarHeight = isSmallScreen ? 32.0 : 48.0;
-    final bannerHeight =
-        _isAdLoaded && _adSize != null ? _adSize!.height.toDouble() : 0.0;
+    final double titleHeight =
+        isVerySmallScreen ? 32 : (isSmallScreen ? 38 : 56);
+    final double fontSize = isVerySmallScreen ? 12 : (isSmallScreen ? 14 : 20);
 
     return WillPopScope(
       onWillPop: () async => false,
       child: Scaffold(
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          title: Text(
-            _appBarTitle,
-            style: TextStyle(
-              fontSize: isVerySmallScreen ? 12 : (isSmallScreen ? 14 : 20),
-            ),
-          ),
-          toolbarHeight: isVerySmallScreen ? 32 : (isSmallScreen ? 38 : 56),
-          elevation: isSmallScreen ? 0 : 4,
+        appBar: AdBannerAppBar(
+          manager: _adMobManager,
+          title: _appBarTitle,
+          titleHeight: titleHeight,
+          fontSize: fontSize,
+          isLargeScreen: isLargeScreen,
         ),
-        body: Stack(
+        body: Column(
           children: [
-            // CONTENU PRINCIPAL
-            Column(
-              children: [
-                _buildScoreBar(),
-                Expanded(
-                  flex: 5,
-                  child: GestureDetector(
-                    onDoubleTap:
-                        () => _boardController.value = Matrix4.identity(),
-                    child: InteractiveViewer(
-                      transformationController: _boardController,
-                      panEnabled: true,
-                      minScale: 1.0,
-                      maxScale: 15 / 12,
-                      child: buildScrabbleBoard(
-                        boardKey: _boardKey,
-                        board: _board,
-                        dictionary: dictionaryService,
-                        lettersPlacedThisTurn:
-                            _lettersPlacedThisTurn
-                                .map(
-                                  (e) => PlacedLetter(
-                                    row: e.row,
-                                    col: e.col,
-                                    letter: e.letter,
-                                    isJoker: e.isJoker,
-                                    jokerValue: e.jokerValue,
-                                    placedThisTurn: e.placedThisTurn,
-                                  ),
-                                )
-                                .toList(),
-                        onLetterPlaced: onLetterPlaced,
-                        onLetterReturned: _returnLetterToRack,
-                      ),
-                    ),
+            // ✅ SCOREBAR (sans bordure)
+            _buildScoreBar(),
+
+            // ✅ PLATEAU
+            Expanded(
+              flex: 5,
+              child: GestureDetector(
+                onDoubleTap: () => _boardController.value = Matrix4.identity(),
+                child: InteractiveViewer(
+                  transformationController: _boardController,
+                  panEnabled: true,
+                  minScale: 1.0,
+                  maxScale: 15 / 12,
+                  child: buildScrabbleBoard(
+                    boardKey: _boardKey,
+                    board: _board,
+                    dictionary: dictionaryService,
+                    lettersPlacedThisTurn:
+                        _lettersPlacedThisTurn
+                            .map(
+                              (e) => PlacedLetter(
+                                row: e.row,
+                                col: e.col,
+                                letter: e.letter,
+                                isJoker: e.isJoker,
+                                jokerValue: e.jokerValue,
+                                placedThisTurn: e.placedThisTurn,
+                              ),
+                            )
+                            .toList(),
+                    onLetterPlaced: onLetterPlaced,
+                    onLetterReturned: _returnLetterToRack,
                   ),
-                ),
-                const SizedBox(height: 4),
-                SizedBox(
-                  height: isSmallScreen ? 44 : 60,
-                  child: PlayerRack(
-                    letters: _playerLetters,
-                    onMove: (fromIndex, toIndex) {
-                      setState(() {
-                        final letter = _playerLetters.removeAt(fromIndex);
-                        _playerLetters.insert(toIndex, letter);
-                      });
-                    },
-                    onAddLetter: (String letter, {int? hoveredIndex}) {
-                      setState(() {
-                        if (hoveredIndex != null) {
-                          _playerLetters.insert(hoveredIndex, letter);
-                        } else {
-                          _playerLetters.add(letter);
-                        }
-                      });
-                    },
-                    onRemoveFromBoard: (row, col) {
-                      setState(() {
-                        clearBoard(row, col);
-                        _lettersPlacedThisTurn.removeWhere(
-                          (placed) => placed.row == row && placed.col == col,
-                        );
-                      });
-                    },
-                    onRemoveLetter:
-                        (i) => setState(() => _playerLetters.removeAt(i)),
-                  ),
-                ),
-                // Espace pour le BottomBar + Bannière
-                SizedBox(height: bottomBarHeight + bannerHeight),
-              ],
-            ),
-            // BOTTOMBAR + BANNIÈRE COLLÉS EN BAS
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                color: Colors.grey[900],
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildBottomBar(isCurrentTurn, compact: isSmallScreen),
-                    _buildAdaptiveBannerAd(),
-                  ],
                 ),
               ),
             ),
+
+            // ✅ ESPACE RÉDUIT
+            const SizedBox(height: 4),
+
+            // ✅ RACK
+            SizedBox(
+              height: isSmallScreen ? 40 : 56,
+              child: PlayerRack(
+                letters: _playerLetters,
+                onMove: (fromIndex, toIndex) {
+                  setState(() {
+                    final letter = _playerLetters.removeAt(fromIndex);
+                    _playerLetters.insert(toIndex, letter);
+                  });
+                },
+                onAddLetter: (String letter, {int? hoveredIndex}) {
+                  setState(() {
+                    if (hoveredIndex != null) {
+                      _playerLetters.insert(hoveredIndex, letter);
+                    } else {
+                      _playerLetters.add(letter);
+                    }
+                  });
+                },
+                onRemoveFromBoard: (row, col) {
+                  setState(() {
+                    clearBoard(row, col);
+                    _lettersPlacedThisTurn.removeWhere(
+                      (placed) => placed.row == row && placed.col == col,
+                    );
+                  });
+                },
+                onRemoveLetter:
+                    (i) => setState(() => _playerLetters.removeAt(i)),
+              ),
+            ),
+
+            // ✅ ESPACE MINIMAL AVANT LE BOTTOMBAR
+            const SizedBox(height: 2),
+
+            // ✅ BOTTOMBAR (sans bannière, car elle est déjà dans l'AppBar)
+            _buildBottomBar(isCurrentTurn, compact: isSmallScreen),
           ],
         ),
       ),
