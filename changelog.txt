@@ -193,3 +193,5 @@ Refonte mode web en polling
 3.2.5 Adaptations gamScreen petits écrans
 3.2.6 Adaptations gamScreen petits écrans
 3.3.0 Double admob en haut
+3.3.1 buggée, abandonnée 
+3.3.2 Simple admob en haut
