@@ -26,9 +26,12 @@ Future<void> openWiktionary(DictionaryService dictionary, String word) async {
   await launchUrl(url, mode: LaunchMode.externalApplication);
 }
 
+// board.dart - modifier buildScrabbleBoard pour prendre les infos de joker du board
+
 Widget buildScrabbleBoard({
   required GlobalKey boardKey,
   required List<List<String>> board,
+  required List<List<Map<String, dynamic>?>> boardJokerInfo, // NOUVEAU
   required DictionaryService dictionary,
   required List<PlacedLetter> lettersPlacedThisTurn,
   required OnLetterPlacedCallback onLetterPlaced,
@@ -55,9 +58,19 @@ Widget buildScrabbleBoard({
             (e) => e.row == row && e.col == col,
           );
 
-          final bool isJoker = cellLetterRecord?.isJoker ?? false;
+          // ✅ Vérifier si c'est un joker (d'abord dans lettersPlacedThisTurn, sinon dans boardJokerInfo)
+          final bool isJoker =
+              cellLetterRecord?.isJoker ??
+              (boardJokerInfo[row][col]?['isJoker'] as bool? ?? false);
+
+          final String? jokerValue =
+              cellLetterRecord?.jokerValue ??
+              (boardJokerInfo[row][col]?['jokerValue'] as String?);
+
+          // ✅ La lettre à afficher
           final String cellLetter =
-              cellLetterRecord?.displayLetter ?? board[row][col];
+              cellLetterRecord?.displayLetter ??
+              (isJoker && jokerValue != null ? jokerValue : board[row][col]);
 
           final bonus = bonusMap[row][col];
           final bgColor = getColorForBonus(bonus);
@@ -97,13 +110,11 @@ Widget buildScrabbleBoard({
 
                   return GestureDetector(
                     behavior: HitTestBehavior.opaque,
-
                     onTap: () {
                       if (cellLetterRecord != null) {
                         onLetterReturned(cellLetterRecord);
                       }
                     },
-
                     onLongPress: () {
                       final word = getWordAtPosition(
                         board: board,
@@ -115,7 +126,6 @@ Widget buildScrabbleBoard({
                         openWiktionary(dictionary, word);
                       }
                     },
-
                     child: Container(
                       decoration: BoxDecoration(
                         border: Border.all(

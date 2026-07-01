@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb; // ✅ IMPORT
+import 'dart:io';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:scrabble_P2P/services/admob_manager.dart';
 
-/// Bannière unique
 class SingleBannerWidget extends StatelessWidget {
   final AdMobManager manager;
 
@@ -10,74 +11,68 @@ class SingleBannerWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!manager.isAdLoaded1 || manager.adSize1 == null) {
-      return Container(height: 0, color: Colors.grey[900]);
+    if (!manager.isSupportedPlatform) {
+      return const SizedBox.shrink();
+    }
+
+    if (!manager.isAdLoaded || manager.adSize == null) {
+      return const SizedBox.shrink();
+    }
+
+    final height = manager.adSize!.height.toDouble();
+    if (height <= 0) {
+      return const SizedBox.shrink();
     }
 
     return Container(
-      height: manager.adSize1!.height.toDouble(),
+      height: height,
       color: Colors.grey[900],
-      child: AdWidget(ad: manager.bannerAd1!),
+      child: AdWidget(ad: manager.bannerAd!),
     );
   }
 }
 
-/// Deux bannières côte à côte
-class DoubleBannerWidget extends StatelessWidget {
+class AdBannerOverlay extends StatelessWidget {
   final AdMobManager manager;
-  final bool isLargeScreen;
 
-  const DoubleBannerWidget({
-    super.key,
-    required this.manager,
-    required this.isLargeScreen,
-  });
+  const AdBannerOverlay({super.key, required this.manager});
 
   @override
   Widget build(BuildContext context) {
-    if (!manager.isAdLoaded1 || manager.adSize1 == null) {
-      return Container(height: 0, color: Colors.grey[900]);
+    if (!manager.isSupportedPlatform) {
+      return const SizedBox.shrink();
     }
 
-    if (!isLargeScreen || !manager.isAdLoaded2 || manager.adSize2 == null) {
-      return Container(
-        height: manager.adSize1!.height.toDouble(),
-        color: Colors.grey[900],
-        child: AdWidget(ad: manager.bannerAd1!),
-      );
+    if (!manager.isAdLoaded || manager.adSize == null) {
+      return const SizedBox.shrink();
     }
 
-    return Container(
-      height: manager.adSize1!.height.toDouble(),
-      color: Colors.grey[900],
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              color: Colors.grey[900],
-              child: AdWidget(ad: manager.bannerAd1!),
-            ),
-          ),
-          VerticalDivider(width: 1, color: Colors.grey[700]),
-          Expanded(
-            child: Container(
-              color: Colors.grey[900],
-              child: AdWidget(ad: manager.bannerAd2!),
-            ),
-          ),
-        ],
+    final height = manager.adSize!.height.toDouble();
+    if (height <= 0) {
+      return const SizedBox.shrink();
+    }
+
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: SafeArea(
+        bottom: false,
+        child: Container(
+          height: height,
+          color: Colors.grey[900],
+          child: AdWidget(ad: manager.bannerAd!),
+        ),
       ),
     );
   }
 }
 
-/// ✅ AppBar avec bannière - IMPLÉMENTE PreferredSizeWidget
 class AdBannerAppBar extends StatelessWidget implements PreferredSizeWidget {
   final AdMobManager manager;
   final String title;
   final double titleHeight;
   final double fontSize;
-  final bool isLargeScreen;
 
   const AdBannerAppBar({
     super.key,
@@ -85,31 +80,47 @@ class AdBannerAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.title,
     required this.titleHeight,
     required this.fontSize,
-    required this.isLargeScreen,
   });
 
-  double get _bannerHeight =>
-      manager.isAdLoaded1 && manager.adSize1 != null
-          ? manager.adSize1!.height.toDouble()
-          : 0;
+  double get _bannerHeight {
+    if (!manager.isSupportedPlatform) return 0;
+    return manager.bannerHeight;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Theme.of(context).primaryColor,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          if (_bannerHeight > 0)
-            DoubleBannerWidget(manager: manager, isLargeScreen: isLargeScreen),
-          AppBar(
-            automaticallyImplyLeading: false,
-            toolbarHeight: titleHeight,
-            title: Text(title, style: TextStyle(fontSize: fontSize)),
-            elevation: 0,
-            backgroundColor: Colors.transparent,
-          ),
-        ],
+    if (!manager.isSupportedPlatform) {
+      return AppBar(
+        automaticallyImplyLeading: false,
+        toolbarHeight: titleHeight,
+        title: Text(title, style: TextStyle(fontSize: fontSize)),
+        elevation: 0,
+        backgroundColor: Theme.of(context).primaryColor,
+      );
+    }
+
+    return SafeArea(
+      bottom: false,
+      child: Container(
+        color: Theme.of(context).primaryColor,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            if (_bannerHeight > 0)
+              Container(
+                height: _bannerHeight,
+                color: Colors.grey[900],
+                child: SingleBannerWidget(manager: manager),
+              ),
+            AppBar(
+              automaticallyImplyLeading: false,
+              toolbarHeight: titleHeight,
+              title: Text(title, style: TextStyle(fontSize: fontSize)),
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+            ),
+          ],
+        ),
       ),
     );
   }

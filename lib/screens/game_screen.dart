@@ -228,10 +228,14 @@ class _GameScreenState extends State<GameScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _adMobManager.setCallbacks(
-        onLoaded: () => setState(() {}),
-        onFailed: () => setState(() {}),
+        onLoaded: () {
+          if (mounted) setState(() {});
+        },
+        onFailed: () {
+          if (mounted) setState(() {});
+        },
       );
-      _adMobManager.loadBothBanners(context);
+      _adMobManager.loadBanner(context); // 👈 Une seule bannière
     });
 
     saveSettings();
@@ -322,7 +326,7 @@ class _GameScreenState extends State<GameScreen> {
 
     if (letter == ' ') {
       final chosen = await _askJokerLetter();
-      if (chosen == null) return; // sécurité
+      if (chosen == null) return;
       effectiveLetter = chosen;
       isJoker = true;
     }
@@ -343,19 +347,73 @@ class _GameScreenState extends State<GameScreen> {
       );
 
       if (oldRow != null && oldCol != null) {
+        // ✅ DÉPLACEMENT D'UNE LETTRE
+
+        // Retirer l'ancienne position
         final index = _lettersPlacedThisTurn.indexWhere(
           (e) => e.row == oldRow && e.col == oldCol,
         );
         if (index != -1) {
-          _lettersPlacedThisTurn[index] = placedLetter;
+          final oldLetter = _lettersPlacedThisTurn[index];
+
+          // ✅ Si c'était un joker, conserver ses infos
+          if (oldLetter.isJoker) {
+            // Utiliser les anciennes valeurs joker
+            final newPlacedLetter = PlacedLetter(
+              row: row,
+              col: col,
+              letter: oldLetter.letter, // '*'
+              isJoker: true,
+              jokerValue: oldLetter.jokerValue,
+              placedThisTurn: true,
+            );
+            _lettersPlacedThisTurn[index] = newPlacedLetter;
+          } else {
+            // Lettre normale
+            _lettersPlacedThisTurn[index] = placedLetter;
+          }
+
+          // Effacer l'ancienne position (ne pas effacer boardJokerInfo ici)
+          _board[oldRow][oldCol] = '';
+          _gameState.board[oldRow][oldCol] = '';
+          // ⚠️ NE PAS effacer boardJokerInfo ici car on déplace la lettre
+          // Elle sera mise à jour à la nouvelle position
         }
-        clearBoard(oldRow, oldCol);
+
+        // Placer à la nouvelle position
+        _board[row][col] = _gameState.board[row][col] = effectiveLetter;
+
+        // ✅ Mettre à jour les infos joker à la nouvelle position
+        if (isJoker) {
+          _gameState.boardJokerInfo[row][col] = {
+            'isJoker': true,
+            'jokerValue': effectiveLetter,
+          };
+        } else {
+          // Si ce n'est pas un joker, effacer les infos à la nouvelle position
+          _gameState.boardJokerInfo[row][col] = null;
+        }
+
+        // ✅ Nettoyer les infos joker à l'ancienne position
+        // car la lettre a été déplacée
+        _gameState.boardJokerInfo[oldRow][oldCol] = null;
       } else {
+        // ✅ NOUVELLE LETTRE
         _playerLetters.remove(letter);
         _lettersPlacedThisTurn.add(placedLetter);
-      }
 
-      _board[row][col] = _gameState.board[row][col] = effectiveLetter;
+        _board[row][col] = _gameState.board[row][col] = effectiveLetter;
+
+        // ✅ STOCKER LES INFOS JOKER
+        if (isJoker) {
+          _gameState.boardJokerInfo[row][col] = {
+            'isJoker': true,
+            'jokerValue': effectiveLetter,
+          };
+        } else {
+          _gameState.boardJokerInfo[row][col] = null;
+        }
+      }
 
       _cachedTurnValid = false;
       _updateTitleWithProvisionalScore();
@@ -403,11 +461,20 @@ class _GameScreenState extends State<GameScreen> {
     if (_firstLetter) return;
     setState(() {
       for (final placed in _lettersPlacedThisTurn) {
-        clearBoard(placed.row, placed.col);
-        _playerLetters.add(placed.letter);
+        // ✅ Pour un joker, remettre un espace ' ' dans le rack
+        // Pour une lettre normale, remettre la lettre
+        final letterToReturn = placed.isJoker ? ' ' : placed.letter;
+        _playerLetters.add(letterToReturn);
+
+        // ✅ Nettoyer complètement la case (board + infos joker)
+        _board[placed.row][placed.col] = '';
+        _gameState.board[placed.row][placed.col] = '';
+        _gameState.boardJokerInfo[placed.row][placed.col] = null;
       }
-      // _playerLetters = List.from(_initialRack);
-      clearLettersPlacedThisTurn();
+
+      // ✅ Vider la liste des lettres placées
+      _lettersPlacedThisTurn.clear();
+      _firstLetter = true;
       _cachedTurnValid = false;
       _updateTitleWithProvisionalScore();
     });
@@ -555,7 +622,6 @@ class _GameScreenState extends State<GameScreen> {
           title: _appBarTitle,
           titleHeight: titleHeight,
           fontSize: fontSize,
-          isLargeScreen: isLargeScreen,
         ),
         body: Column(
           children: [
@@ -572,9 +638,11 @@ class _GameScreenState extends State<GameScreen> {
                   panEnabled: true,
                   minScale: 1.0,
                   maxScale: 15 / 12,
+                  // Dans game_screen.dart build method
                   child: buildScrabbleBoard(
                     boardKey: _boardKey,
                     board: _board,
+                    boardJokerInfo: _gameState.boardJokerInfo, // NOUVEAU
                     dictionary: dictionaryService,
                     lettersPlacedThisTurn:
                         _lettersPlacedThisTurn
@@ -870,23 +938,43 @@ class _GameScreenState extends State<GameScreen> {
   /// et supprime la lettre du plateau.
   void _returnLetterToRack(PlacedLetter placedLetter) {
     setState(() {
-      // ⚡ Déterminer la lettre à remettre
+      // ✅ Retourner TOUJOURS un espace ' ' pour un joker
+      // Le joker perd sa valeur de remplacement et redevient un joker vierge
       final letterToReturn = placedLetter.isJoker ? ' ' : placedLetter.letter;
       _playerLetters.add(letterToReturn);
 
-      // ⚡ Retirer la bonne instance du plateau
+      // Retirer la bonne instance du plateau
       final idx = _lettersPlacedThisTurn.indexWhere(
         (p) => p.row == placedLetter.row && p.col == placedLetter.col,
       );
 
       if (idx != -1) {
         _lettersPlacedThisTurn.removeAt(idx);
-        clearBoard(placedLetter.row, placedLetter.col);
+
+        // Nettoyer le board et les infos joker
+        final row = placedLetter.row;
+        final col = placedLetter.col;
+
+        _board[row][col] = '';
+        _gameState.board[row][col] = '';
+        _gameState.boardJokerInfo[row][col] = null;
       }
 
       _cachedTurnValid = false;
       _updateTitleWithProvisionalScore();
     });
+  }
+
+  ///obtenir le statut joker d'une case
+  bool _isJokerAtPosition(int row, int col) {
+    final info = _gameState.boardJokerInfo[row][col];
+    return info != null && info['isJoker'] == true;
+  }
+
+  ///
+  String? _getJokerValueAtPosition(int row, int col) {
+    final info = _gameState.boardJokerInfo[row][col];
+    return info != null ? info['jokerValue'] as String? : null;
   }
 
   void _updateTitleWithProvisionalScore() {
@@ -904,6 +992,7 @@ class _GameScreenState extends State<GameScreen> {
         board: _gameState.board,
         lettersPlacedThisTurn: _lettersPlacedThisTurn,
         dictionary: dictionaryService,
+        boardJokerInfo: _gameState.boardJokerInfo,
       );
 
       _cachedTurnResult = result;
@@ -928,10 +1017,30 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
+  // (utilisée uniquement quand on annule un tour ou qu'on remet toutes les lettres)
+  void clearCellCompletely(int row, int col) {
+    _board[row][col] = '';
+    _gameState.board[row][col] = '';
+    _gameState.boardJokerInfo[row][col] = null;
+  }
+
+  // Corriger la méthode qui réinitialise les lettres du tour
   void clearLettersPlacedThisTurn() {
-    setState(() {
-      _lettersPlacedThisTurn.clear();
-      _gameState.lettersPlacedThisTurn.clear();
-    });
+    // ✅ Quand on réinitialise TOUTES les lettres du tour
+    // On doit remettre les lettres dans le rack et tout nettoyer
+    for (final placed in _lettersPlacedThisTurn) {
+      // Remettre la lettre dans le rack
+      final letterToReturn = placed.isJoker ? ' ' : placed.letter;
+      _playerLetters.add(letterToReturn);
+
+      // Nettoyer la case complètement
+      _board[placed.row][placed.col] = '';
+      _gameState.board[placed.row][placed.col] = '';
+      _gameState.boardJokerInfo[placed.row][placed.col] = null;
+    }
+
+    _lettersPlacedThisTurn.clear();
+    _firstLetter = true;
+    _cachedTurnValid = false;
   }
 }

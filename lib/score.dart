@@ -38,6 +38,10 @@ bool _isLikelyHorizontal(List<PlacedLetter> letters, List<List<String>> board) {
   return (false, null);
 }
 
+bool _inBounds(int row, int col) {
+  return row >= 0 && row < 15 && col >= 0 && col < 15;
+}
+
 (String word, int score) _extractWordWithScore(
   List<List<String>> board,
   List<List<BonusType>> bonusMap,
@@ -46,8 +50,9 @@ bool _isLikelyHorizontal(List<PlacedLetter> letters, List<List<String>> board) {
   int dRow,
   int dCol,
   Map<(int, int), PlacedLetter> placedCoords,
+  List<List<Map<String, dynamic>?>> boardJokerInfo, // NOUVEAU paramètre
 ) {
-  // Reculer jusqu’au début du mot
+  // Reculer jusqu'au début du mot
   while (_inBounds(row - dRow, col - dCol) &&
       board[row - dRow][col - dCol].isNotEmpty) {
     row -= dRow;
@@ -62,7 +67,12 @@ bool _isLikelyHorizontal(List<PlacedLetter> letters, List<List<String>> board) {
     final letter = board[row][col];
     final placed = placedCoords[(row, col)];
     final isNewTile = placed != null;
-    final isJoker = placed?.isJoker ?? false;
+
+    // ✅ Vérifier si c'est un joker (d'abord dans placed, sinon dans boardJokerInfo)
+    final isJoker =
+        placed?.isJoker ??
+        (boardJokerInfo[row][col]?['isJoker'] as bool? ?? false);
+
     final bonus = bonusMap[row][col];
 
     // ✅ JOKER = 0 POINT
@@ -101,15 +111,13 @@ bool _isLikelyHorizontal(List<PlacedLetter> letters, List<List<String>> board) {
   return (word, wordScore * wordMultiplier);
 }
 
-bool _inBounds(int row, int col) {
-  return row >= 0 && row < 15 && col >= 0 && col < 15;
-}
-
-/* Détection de tous les mots formés et calcul score total */
+// Mettre à jour getWordsCreatedAndScore
 ({List<String> words, int totalScore}) getWordsCreatedAndScore({
   required List<List<String>> board,
   required List<PlacedLetter> lettersPlacedThisTurn,
   required DictionaryService dictionary,
+  required List<List<Map<String, dynamic>?>>
+  boardJokerInfo, // NOUVEAU paramètre
 }) {
   if (lettersPlacedThisTurn.isEmpty) {
     return (words: [], totalScore: 0);
@@ -125,7 +133,6 @@ bool _inBounds(int row, int col) {
 
   final isHorizontal = _isLikelyHorizontal(lettersPlacedThisTurn, board);
 
-  // 🔥 On garde l’info joker
   final placedCoords = {
     for (final l in lettersPlacedThisTurn) (l.row, l.col): l,
   };
@@ -144,6 +151,7 @@ bool _inBounds(int row, int col) {
     isHorizontal ? 0 : 1,
     isHorizontal ? 1 : 0,
     placedCoords,
+    boardJokerInfo, // ✅ PASSER boardJokerInfo
   );
 
   if (mainWord.length > 1) {
@@ -165,6 +173,7 @@ bool _inBounds(int row, int col) {
       isHorizontal ? 1 : 0,
       isHorizontal ? 0 : 1,
       placedCoords,
+      boardJokerInfo, // ✅ PASSER boardJokerInfo
     );
 
     if (perpWord.length > 1) {
@@ -185,14 +194,20 @@ bool _inBounds(int row, int col) {
   return (words: words.toList(), totalScore: totalScore);
 }
 
+// Mettre à jour getWordAtPosition
 String? getWordAtPosition({
   required List<List<String>> board,
   required int row,
   required int col,
+  List<List<Map<String, dynamic>?>>?
+  boardJokerInfo, // NOUVEAU paramètre optionnel
 }) {
   if (board[row][col].isEmpty) return null;
 
   final placedCoords = <(int, int), PlacedLetter>{};
+  final jokerInfo =
+      boardJokerInfo ??
+      List.generate(15, (_) => List<Map<String, dynamic>?>.filled(15, null));
 
   final (horizontalWord, _) = _extractWordWithScore(
     board,
@@ -202,6 +217,7 @@ String? getWordAtPosition({
     0,
     1,
     placedCoords,
+    jokerInfo,
   );
 
   final (verticalWord, _) = _extractWordWithScore(
@@ -212,6 +228,7 @@ String? getWordAtPosition({
     1,
     0,
     placedCoords,
+    jokerInfo,
   );
 
   if (horizontalWord.length >= verticalWord.length &&
