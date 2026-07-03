@@ -45,6 +45,8 @@ abstract class ScrabbleNet {
         (remoteExpected == '' && expectedUser == '');
   }
 
+  Future<List<Map<String, dynamic>>> getFreePlayers();
+
   // Envoi d'un GameState au partenaire
   void sendGameState(GameState state);
 

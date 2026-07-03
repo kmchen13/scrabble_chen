@@ -155,6 +155,7 @@ class _GameScreenState extends State<GameScreen> {
         });
       }
     };
+
     _board = _gameState.board.map((row) => List<String>.from(row)).toList();
 
     _playerLetters = _gameState.localRack(settings.localUserName);

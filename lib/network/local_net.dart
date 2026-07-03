@@ -352,6 +352,13 @@ class LocalNet implements ScrabbleNet {
   }
 
   @override
+  Future<List<Map<String, dynamic>>> getFreePlayers() async {
+    // En mode local, on ne peut pas obtenir la liste des joueurs libres
+    // car il n'y a pas de serveur central. On retourne une liste vide.
+    return [];
+  }
+
+  @override
   void Function(GameState finalState)? onGameOverReceived;
 
   Future<void> disconnect() async {

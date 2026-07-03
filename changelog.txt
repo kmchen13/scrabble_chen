@@ -198,4 +198,8 @@ Refonte mode web en polling
     Simple admob en haut
     Correction mémorisation jokers sur le board
     Correction calcul score sur mots avec jokers en place
-    
+3.3.3
+    Traitement de gameQuit dans waiting_screen
+    Suppression de disconnect() dans relay_net.quit
+3.4.0
+    Ajout liste des joueurs en attente avec getFreeUsersList

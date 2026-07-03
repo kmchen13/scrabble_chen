@@ -296,6 +296,26 @@ class RelayNet implements ScrabbleNet {
   }
 
   @override
+  /// Récupère la liste des joueurs libres depuis le relay_server
+  Future<List<Map<String, dynamic>>> getFreePlayers() async {
+    try {
+      final uri = Uri.parse('$_relayServerUrl/freeplayers');
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['status'] == 'success') {
+          return List<Map<String, dynamic>>.from(data['players']);
+        }
+      }
+      return [];
+    } catch (e) {
+      print('[ScrabbleNet] Erreur getFreePlayers: $e');
+      return [];
+    }
+  }
+
+  @override
   Future<void> sendGameState(GameState state) async {
     if (_pendingGameState != null && !_sendingPending) {
       await retryPendingGameState();
@@ -663,8 +683,6 @@ class RelayNet implements ScrabbleNet {
     } catch (e) {
       if (debug) print("[relayNet] ⛔ Erreur abandon inattendue: $e");
     }
-
-    disconnect();
   }
 
   void Function(String error)? onError;
