@@ -6,7 +6,6 @@ import 'package:scrabble_P2P/services/game_storage.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
 import 'package:scrabble_P2P/network/scrabble_net.dart';
 import 'package:scrabble_P2P/screens/home_screen.dart';
-import 'package:scrabble_P2P/screens/waiting_screen.dart';
 
 /// Service gérant la fin de partie et le lancement d’une revanche.
 class GameEndService {
@@ -36,20 +35,37 @@ class GameEndService {
         final bool iStart = settings.localUserName == newLeft;
 
         if (!iStart) {
-          // Je suis le nouveau joueur droit.
+          // ✅ Je suis le nouveau joueur droit.
           // J'attends le 1er coup du joueur gauche.
-          // Joueur droite → écran d'attente
-          Navigator.push(
-            context,
-            MaterialPageRoute(
+          if (!iStart) {
+            // ✅ Dialog informatif
+            showDialog(
+              context: context,
+              barrierDismissible: false,
               builder:
-                  (_) => WaitingScreen(
-                    leftName: newLeft,
-                    bufferedGameState: null,
-                    net: net,
+                  (context) => AlertDialog(
+                    title: const Text("Revanche engagée"),
+                    content: Text("À $newLeft de jouer."),
+                    actions: [
+                      TextButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          // ✅ Naviguer vers HomeScreen
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const HomeScreen(),
+                            ),
+                          );
+                        },
+                        child: const Text("Retour accueil"),
+                      ),
+                    ],
                   ),
-            ),
-          );
+            );
+
+            return;
+          }
 
           return;
         }
@@ -73,7 +89,7 @@ class GameEndService {
       /// 🏠 RETOUR À L’ACCUEIL
       onQuitToHome: () async {
         // ⭐️ notifier le partenaire
-        await net.quit(me, partner);
+        await net.sendGameQuit(me, partner);
 
         // 🧹 nettoyage local
         await gameStorage.delete(partner);

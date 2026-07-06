@@ -59,13 +59,16 @@ abstract class ScrabbleNet {
   // Réception d'un GameOver
   void Function(GameState)? onGameOverReceived;
 
+  /// Quitte la partie en cours
+  Future<void> sendGameQuit(user, partner);
+
+  /// Callback appelé quand un joueur quitte la partie
+  void Function(String partner)? onGameQuitReceived;
+
   // Spécifique au mode web (RelayNet)
   // @todo ne devrait pas être ici.
   void startPolling(String localName) {}
   void stopPolling() {}
-
-  /// Quitte la partie en cours
-  Future<void> quit(user, partner);
 
   void Function(String message)? onStatusUpdate;
 
@@ -76,9 +79,6 @@ abstract class ScrabbleNet {
   void setOnConnectionClosed(
     void Function(String partner, String reason)? callback,
   );
-
-  /// Callback appelé quand un joueur quitte la partie
-  void Function(String partner)? onGameQuit;
 
   /// Vide le buffer des GameState en attente (RelayNet)
   void flushPending() {}

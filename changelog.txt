@@ -200,6 +200,12 @@ Refonte mode web en polling
     Correction calcul score sur mots avec jokers en place
 3.3.3
     Traitement de gameQuit dans waiting_screen
-    Suppression de disconnect() dans relay_net.quit
+    Suppression de disconnect() dans relay_net.sendGameQuit
 3.4.0
     Ajout liste des joueurs en attente avec getFreeUsersList
+3.4.1
+    Ajout prise en charge onGameOverReceived, onGameQuit
+    Ajout rechargement data au retour foreground
+    Uniformisation des noms de callback de la forme sendGameQuit onGamQuitReceived
+    Suppression waiting et startScreen
+    

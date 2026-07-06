@@ -244,7 +244,7 @@ class LocalNet implements ScrabbleNet {
               if (debug) print("[localNet] 🛑 Message QUIT mal formé");
               return;
             }
-            quit(parts[1], parts[2]);
+            sendGameQuit(parts[1], parts[2]);
             if (debug) print("[localNet] 🛑 Le partenaire a abandonné");
             gameStorage.delete(parts[3]);
             disconnect();
@@ -400,7 +400,7 @@ class LocalNet implements ScrabbleNet {
   }
 
   @override
-  Future<void> quit(user, partner) async {
+  Future<void> sendGameQuit(user, partner) async {
     // Prévenir le partenaire via TCP
     final quitMessage = 'SCRABBLE_QUIT:$user:$partner';
     _peerSocket?.writeln(quitMessage);
@@ -439,7 +439,7 @@ class LocalNet implements ScrabbleNet {
   void Function()? onConnectionClosed;
 
   /// Callback appelé quand un joueur quitte la partie
-  void Function(String partner)? onGameQuit;
+  void Function(String partner)? onGameQuitReceived;
 
   @override
   void resetGameOver() {

@@ -33,9 +33,6 @@ class GameState {
   @HiveField(7)
   List<List<String>> board;
 
-  @HiveField(15)
-  List<List<Map<String, dynamic>?>> boardJokerInfo;
-
   @HiveField(8)
   BagModel bag;
 
@@ -56,6 +53,9 @@ class GameState {
 
   @HiveField(14)
   final String gameId;
+
+  @HiveField(15)
+  List<List<Map<String, dynamic>?>> boardJokerInfo;
 
   GameState({
     required this.isLeft,

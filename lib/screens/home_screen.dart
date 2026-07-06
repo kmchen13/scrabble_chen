@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:scrabble_P2P/services/game_storage.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
 import 'package:scrabble_P2P/services/app_log.dart';
+import 'package:scrabble_P2P/services/game_initializer.dart';
 import 'package:scrabble_P2P/models/game_state.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:scrabble_P2P/network/scrabble_net.dart';
 import '../constants.dart';
-import 'start_screen.dart';
 import 'game_screen.dart';
 import 'param_screen.dart';
 
@@ -21,13 +21,19 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with RouteAware {
+class _HomeScreenState extends State<HomeScreen>
+    with RouteAware, WidgetsBindingObserver {
   late final ScrabbleNet _net = ScrabbleNet();
   bool _loading = true;
   late ModalRoute? _route;
   List<String> _savedGames = [];
   List<Map<String, dynamic>> _freePlayers = [];
   bool _loadingFreePlayers = false;
+
+  // ✅ Variables pour gérer le matching
+  bool _navigated = false;
+  GameState? _bufferedGameState;
+  String _searchStatus = "";
 
   @override
   void didChangeDependencies() {
@@ -36,25 +42,362 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     if (_route is PageRoute) {
       routeObserver.subscribe(this, _route as PageRoute);
     }
-    _refreshSavedGames();
-  }
-
-  Future<void> _refreshSavedGames() async {
-    await gameStorage.init();
-    final ids = await gameStorage.listSavedGames();
-    if (mounted) {
-      setState(() => _savedGames = ids);
-    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     if (_route is PageRoute) {
       routeObserver.unsubscribe(this);
     }
-    // ✅ NE PAS déréférencer onGameStateReceived ici
-    // car il peut être utilisé par d'autres composants
+    _net.onStatusUpdate = null;
+    _net.onMatched = null;
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      print('[HomeScreen] App resumed, refreshing data...');
+      if (!_loading) {
+        _refreshData();
+      }
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addObserver(this);
+
+    _navigated = false;
+    _bufferedGameState = null;
+
+    // ✅ Écouter les mises à jour de statut
+    _net.onStatusUpdate = (msg) {
+      if (mounted) {
+        print('[HomeScreen] Status: $msg');
+        setState(() {
+          _searchStatus = msg;
+        });
+      }
+    };
+
+    // ✅ Écouter le match avec un partenaire
+    _net.onMatched = _handleMatched;
+
+    // ✅ Écouter les GameState entrants
+    _net.onGameStateReceived = (GameState gameState) {
+      if (!mounted) return;
+
+      print(
+        '[HomeScreen] GameState reçu de ${gameState.partnerFrom(settings.localUserName)}',
+      );
+
+      if (_navigated) {
+        _bufferedGameState = gameState;
+        return;
+      }
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder:
+                (_) => GameScreen(
+                  net: _net,
+                  gameState: gameState,
+                  onGameStateUpdated: (gs) => _net.sendGameState(gs),
+                ),
+          ),
+        );
+      });
+    };
+
+    // ✅ Écouter la fin de partie (GameOver)
+    _net.onGameOverReceived = (GameState gameState) {
+      if (!mounted) return;
+
+      print(
+        '[HomeScreen] GameOver reçu de ${gameState.partnerFrom(settings.localUserName)}',
+      );
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Partie terminée ! ${gameState.partnerFrom(settings.localUserName)} a terminé la partie.",
+            ),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+
+        final partner = gameState.partnerFrom(settings.localUserName);
+        gameStorage.delete(partner).then((_) {
+          if (mounted) {
+            setState(() {
+              _savedGames.remove(partner);
+            });
+          }
+        });
+      });
+    };
+
+    // ✅ Écouter l'abandon de partie (Quit)
+    _net.onGameQuitReceived = (String partner) {
+      if (!mounted) return;
+
+      print('[HomeScreen] Quit reçu de $partner');
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("$partner a abandonné la partie"),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+
+        gameStorage.delete(partner).then((_) {
+          if (mounted) {
+            setState(() {
+              _savedGames.remove(partner);
+            });
+          }
+        });
+      });
+    };
+
+    // ⚡ Chargement initial
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _initializeData();
+    });
+  }
+
+  // 📦 Chargement initial complet
+  Future<void> _initializeData() async {
+    await gameStorage.init();
+
+    if (settings.localUserName.trim().isEmpty) {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const ParamScreen()),
+      );
+      return;
+    }
+
+    try {
+      final results = await Future.wait([
+        gameStorage.listSavedGames(),
+        _net.getFreePlayers(),
+      ]);
+
+      final ids = results[0] as List<String>;
+      final players = results[1] as List<Map<String, dynamic>>;
+
+      final filtered =
+          players
+              .where((p) => p['user_name'] != settings.localUserName)
+              .toList();
+
+      if (mounted) {
+        setState(() {
+          _savedGames = ids;
+          _freePlayers = filtered;
+          _loading = false;
+        });
+        _net.startPolling(settings.localUserName);
+      }
+    } catch (e) {
+      print('[HomeScreen] Erreur lors du chargement initial: $e');
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  // 🔄 Rafraîchissement des données
+  Future<void> _refreshData() async {
+    await _refreshFreePlayers();
+    await _refreshSavedGames();
+  }
+
+  Future<void> _refreshSavedGames() async {
+    try {
+      final ids = await gameStorage.listSavedGames();
+      if (mounted) {
+        setState(() => _savedGames = ids);
+      }
+    } catch (e) {
+      print('[HomeScreen] Erreur refresh parties sauvegardées: $e');
+    }
+  }
+
+  Future<void> _refreshFreePlayers() async {
+    if (_loadingFreePlayers) return;
+
+    setState(() => _loadingFreePlayers = true);
+    try {
+      final players = await _net.getFreePlayers();
+      final filtered =
+          players
+              .where((p) => p['user_name'] != settings.localUserName)
+              .toList();
+
+      if (mounted) {
+        setState(() => _freePlayers = filtered);
+      }
+    } catch (e) {
+      print('[HomeScreen] Erreur refresh joueurs libres: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _loadingFreePlayers = false);
+      }
+    }
+  }
+
+  // ✅ Gestion du match
+  void _handleMatched({
+    required String leftName,
+    required String rightName,
+    required int leftStartTime,
+    required int rightStartTime,
+    required String leftIP,
+    required int leftPort,
+    required String rightIP,
+    required int rightPort,
+  }) {
+    final localName = settings.localUserName;
+
+    print(
+      "DEBUG onMatched triggered: local=$localName, left=$leftName, right=$rightName, _navigated=$_navigated",
+    );
+
+    if (_navigated) return;
+    _navigated = true;
+
+    // ✅ Cacher le SnackBar de recherche
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      if (localName == leftName) {
+        final gameState = GameInitializer.createGame(
+          isLeft: true,
+          leftName: leftName,
+          leftIP: leftIP,
+          leftPort: leftPort,
+          rightName: rightName,
+          rightIP: rightIP,
+          rightPort: rightPort,
+        );
+        _navigateToGameScreen(gameState);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Partie engagée avec $leftName, à lui de jouer"),
+            backgroundColor: Colors.orange.shade700,
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            margin: const EdgeInsets.all(10),
+            action: SnackBarAction(
+              label: "OK",
+              textColor: Colors.white,
+              onPressed: () {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                _refreshData();
+              },
+            ),
+          ),
+        );
+      }
+    });
+  }
+
+  void _navigateToGameScreen(GameState gameState) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder:
+              (_) => GameScreen(
+                net: _net,
+                gameState: gameState,
+                onGameStateUpdated: (gs) => _net.sendGameState(gs),
+              ),
+        ),
+      );
+    });
+  }
+
+  // ✅ Démarrer la recherche d'un adversaire
+  void _startSearching(String? targetPlayer) {
+    _navigated = false;
+    _bufferedGameState = null;
+
+    final startTime = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final expectedName = targetPlayer ?? '';
+
+    _net.connect(
+      localName: settings.localUserName,
+      expectedName: expectedName,
+      startTime: startTime,
+    );
+
+    // ✅ Afficher un SnackBar persistant
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                targetPlayer != null
+                    ? "Recherche de $targetPlayer..."
+                    : "Recherche d'un adversaire...",
+                style: const TextStyle(fontSize: 14),
+              ),
+            ),
+          ],
+        ),
+        duration: const Duration(days: 1), // ✅ SnackBar persistant
+        backgroundColor: Colors.blue.shade800,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(10),
+        action: SnackBarAction(
+          label: "Annuler",
+          textColor: Colors.white,
+          onPressed: () {
+            _net.stopPolling();
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+            setState(() {
+              _searchStatus = "Recherche annulée";
+            });
+          },
+        ),
+      ),
+    );
   }
 
   Map<String, dynamic> _convertMap(Map<dynamic, dynamic> input) {
@@ -74,128 +417,6 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
   }
 
   @override
-  void initState() {
-    super.initState();
-
-    // ✅ AJOUT : Écouter les GameState entrants sur l'écran d'accueil
-    _net.onGameStateReceived = (GameState gameState) {
-      if (!mounted) return;
-
-      print(
-        '[HomeScreen] GameState reçu de ${gameState.partnerFrom(settings.localUserName)}',
-      );
-
-      // ✅ Naviguer directement vers GameScreen
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder:
-                (_) => GameScreen(
-                  net: _net,
-                  gameState: gameState,
-                  onGameStateUpdated: (gs) => _net.sendGameState(gs),
-                ),
-          ),
-        );
-      });
-    };
-
-    _net.setOnConnectionClosed((partner, reason) {
-      if (!mounted) return;
-
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        await showDialog<void>(
-          context: context,
-          barrierDismissible: false,
-          builder:
-              (context) => AlertDialog(
-                title: Text("$partner a quitté la partie"),
-                content: Text(reason),
-                actions: [
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text("OK"),
-                  ),
-                ],
-              ),
-        );
-
-        Navigator.of(context).popUntil((r) => r.isFirst);
-      });
-    });
-
-    // ⚡ Différer l'appel à load()
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await gameStorage.init();
-
-      // 🔒 Pas de pseudo = pas d'accès au jeu
-      if (settings.localUserName.trim().isEmpty) {
-        if (!mounted) return;
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const ParamScreen()),
-        );
-        return;
-      }
-
-      try {
-        final ids = await gameStorage.listSavedGames();
-        if (mounted) {
-          setState(() {
-            if (ids.isEmpty) {
-              _savedGames = [];
-            } else {
-              _savedGames = ids;
-            }
-            _loading = false;
-          });
-          // ⚡ Démarrage systématique du polling
-          _net.startPolling(settings.localUserName);
-        }
-      } catch (e) {
-        print('[HomeScreen] Erreur lors du chargement des GameStates: $e');
-        if (mounted) setState(() => _loading = false);
-      }
-    });
-  }
-
-  /// Méthode pour charger les joueurs libres
-  Future<void> _loadFreePlayers() async {
-    if (_loadingFreePlayers) return;
-
-    setState(() => _loadingFreePlayers = true);
-    try {
-      final players = await _net.getFreePlayers();
-      // Filtrer pour ne pas afficher soi-même
-      final filtered =
-          players
-              .where((p) => p['user_name'] != settings.localUserName)
-              .toList();
-
-      if (mounted) {
-        setState(() => _freePlayers = filtered);
-      }
-    } catch (e) {
-      print('[HomeScreen] Erreur chargement joueurs libres: $e');
-    } finally {
-      if (mounted) {
-        setState(() => _loadingFreePlayers = false);
-      }
-    }
-  }
-
-  /// Méthode pour rafraîchir la liste des joueurs libres
-  Future<void> _refreshFreePlayers() async {
-    await _loadFreePlayers();
-  }
-
-  @override
   Widget build(BuildContext context) {
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -204,92 +425,30 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
     String myName = settings.localUserName;
 
     return Scaffold(
-      appBar: AppBar(title: Text("$appName-v$version ;-) $myName")),
+      appBar: AppBar(
+        title: Text("$appName-v$version ;-) $myName"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadingFreePlayers ? null : _refreshData,
+            tooltip: 'Rafraîchir',
+          ),
+        ],
+      ),
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (!kIsWeb) ...[
+              // ✅ Bouton "Commencer une partie" - recherche aléatoire
               ElevatedButton(
                 onPressed: () {
-                  // ✅ Quand on va sur StartScreen, on garde le callback
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => StartScreen(net: _net)),
-                  );
+                  _startSearching(null); // ✅ Recherche aléatoire
                 },
                 child: const Text("Commencer une partie"),
               ),
-              if (_savedGames.isNotEmpty) ...[
-                const Text("Reprendre une partie :"),
-                for (final partner in _savedGames)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            final saved = await gameStorage.load(partner);
-                            if (saved == null) return;
 
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (_) => GameScreen(
-                                      net: _net,
-                                      gameState: saved,
-                                      onGameStateUpdated: (saved) {
-                                        _net.sendGameState(saved);
-                                      },
-                                    ),
-                              ),
-                            );
-
-                            // ✅ Gestion du tour après le push
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (saved.isMyTurn(myName)) {
-                                // Si c'est mon tour, je peux jouer
-                                _net.onGameStateReceived?.call(saved);
-                              } else {
-                                // Si c'est le tour de l'adversaire, je poll
-                                _net.startPolling(myName);
-                              }
-                            });
-                          },
-                          child: Text("Partie avec $partner"),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () async {
-                          await gameStorage.delete(partner);
-                          _net.quit(myName, partner);
-                          setState(() {
-                            _savedGames.remove(partner);
-                          });
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.refresh, color: Colors.blue),
-                        onPressed: () async {
-                          final saved = await gameStorage.load(partner);
-                          if (saved != null) {
-                            _net.sendGameState(saved);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  "Partie renvoyée au partenaire !",
-                                ),
-                              ),
-                            );
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-              ],
-
-              // Liste des Joueurs libres
+              // ✅ Liste des joueurs libres
               if (_freePlayers.isNotEmpty) ...[
                 const Divider(height: 20),
                 const Text(
@@ -306,30 +465,9 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                           children: [
                             Expanded(
                               child: ElevatedButton(
-                                onPressed: () async {
-                                  // ✅ Rejoindre le joueur libre
+                                onPressed: () {
                                   final user = player['user_name'];
-                                  final message = player['message'] ?? '';
-
-                                  // ⚠️ Utiliser la bonne signature de connect
-                                  final startTime =
-                                      DateTime.now().millisecondsSinceEpoch ~/
-                                      1000;
-
-                                  // Afficher un message d'attente
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        "Demande envoyée à $user... En attente de validation",
-                                      ),
-                                    ),
-                                  );
-
-                                  _net.connect(
-                                    localName: settings.localUserName,
-                                    expectedName: user,
-                                    startTime: startTime,
-                                  );
+                                  _startSearching(user); // ✅ Recherche ciblée
                                 },
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
@@ -348,7 +486,6 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                             IconButton(
                               icon: const Icon(Icons.info_outline),
                               onPressed: () {
-                                // Afficher les infos du joueur
                                 showDialog(
                                   context: context,
                                   builder:
@@ -391,6 +528,76 @@ class _HomeScreenState extends State<HomeScreen> with RouteAware {
                 const Divider(height: 20),
               ],
 
+              // ✅ Liste des parties sauvegardées
+              if (_savedGames.isNotEmpty) ...[
+                const Text("Reprendre une partie :"),
+                for (final partner in _savedGames)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            final saved = await gameStorage.load(partner);
+                            if (saved == null) return;
+
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder:
+                                    (_) => GameScreen(
+                                      net: _net,
+                                      gameState: saved,
+                                      onGameStateUpdated: (saved) {
+                                        _net.sendGameState(saved);
+                                      },
+                                    ),
+                              ),
+                            );
+
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (saved.isMyTurn(myName)) {
+                                _net.onGameStateReceived?.call(saved);
+                              } else {
+                                _net.startPolling(myName);
+                              }
+                            });
+                          },
+                          child: Text("Partie avec $partner"),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () async {
+                          await gameStorage.delete(partner);
+                          _net.sendGameQuit(myName, partner);
+                          setState(() {
+                            _savedGames.remove(partner);
+                          });
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.refresh, color: Colors.blue),
+                        onPressed: () async {
+                          final saved = await gameStorage.load(partner);
+                          if (saved != null) {
+                            _net.sendGameState(saved);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  "Partie renvoyée au partenaire !",
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+              ],
+
+              const SizedBox(height: 10),
+
+              // ✅ Boutons Paramètres, Quitter, Logs
               ElevatedButton(
                 onPressed: () {
                   Navigator.push(

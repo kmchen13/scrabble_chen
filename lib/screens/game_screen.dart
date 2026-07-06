@@ -134,7 +134,7 @@ class _GameScreenState extends State<GameScreen> {
 
     _net = widget.net;
 
-    _net.onGameQuit = (partner) {
+    _net.onGameQuitReceived = (partner) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -910,7 +910,7 @@ class _GameScreenState extends State<GameScreen> {
                         final partner = _gameState.partnerFrom(user);
 
                         try {
-                          await widget.net.quit(user, partner);
+                          widget.net.sendGameQuit(user, partner);
                           widget.net.resetGameOver();
                         } catch (e) {
                           print("⛔ Erreur abandon: $e");
@@ -1025,23 +1025,10 @@ class _GameScreenState extends State<GameScreen> {
     _gameState.boardJokerInfo[row][col] = null;
   }
 
-  // Corriger la méthode qui réinitialise les lettres du tour
   void clearLettersPlacedThisTurn() {
-    // ✅ Quand on réinitialise TOUTES les lettres du tour
-    // On doit remettre les lettres dans le rack et tout nettoyer
-    for (final placed in _lettersPlacedThisTurn) {
-      // Remettre la lettre dans le rack
-      final letterToReturn = placed.isJoker ? ' ' : placed.letter;
-      _playerLetters.add(letterToReturn);
-
-      // Nettoyer la case complètement
-      _board[placed.row][placed.col] = '';
-      _gameState.board[placed.row][placed.col] = '';
-      _gameState.boardJokerInfo[placed.row][placed.col] = null;
-    }
-
-    _lettersPlacedThisTurn.clear();
-    _firstLetter = true;
-    _cachedTurnValid = false;
+    setState(() {
+      _lettersPlacedThisTurn.clear();
+      _gameState.lettersPlacedThisTurn.clear();
+    });
   }
 }

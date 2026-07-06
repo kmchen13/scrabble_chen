@@ -496,6 +496,12 @@ class RelayNet implements ScrabbleNet {
               final String stateId = gameState.gameId;
               final now = DateTime.now();
 
+              if (debug) {
+                print(
+                  "${logHeader("relayNet")} GAMESTATE reçu de $partner (gameId=$stateId)",
+                );
+              }
+
               // 🔥 Vérifier les doublons
               if (_lastProcessedGameId == stateId &&
                   _lastProcessedTime != null &&
@@ -604,7 +610,7 @@ class RelayNet implements ScrabbleNet {
               _gameIsOver = false;
 
               // 🔔 notification logique vers l'UI
-              onGameQuit?.call(partner);
+              onGameQuitReceived?.call(partner);
             },
           );
           break;
@@ -658,7 +664,7 @@ class RelayNet implements ScrabbleNet {
 
   ///Quitte une partie
   @override
-  Future<void> quit(me, partner) async {
+  Future<void> sendGameQuit(me, partner) async {
     try {
       final url = Uri.parse("$_relayServerUrl/quit");
       final res = await http.post(
@@ -697,7 +703,7 @@ class RelayNet implements ScrabbleNet {
 
   void Function(String partner, String reason)? _onConnectionClosed;
 
-  void Function(String partner)? onGameQuit;
+  void Function(String partner)? onGameQuitReceived;
 
   @override
   void setOnConnectionClosed(
