@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -29,7 +30,14 @@ void main() async {
   });
   final appLifecycle = AppLifecycle();
   appLifecycle.start();
-  _initializeAdMob();
+  // ✅ Initialiser AdMob UNIQUEMENT sur mobile
+  if (_isMobilePlatform()) {
+    _initializeAdMob();
+  } else {
+    print(
+      'ℹ️ AdMob désactivé sur cette plateforme (${Platform.operatingSystem})',
+    );
+  }
   runApp(ScrabbleApp());
 }
 
@@ -40,6 +48,15 @@ void _initializeAdMob() async {
   } catch (e) {
     print('❌ AdMob initialization failed: $e');
   }
+}
+
+/// ✅ Vérifier si la plateforme supporte AdMob
+bool _isMobilePlatform() {
+  if (kIsWeb) return false;
+  if (Platform.isLinux) return false;
+  if (Platform.isWindows) return false;
+  if (Platform.isMacOS) return false;
+  return Platform.isAndroid || Platform.isIOS;
 }
 
 class ScrabbleApp extends StatelessWidget {

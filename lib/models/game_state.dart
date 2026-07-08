@@ -5,7 +5,6 @@ import 'placed_letter.dart';
 import 'bag.dart';
 
 part 'game_state.g.dart';
-// game_state.dart
 
 @HiveType(typeId: 0)
 class GameState {
@@ -57,6 +56,18 @@ class GameState {
   @HiveField(15)
   List<List<Map<String, dynamic>?>> boardJokerInfo;
 
+  // ============================================================
+  // NOUVELLES VARIABLES : Nombre d'étoiles restantes par joueur
+  // ============================================================
+  @HiveField(16)
+  int leftStars;
+
+  @HiveField(17)
+  int rightStars;
+
+  // ============================================================
+  // Constructeur modifié avec valeurs par défaut pour les étoiles
+  // ============================================================
   GameState({
     required this.isLeft,
     required this.leftName,
@@ -74,6 +85,8 @@ class GameState {
     required this.lettersPlacedThisTurn,
     required this.gameId,
     List<List<Map<String, dynamic>?>>? boardJokerInfo,
+    this.leftStars = 0, // Valeur par défaut : 3 étoiles par joueur
+    this.rightStars = 0, // Valeur par défaut : 3 étoiles par joueur
   }) : boardJokerInfo =
            boardJokerInfo ??
            List.generate(
@@ -90,6 +103,69 @@ class GameState {
     lettersPlacedThisTurn.clear();
   }
 
+  // ============================================================
+  // Méthodes utilitaires pour les étoiles
+  // ============================================================
+
+  /// Vérifie si le joueur gauche a encore des étoiles disponibles
+  bool get hasLeftStar => leftStars > 0;
+
+  /// Vérifie si le joueur droit a encore des étoiles disponibles
+  bool get hasRightStar => rightStars > 0;
+
+  /// Utilise une étoile pour le joueur gauche (retourne true si réussi)
+  bool useLeftStar() {
+    if (leftStars <= 0) return false;
+    leftStars--;
+    return true;
+  }
+
+  /// Utilise une étoile pour le joueur droit (retourne true si réussi)
+  bool useRightStar() {
+    if (rightStars <= 0) return false;
+    rightStars--;
+    return true;
+  }
+
+  /// Utilise une étoile pour un joueur donné
+  bool useStarForPlayer(String userName) {
+    if (leftName == userName) {
+      return useLeftStar();
+    } else if (rightName == userName) {
+      return useRightStar();
+    }
+    return false;
+  }
+
+  /// Vérifie si un joueur a encore des étoiles
+  bool hasStarForPlayer(String userName) {
+    if (leftName == userName) {
+      return hasLeftStar;
+    } else if (rightName == userName) {
+      return hasRightStar;
+    }
+    return false;
+  }
+
+  /// Récupère le nombre d'étoiles restantes pour un joueur
+  int getStarsForPlayer(String userName) {
+    if (leftName == userName) {
+      return leftStars;
+    } else if (rightName == userName) {
+      return rightStars;
+    }
+    return 0;
+  }
+
+  /// Réinitialise les étoiles en fin de partie
+  void resetStars({int starsPerPlayer = 3}) {
+    leftStars = starsPerPlayer;
+    rightStars = starsPerPlayer;
+  }
+
+  // ============================================================
+  // toMap modifié
+  // ============================================================
   Map<String, dynamic> toMap() {
     return {
       'isLeft': isLeft,
@@ -112,11 +188,17 @@ class GameState {
       'lettersPlacedThisTurn':
           lettersPlacedThisTurn.map((e) => e.toMap()).toList(),
       'gameId': gameId,
+      // NOUVEAUX CHAMPS
+      'leftStars': leftStars,
+      'rightStars': rightStars,
     };
   }
 
+  // ============================================================
+  // fromMap modifié
+  // ============================================================
   factory GameState.fromMap(Map<String, dynamic> map) {
-    // ✅ GÉRER LE CAS OÙ boardJokerInfo EST NULL
+    // Gérer boardJokerInfo
     List<List<Map<String, dynamic>?>> boardJokerInfoData;
 
     if (map['boardJokerInfo'] != null) {
@@ -134,7 +216,6 @@ class GameState {
               )
               .toList();
     } else {
-      // ✅ CRÉER UN TABLEAU VIDE SI NULL
       boardJokerInfoData = List.generate(
         15,
         (_) => List<Map<String, dynamic>?>.filled(15, null),
@@ -151,7 +232,7 @@ class GameState {
       rightPort: map['rightPort'] as int,
       board:
           (map['board'] as List).map((row) => List<String>.from(row)).toList(),
-      boardJokerInfo: boardJokerInfoData, // ✅ UTILISER LA VALEUR GÉRÉE
+      boardJokerInfo: boardJokerInfoData,
       bag: BagModel.fromMap(Map<String, dynamic>.from(map['bag'])),
       leftLetters: List<String>.from(map['leftLetters']),
       rightLetters: List<String>.from(map['rightLetters']),
@@ -162,6 +243,9 @@ class GameState {
               .map((e) => PlacedLetter.fromMap(e))
               .toList(),
       gameId: map['gameId'] as String,
+      // NOUVEAUX CHAMPS AVEC VALEURS PAR DÉFAUT SI ABSENTS
+      leftStars: map['leftStars'] as int? ?? 3,
+      rightStars: map['rightStars'] as int? ?? 3,
     );
   }
 
@@ -170,6 +254,9 @@ class GameState {
   factory GameState.fromJson(String source) =>
       GameState.fromMap(jsonDecode(source));
 
+  // ============================================================
+  // copyWith modifié
+  // ============================================================
   GameState copyWith({
     bool? isLeft,
     List<List<String>>? board,
@@ -181,6 +268,8 @@ class GameState {
     int? rightScore,
     List<PlacedLetter>? lettersPlacedThisTurn,
     String? gameId,
+    int? leftStars,
+    int? rightStars,
   }) {
     return GameState(
       isLeft: isLeft ?? this.isLeft,
@@ -200,9 +289,14 @@ class GameState {
       lettersPlacedThisTurn:
           lettersPlacedThisTurn ?? this.lettersPlacedThisTurn,
       gameId: gameId ?? this.gameId,
+      leftStars: leftStars ?? this.leftStars,
+      rightStars: rightStars ?? this.rightStars,
     );
   }
 
+  // ============================================================
+  // copyFrom modifié
+  // ============================================================
   void copyFrom(GameState other) {
     leftName = other.leftName;
     rightName = other.rightName;
@@ -225,6 +319,9 @@ class GameState {
             .toList();
     bag = BagModel.fromJson(other.bag.toJson());
     lettersPlacedThisTurn = List.from(other.lettersPlacedThisTurn);
+    // NOUVEAUX CHAMPS
+    leftStars = other.leftStars;
+    rightStars = other.rightStars;
   }
 
   bool isMyTurn(myName) {
@@ -240,6 +337,9 @@ class GameState {
   }
 }
 
+// ============================================================
+// Extension Rack (inchangée)
+// ============================================================
 extension GameStateRack on GameState {
   List<String> localRack(String localUserName) {
     if (leftName == localUserName) {

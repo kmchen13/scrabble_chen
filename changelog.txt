@@ -208,4 +208,7 @@ Refonte mode web en polling
     Ajout rechargement data au retour foreground
     Uniformisation des noms de callback de la forme sendGameQuit onGamQuitReceived
     Suppression waiting et startScreen
-    
+3.5.0
+    Changement charte graphique
+    Changement position bonus
+    Ajout starBonus

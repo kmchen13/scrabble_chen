@@ -39,13 +39,15 @@ class GameStateAdapter extends TypeAdapter<GameState> {
               .map((dynamic e) => (e as Map?)?.cast<String, dynamic>())
               .toList())
           ?.toList(),
+      leftStars: fields[16] as int,
+      rightStars: fields[17] as int,
     );
   }
 
   @override
   void write(BinaryWriter writer, GameState obj) {
     writer
-      ..writeByte(16)
+      ..writeByte(18)
       ..writeByte(0)
       ..write(obj.isLeft)
       ..writeByte(1)
@@ -62,8 +64,6 @@ class GameStateAdapter extends TypeAdapter<GameState> {
       ..write(obj.rightPort)
       ..writeByte(7)
       ..write(obj.board)
-      ..writeByte(15)
-      ..write(obj.boardJokerInfo)
       ..writeByte(8)
       ..write(obj.bag)
       ..writeByte(9)
@@ -77,7 +77,13 @@ class GameStateAdapter extends TypeAdapter<GameState> {
       ..writeByte(13)
       ..write(obj.lettersPlacedThisTurn)
       ..writeByte(14)
-      ..write(obj.gameId);
+      ..write(obj.gameId)
+      ..writeByte(15)
+      ..write(obj.boardJokerInfo)
+      ..writeByte(16)
+      ..write(obj.leftStars)
+      ..writeByte(17)
+      ..write(obj.rightStars);
   }
 
   @override

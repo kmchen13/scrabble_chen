@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:scrabble_P2P/models/board.dart';
 import 'package:scrabble_P2P/models/game_state.dart';
 import 'package:scrabble_P2P/models/player_rack.dart';
+import 'package:scrabble_P2P/models/star_painter.dart';
 import 'package:scrabble_P2P/network/scrabble_net.dart';
 import 'package:scrabble_P2P/services/admob_manager.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
@@ -66,7 +67,7 @@ class _GameScreenState extends State<GameScreen> {
   late final GameUpdateHandler _updateHandler;
   bool _endPopupShown = false;
   late GameState _gameState;
-  ({List<String> words, int totalScore})? _cachedTurnResult;
+  ({List<String> words, int totalScore, int totalStarsUsed})? _cachedTurnResult;
   bool _cachedTurnValid = false;
   final AdMobManager _adMobManager = AdMobManager();
 
@@ -483,7 +484,6 @@ class _GameScreenState extends State<GameScreen> {
 
   void _handleSubmit() {
     if (_cachedTurnResult == null || !_cachedTurnValid) {
-      // Aucun résultat validé à utiliser
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Le coup n'est pas valide")));
@@ -492,19 +492,29 @@ class _GameScreenState extends State<GameScreen> {
 
     final result = _cachedTurnResult!;
     final totalScore = result.totalScore;
+    final totalStarsUsed = result.totalStarsUsed;
+
+    print('📊 Score: $totalScore, Étoiles gagnées: $totalStarsUsed');
 
     setState(() {
       // Appliquer le score au joueur actif
       if (_gameState.isLeft) {
         _gameState.leftScore += totalScore;
+        // ✅ Ajouter les étoiles gagnées (sans multiplier le score)
+        _gameState.leftStars += totalStarsUsed;
+        print('⭐ leftStars: ${_gameState.leftStars}');
       } else {
         _gameState.rightScore += totalScore;
+        // ✅ Ajouter les étoiles gagnées (sans multiplier le score)
+        _gameState.rightStars += totalStarsUsed;
+        print('⭐ rightStars: ${_gameState.rightStars}');
       }
 
       // Placer définitivement les lettres sur le plateau
       for (final placed in _lettersPlacedThisTurn) {
         _gameState.board[placed.row][placed.col] = placed.letter;
       }
+
       // Transmettre les _lettersPlacedThisTurn pour surbrillance
       _gameState.lettersPlacedThisTurn = List.from(_lettersPlacedThisTurn);
 
@@ -587,6 +597,47 @@ class _GameScreenState extends State<GameScreen> {
       } else {
         _gameState.rightLetters = List.from(_playerLetters);
       }
+    }
+  }
+
+  void _handleStarUsed() {
+    final playerName = settings.localUserName;
+    final isLeft = _gameState.leftName == playerName;
+
+    if (isLeft && _gameState.leftStars <= 0) return;
+    if (!isLeft && _gameState.rightStars <= 0) return;
+
+    // ✅ Faire toutes les modifications
+    if (isLeft) {
+      _gameState.leftStars--;
+      final currentLetters = _gameState.leftLetters;
+      for (final letter in currentLetters) {
+        _gameState.bag.addLetter(letter);
+      }
+      _gameState.leftLetters = _gameState.bag.drawLetters(7);
+    } else {
+      _gameState.rightStars--;
+      final currentLetters = _gameState.rightLetters;
+      for (final letter in currentLetters) {
+        _gameState.bag.addLetter(letter);
+      }
+      _gameState.rightLetters = _gameState.bag.drawLetters(7);
+    }
+
+    _gameState.resetPlacedThisTurn();
+    _lettersPlacedThisTurn.clear();
+    _appBarTitle = defaultTitle;
+    gameStorage.save(_gameState);
+
+    // ✅ Envoyer la mise à jour
+    widget.net.sendGameState(_gameState);
+
+    // ✅ Forcer un rebuild complet avec un setState
+    // mais en s'assurant que les nouvelles lettres sont bien dans l'état
+    if (mounted) {
+      setState(() {
+        // Ce setState est nécessaire pour que le build soit rappelé
+      });
     }
   }
 
@@ -791,21 +842,24 @@ class _GameScreenState extends State<GameScreen> {
     final fontSize = compact ? 10.0 : 14.0;
     final buttonText = "Envoyer";
 
-    // ✅ Padding ZÉRO sur le BottomAppBar
+    // Récupérer le nombre d'étoiles du joueur local
+    final playerName = settings.localUserName;
+    final starBonus = _gameState.getStarsForPlayer(playerName);
+
+    // ✅ Vérifier si c'est son tour ET s'il a des étoiles
+    final canUseStar = isCurrentTurn && starBonus > 0;
+
     return BottomAppBar(
-      padding: EdgeInsets.zero, // 👈 Supprimer le padding interne
+      padding: EdgeInsets.zero,
       child: Padding(
         padding:
             compact
-                ? const EdgeInsets.symmetric(
-                  horizontal: 4,
-                  vertical: 4,
-                ) // 👈 Réduit
+                ? const EdgeInsets.symmetric(horizontal: 4, vertical: 4)
                 : const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // ✅ IconButton sans padding
+            // Bouton Home
             IconButton(
               tooltip: 'Retour à l’accueil',
               icon: Icon(Icons.home, size: iconSize),
@@ -818,9 +872,10 @@ class _GameScreenState extends State<GameScreen> {
               },
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              splashRadius: 18, // 👈 Animation plus petite
+              splashRadius: 18,
             ),
 
+            // Bouton Annuler
             IconButton(
               icon: Icon(Icons.undo, size: iconSize),
               tooltip: "Annuler",
@@ -830,7 +885,7 @@ class _GameScreenState extends State<GameScreen> {
               splashRadius: 18,
             ),
 
-            // ✅ Bouton Envoyer plus compact
+            // Bouton Envoyer
             ElevatedButton(
               onPressed: isCurrentTurn ? _handleSubmit : null,
               style: ElevatedButton.styleFrom(
@@ -840,18 +895,13 @@ class _GameScreenState extends State<GameScreen> {
                 ),
                 padding:
                     compact
-                        ? const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
-                        ) // 👈 Très compact
+                        ? const EdgeInsets.symmetric(horizontal: 8, vertical: 4)
                         : const EdgeInsets.symmetric(
                           horizontal: 24,
                           vertical: 12,
                         ),
                 minimumSize: compact ? const Size(32, 24) : null,
-                tapTargetSize:
-                    MaterialTapTargetSize
-                        .shrinkWrap, // 👈 Réduire la zone de clic
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               child: Text(
                 buttonText,
@@ -863,6 +913,47 @@ class _GameScreenState extends State<GameScreen> {
               ),
             ),
 
+            // ============================================================
+            // Étoile de bonus (grisée si pas son tour ou pas d'étoile)
+            // ============================================================
+            if (starBonus > 0)
+              Tooltip(
+                message:
+                    canUseStar
+                        ? 'Changer les lettres ($starBonus disponible${starBonus > 1 ? 's' : ''})'
+                        : 'Attendez votre tour pour changer les lettres',
+                preferBelow: false,
+                child: GestureDetector(
+                  onTap: canUseStar ? _handleStarUsed : null,
+                  child: Opacity(
+                    opacity: canUseStar ? 1.0 : 0.5,
+                    child: SizedBox(
+                      width: iconSize * 2.2,
+                      height: iconSize * 2.2,
+                      child: CustomPaint(
+                        painter: StarPainter(
+                          number: starBonus,
+                          textSize: iconSize * 0.4,
+                          textColor:
+                              canUseStar
+                                  ? const Color(0xFF006400) // Vert foncé
+                                  : Colors.grey.shade600, // Grisé
+                          starColor:
+                              canUseStar
+                                  ? const Color(0xFFFFD700) // Jaune
+                                  : Colors.grey.shade500, // Grisé
+                          backgroundColor:
+                              canUseStar
+                                  ? Colors.black
+                                  : Colors.grey.shade900, // Fond grisé
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+            // Bouton Sac
             IconButton(
               tooltip: "Sac",
               icon: Icon(Icons.inventory_2, size: iconSize),
@@ -874,6 +965,7 @@ class _GameScreenState extends State<GameScreen> {
               splashRadius: 18,
             ),
 
+            // Bouton Abandonner
             IconButton(
               tooltip: 'Abandonner',
               icon: Icon(Icons.exit_to_app, size: iconSize),
@@ -996,6 +1088,7 @@ class _GameScreenState extends State<GameScreen> {
         boardJokerInfo: _gameState.boardJokerInfo,
       );
 
+      // ✅ Le résultat contient maintenant words, totalScore ET totalStarsUsed
       _cachedTurnResult = result;
       _cachedTurnValid = true;
 
