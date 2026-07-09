@@ -296,13 +296,13 @@ Color getColorForBonus(BonusType bonus) {
 String bonusLabel(BonusType bonus) {
   switch (bonus) {
     case BonusType.doubleLetter:
-      return "L×2";
+      return "L2";
     case BonusType.tripleLetter:
-      return "L×3";
+      return "L3";
     case BonusType.doubleWord:
-      return "W×2";
+      return "M2";
     case BonusType.tripleWord:
-      return "W×3";
+      return "M3";
     case BonusType.star:
       return "★";
     default:

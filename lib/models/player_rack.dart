@@ -61,123 +61,130 @@ class _PlayerRackInternalState extends State<_PlayerRackInternal> {
     final tileSize = _calculateTileSize(context);
     final previewLetters = _computePreviewLetters();
 
-    return SizedBox(
-      height: tileSize + 16,
-      child: Center(
-        child: Stack(
-          children: [
-            // Rack VISUEL (7 tuiles octogonales)
-            SizedBox(
-              width: rackSlots * tileSize,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(previewLetters.length, (index) {
-                  final letter = previewLetters[index];
+    return Container(
+      color: const Color(0xFF1A2A3A), // Même fond bleu nuit que le plateau
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: SizedBox(
+        height: tileSize + 16,
+        child: Center(
+          child: Stack(
+            children: [
+              // Rack VISUEL (7 tuiles octogonales)
+              SizedBox(
+                width: rackSlots * tileSize,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(previewLetters.length, (index) {
+                    final letter = previewLetters[index];
 
-                  return DragTarget<DraggedLetter>(
-                    onWillAccept: (data) {
-                      setState(() {
-                        _hoveredIndex = index;
-                        _dragging = data;
-                      });
-                      return true;
-                    },
-                    onLeave: (_) {
-                      setState(() {
-                        _hoveredIndex = null;
-                        _dragging = null;
-                      });
-                    },
-                    onAccept: (data) {
-                      setState(() {
-                        _dragging = null;
-                      });
+                    return DragTarget<DraggedLetter>(
+                      onWillAccept: (data) {
+                        setState(() {
+                          _hoveredIndex = index;
+                          _dragging = data;
+                        });
+                        return true;
+                      },
+                      onLeave: (_) {
+                        setState(() {
+                          _hoveredIndex = null;
+                          _dragging = null;
+                        });
+                      },
+                      onAccept: (data) {
+                        setState(() {
+                          _dragging = null;
+                        });
 
-                      if (data.fromIndex >= 0) {
-                        widget.onMove?.call(data.fromIndex, index);
-                      } else {
-                        widget.onAddLetter?.call(
-                          data.letter,
-                          hoveredIndex: _hoveredIndex,
-                        );
-                        if (widget.onRemoveFromBoard != null &&
-                            data.row != null &&
-                            data.col != null) {
-                          widget.onRemoveFromBoard!(data.row!, data.col!);
-                        }
-                      }
-                    },
-                    builder: (_, __, ___) {
-                      return Draggable<DraggedLetter>(
-                        data: DraggedLetter(letter: letter, fromIndex: index),
-                        onDragStarted: () => HapticFeedback.mediumImpact(),
-                        onDragEnd: (details) {
-                          if (!details.wasAccepted) {
-                            setState(() {
-                              if (!widget.letters.contains(letter)) {
-                                widget.letters.insert(index, letter);
-                              }
-                            });
+                        if (data.fromIndex >= 0) {
+                          widget.onMove?.call(data.fromIndex, index);
+                        } else {
+                          widget.onAddLetter?.call(
+                            data.letter,
+                            hoveredIndex: _hoveredIndex,
+                          );
+                          if (widget.onRemoveFromBoard != null &&
+                              data.row != null &&
+                              data.col != null) {
+                            widget.onRemoveFromBoard!(data.row!, data.col!);
                           }
-                          setState(() {
-                            _dragging = null;
-                            _hoveredIndex = null;
-                          });
-                        },
-                        feedback: Material(
-                          color: Colors.transparent,
-                          child: Transform.scale(
-                            scale: 1.4,
-                            child: Opacity(
-                              opacity: 0.7,
-                              child: _buildLetterTile(letter, tileSize),
+                        }
+                      },
+                      builder: (_, __, ___) {
+                        return Draggable<DraggedLetter>(
+                          data: DraggedLetter(letter: letter, fromIndex: index),
+                          onDragStarted: () => HapticFeedback.mediumImpact(),
+                          onDragEnd: (details) {
+                            if (!details.wasAccepted) {
+                              setState(() {
+                                if (!widget.letters.contains(letter)) {
+                                  widget.letters.insert(index, letter);
+                                }
+                              });
+                            }
+                            setState(() {
+                              _dragging = null;
+                              _hoveredIndex = null;
+                            });
+                          },
+                          feedback: Material(
+                            color: Colors.transparent,
+                            child: Transform.scale(
+                              scale: 1.4,
+                              child: Opacity(
+                                opacity: 0.7,
+                                child: _buildLetterTile(letter, tileSize),
+                              ),
                             ),
                           ),
-                        ),
-                        childWhenDragging: Opacity(
-                          opacity: 0.0,
+                          childWhenDragging: Opacity(
+                            opacity: 0.0,
+                            child: _buildLetterTile(letter, tileSize),
+                          ),
                           child: _buildLetterTile(letter, tileSize),
-                        ),
-                        child: _buildLetterTile(letter, tileSize),
-                      );
-                    },
-                  );
-                }),
-              ),
-            ),
-
-            // Zone INVISIBLE pour drop après la dernière tuile
-            Positioned(
-              right: -tileSize,
-              top: 0,
-              bottom: 0,
-              width: tileSize,
-              child: DragTarget<DraggedLetter>(
-                onWillAccept: (_) {
-                  setState(() {
-                    _hoveredIndex = previewLetters.length;
-                  });
-                  return true;
-                },
-                onLeave: (_) {
-                  setState(() {
-                    _hoveredIndex = null;
-                  });
-                },
-                onAccept: (data) {
-                  if (data.fromIndex >= 0) {
-                    widget.onMove?.call(data.fromIndex, previewLetters.length);
-                  } else {
-                    widget.onAddLetter?.call(
-                      data.letter,
-                      hoveredIndex: previewLetters.length,
+                        );
+                      },
                     );
-                  }
-                },
-                builder: (_, __, ___) => const SizedBox.shrink(),
+                  }),
+                ),
               ),
-            ),
-          ],
+
+              // Zone INVISIBLE pour drop après la dernière tuile
+              Positioned(
+                right: -tileSize,
+                top: 0,
+                bottom: 0,
+                width: tileSize,
+                child: DragTarget<DraggedLetter>(
+                  onWillAccept: (_) {
+                    setState(() {
+                      _hoveredIndex = previewLetters.length;
+                    });
+                    return true;
+                  },
+                  onLeave: (_) {
+                    setState(() {
+                      _hoveredIndex = null;
+                    });
+                  },
+                  onAccept: (data) {
+                    if (data.fromIndex >= 0) {
+                      widget.onMove?.call(
+                        data.fromIndex,
+                        previewLetters.length,
+                      );
+                    } else {
+                      widget.onAddLetter?.call(
+                        data.letter,
+                        hoveredIndex: previewLetters.length,
+                      );
+                    }
+                  },
+                  builder: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -210,7 +217,7 @@ class _PlayerRackInternalState extends State<_PlayerRackInternal> {
   }
 
   // ============================================================
-  // Tuile octogonale avec valeurs en bas-centre
+  // Tuile octogonale avec la même police et disposition que le plateau
   // ============================================================
   Widget _buildLetterTile(String letter, double size) {
     final point = letterPoints[letter.toUpperCase()] ?? 0;
@@ -222,13 +229,13 @@ class _PlayerRackInternalState extends State<_PlayerRackInternal> {
       child: CustomPaint(
         painter: _RackTilePainter(
           color: Colors.white,
-          borderColor: Colors.black54,
+          borderColor: Colors.black87,
           borderWidth: 1.5,
           letter: letter,
-          letterSize: size * 0.55,
+          letterSize: size * 0.75, // Même taille que le plateau
           letterColor: Colors.black,
           point: isJoker ? 0 : point,
-          pointSize: size * 0.20,
+          pointSize: size * 0.3, // Même taille que le plateau
           showJokerIndicator: isJoker,
         ),
       ),
@@ -279,7 +286,7 @@ class _RackTilePainter extends CustomPainter {
     canvas.drawPath(path, paint);
     canvas.drawPath(path, borderPaint);
 
-    // Lettre
+    // Lettre avec la même police que le plateau (Roboto)
     final displayLetter = showJokerIndicator ? '?' : letter;
     final textPainter = TextPainter(
       text: TextSpan(
@@ -288,21 +295,22 @@ class _RackTilePainter extends CustomPainter {
           fontSize: letterSize,
           fontWeight: FontWeight.bold,
           color: letterColor,
+          fontFamily: 'Roboto', // Même police que le plateau
         ),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
 
-    // Centrer la lettre
+    // Centrer la lettre verticalement (comme sur le plateau)
     canvas.save();
     canvas.translate(
       (size.width - textPainter.width) / 2,
-      (size.height - textPainter.height) / 2 - size.height * 0.08,
+      (size.height - textPainter.height) / 2, // Centrage parfait
     );
     textPainter.paint(canvas, Offset.zero);
     canvas.restore();
 
-    // Points en bas-centre
+    // Points à droite (comme sur le plateau)
     if (point > 0) {
       final pointPainter = TextPainter(
         text: TextSpan(
@@ -311,6 +319,7 @@ class _RackTilePainter extends CustomPainter {
             fontSize: pointSize,
             color: Colors.red,
             fontWeight: FontWeight.bold,
+            fontFamily: 'Roboto', // Même police que le plateau
           ),
         ),
         textDirection: TextDirection.ltr,
@@ -318,8 +327,8 @@ class _RackTilePainter extends CustomPainter {
 
       canvas.save();
       canvas.translate(
-        (size.width - pointPainter.width) / 2, // Centré horizontalement
-        size.height - pointPainter.height - size.height * 0.06, // En bas
+        size.width - pointPainter.width - size.width * 0.06, // À droite
+        (size.height - pointPainter.height) / 2, // Centré verticalement
       );
       pointPainter.paint(canvas, Offset.zero);
       canvas.restore();
@@ -330,7 +339,11 @@ class _RackTilePainter extends CustomPainter {
       final jokerPainter = TextPainter(
         text: const TextSpan(
           text: '★',
-          style: TextStyle(fontSize: 12, color: Colors.orange),
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.orange,
+            fontFamily: 'Roboto',
+          ),
         ),
         textDirection: TextDirection.ltr,
       )..layout();

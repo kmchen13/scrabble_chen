@@ -669,6 +669,7 @@ class _GameScreenState extends State<GameScreen> {
     return WillPopScope(
       onWillPop: () async => false,
       child: Scaffold(
+        backgroundColor: const Color(0xFF1A2A3A),
         appBar: AdBannerAppBar(
           manager: _adMobManager,
           title: _appBarTitle,
@@ -850,6 +851,7 @@ class _GameScreenState extends State<GameScreen> {
     final canUseStar = isCurrentTurn && starBonus > 0;
 
     return BottomAppBar(
+      color: const Color(0xFF1A2A3A),
       padding: EdgeInsets.zero,
       child: Padding(
         padding:

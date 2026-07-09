@@ -73,8 +73,10 @@ Widget buildScrabbleBoard({
   return LayoutBuilder(
     builder: (context, constraints) {
       final tileSize = _calculateTileSize(context);
-      final backgroundColor = const Color(0xFF1A2A3A); // Bleu nuit profond
-      final spacing = tileSize * 0.04; // Espacement entre les cases
+      final backgroundColor = const Color(
+        0xFF1A2A3A,
+      ); // Bleu nuit profond original
+      final spacing = tileSize * 0.04;
 
       return Container(
         color: backgroundColor,
@@ -117,21 +119,23 @@ Widget buildScrabbleBoard({
                 final bonus = bonusMap[row][col];
                 final isPlacedThisTurn = cellLetterRecord != null;
 
-                // Couleur de base de la case selon le bonus
+                // Couleur de base de la case selon le bonus (charte originale)
                 final baseColor = getColorForBonus(bonus);
 
-                // Si une lettre est placée, la case prend la couleur du bonus
+                // Couleur des octogones plus foncée
                 final bgColor =
                     cellLetter.isNotEmpty
                         ? (bonus != BonusType.none
-                            ? baseColor
+                            ? baseColor.withOpacity(
+                              0.85,
+                            ) // Plus opaque pour les bonus
                             : const Color(
-                              0xFF808080,
-                            )) // Gris pour cases standards occupées
+                              0xFF555555,
+                            )) // Plus clair pour cases occupées
                         : (bonus != BonusType.none
                             ? baseColor.withOpacity(
-                              0.3,
-                            ) // Bonus visible mais atténué
+                              0.35,
+                            ) // Bonus visibles mais atténués
                             : const Color(
                               0xFF3A3A3A,
                             )); // Gris foncé pour cases vides
@@ -193,9 +197,11 @@ Widget buildScrabbleBoard({
                                   isHovered
                                       ? Colors.white
                                       : (cellLetter.isNotEmpty
-                                          ? Colors.transparent
+                                          ? Colors
+                                              .grey
+                                              .shade500 // Bordure visible pour cases occupées
                                           : Colors.grey.shade700),
-                              borderWidth: isHovered ? 3.0 : 1.0,
+                              borderWidth: isHovered ? 3.0 : 1.2,
                             ),
                             child: Container(
                               alignment: Alignment.center,
@@ -266,16 +272,20 @@ Widget buildScrabbleBoard({
                                           ))
                                       : Center(
                                         child: Text(
-                                          bonusLabel(bonus),
+                                          bonusLabel(
+                                            bonus,
+                                          ).replaceAll('Lx2', 'L2'),
                                           style: TextStyle(
-                                            fontSize: tileSize * 0.25,
+                                            fontSize: tileSize * 0.35,
                                             color:
                                                 bonus != BonusType.none
                                                     ? Colors.white.withOpacity(
-                                                      0.7,
+                                                      0.9,
                                                     )
                                                     : Colors.grey.shade600,
                                             fontWeight: FontWeight.bold,
+                                            fontFamily: 'Roboto',
+                                            letterSpacing: 0.5,
                                           ),
                                         ),
                                       ),
@@ -301,9 +311,9 @@ Widget buildScrabbleBoard({
 double _calculateTileSize(BuildContext context) {
   final screenWidth = MediaQuery.of(context).size.width;
   final screenHeight = MediaQuery.of(context).size.height;
-  final maxWidth = screenWidth * 0.92;
-  final maxHeight = screenHeight * 0.7;
-  final maxSize = (maxWidth / boardSize).clamp(24.0, 50.0);
+  final maxWidth = screenWidth * 0.96;
+  final maxHeight = screenHeight * 0.82;
+  final maxSize = (maxWidth / boardSize).clamp(30.0, 65.0);
   return maxSize;
 }
 
@@ -322,20 +332,20 @@ Widget _buildLetterTile(
   final tileColor =
       isJoker
           ? Colors.grey.shade300
-          : (highlight ? Colors.white.withOpacity(0.9) : Colors.white);
+          : (highlight ? Colors.white.withOpacity(0.95) : Colors.white);
 
   return CustomPaint(
     painter: _LetterTilePainter(
       color: tileColor,
-      borderColor: isStarBonus ? const Color(0xFF00D2FF) : Colors.black54,
-      borderWidth: isStarBonus ? 2.5 : 1.0,
+      borderColor: isStarBonus ? const Color(0xFF00D2FF) : Colors.black87,
+      borderWidth: isStarBonus ? 2.5 : 1.5,
       shadowColor:
           isStarBonus ? const Color(0xFF00D2FF).withOpacity(0.5) : null,
       letter: letter,
-      letterSize: size * 0.6,
+      letterSize: size * 0.75,
       letterColor: isJoker ? Colors.black54 : Colors.black,
       point: point,
-      pointSize: size * 0.2,
+      pointSize: size * 0.3,
       showStar: isStarBonus,
       starSize: size * 0.2,
     ),
@@ -440,7 +450,7 @@ class _LetterTilePainter extends CustomPainter {
     canvas.drawPath(path, paint);
     canvas.drawPath(path, borderPaint);
 
-    // Lettre (centrée, légèrement remontée)
+    // Lettre avec police Roboto
     final textPainter = TextPainter(
       text: TextSpan(
         text: letter,
@@ -448,20 +458,22 @@ class _LetterTilePainter extends CustomPainter {
           fontSize: letterSize,
           fontWeight: FontWeight.bold,
           color: letterColor,
+          fontFamily: 'Roboto',
         ),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
 
+    // Centrage vertical parfait
     canvas.save();
     canvas.translate(
       (size.width - textPainter.width) / 2,
-      (size.height - textPainter.height) / 2 - size.height * 0.08,
+      (size.height - textPainter.height) / 2,
     );
     textPainter.paint(canvas, Offset.zero);
     canvas.restore();
 
-    // Points en bas-centre (comme dans le rack)
+    // Points à droite centrés verticalement
     if (point > 0) {
       final pointPainter = TextPainter(
         text: TextSpan(
@@ -470,6 +482,7 @@ class _LetterTilePainter extends CustomPainter {
             fontSize: pointSize,
             color: Colors.red,
             fontWeight: FontWeight.bold,
+            fontFamily: 'Roboto',
           ),
         ),
         textDirection: TextDirection.ltr,
@@ -477,8 +490,8 @@ class _LetterTilePainter extends CustomPainter {
 
       canvas.save();
       canvas.translate(
-        (size.width - pointPainter.width) / 2, // Centré horizontalement
-        size.height - pointPainter.height - size.height * 0.06, // En bas
+        size.width - pointPainter.width - size.width * 0.06,
+        (size.height - pointPainter.height) / 2,
       );
       pointPainter.paint(canvas, Offset.zero);
       canvas.restore();

@@ -209,6 +209,10 @@ Refonte mode web en polling
     Uniformisation des noms de callback de la forme sendGameQuit onGamQuitReceived
     Suppression waiting et startScreen
 3.5.0
+    Changement de nom
     Changement charte graphique
     Changement position bonus
     Ajout starBonus
+3.5.1
+    Ajustements visuels
+    

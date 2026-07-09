@@ -425,7 +425,9 @@ class _HomeScreenState extends State<HomeScreen>
     String myName = settings.localUserName;
 
     return Scaffold(
+      backgroundColor: const Color(0xFF1A2A3A),
       appBar: AppBar(
+        backgroundColor: const Color(0xFF1A2A3A),
         title: Text("$appName-v$version ;-) $myName"),
         actions: [
           IconButton(
