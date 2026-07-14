@@ -607,38 +607,48 @@ class _GameScreenState extends State<GameScreen> {
     if (isLeft && _gameState.leftStars <= 0) return;
     if (!isLeft && _gameState.rightStars <= 0) return;
 
-    // ✅ Faire toutes les modifications
+    // ✅ Créer une copie du GameState avec les modifications
+    GameState newState;
+
     if (isLeft) {
-      _gameState.leftStars--;
-      final currentLetters = _gameState.leftLetters;
+      final currentLetters = List<String>.from(_gameState.leftLetters);
       for (final letter in currentLetters) {
         _gameState.bag.addLetter(letter);
       }
-      _gameState.leftLetters = _gameState.bag.drawLetters(7);
+      final newLetters = _gameState.bag.drawLetters(7);
+
+      newState = _gameState.copyWith(
+        leftStars: _gameState.leftStars - 1,
+        leftLetters: newLetters,
+        lettersPlacedThisTurn: [],
+      );
     } else {
-      _gameState.rightStars--;
-      final currentLetters = _gameState.rightLetters;
+      final currentLetters = List<String>.from(_gameState.rightLetters);
       for (final letter in currentLetters) {
         _gameState.bag.addLetter(letter);
       }
-      _gameState.rightLetters = _gameState.bag.drawLetters(7);
+      final newLetters = _gameState.bag.drawLetters(7);
+
+      newState = _gameState.copyWith(
+        rightStars: _gameState.rightStars - 1,
+        rightLetters: newLetters,
+        lettersPlacedThisTurn: [],
+      );
     }
 
-    _gameState.resetPlacedThisTurn();
+    // ✅ Remplacer l'ancien GameState par le nouveau
+    _gameState = newState;
     _lettersPlacedThisTurn.clear();
     _appBarTitle = defaultTitle;
+
+    // ✅ Sauvegarder
     gameStorage.save(_gameState);
 
     // ✅ Envoyer la mise à jour
     widget.net.sendGameState(_gameState);
 
-    // ✅ Forcer un rebuild complet avec un setState
-    // mais en s'assurant que les nouvelles lettres sont bien dans l'état
-    if (mounted) {
-      setState(() {
-        // Ce setState est nécessaire pour que le build soit rappelé
-      });
-    }
+    // ✅ Utiliser applyIncomingState pour forcer le rebuild (comme pour les messages réseau)
+    _updateHandler.applyIncomingState(_gameState, updateUI: true);
   }
 
   @override
