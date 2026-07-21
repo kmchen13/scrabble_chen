@@ -216,5 +216,6 @@ Refonte mode web en polling
 3.5.1
     Ajustements visuels
 3.5.2
-    Correction rafraichissement écran après clic sur starBonus
+    Correction perte highlight des lettersPlacedThisTurn
+    
     

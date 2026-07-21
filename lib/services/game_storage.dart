@@ -79,7 +79,7 @@ class GameStorage {
   }
 
   Future<GameState?> load(String partner) async {
-    await gameStorage.debugDump();
+    // await gameStorage.debugDump();
     if (partner.isEmpty) return null; // safeguard
     if (_box == null) throw Exception("GameStorage not initialized");
     try {

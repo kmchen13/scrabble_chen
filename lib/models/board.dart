@@ -332,15 +332,24 @@ Widget _buildLetterTile(
   final tileColor =
       isJoker
           ? Colors.grey.shade300
-          : (highlight ? Colors.white.withOpacity(0.95) : Colors.white);
+          : (highlight
+              ? Colors
+                  .yellow
+                  .shade100 // Couleur de surbrillance plus visible
+              : Colors.white);
 
   return CustomPaint(
     painter: _LetterTilePainter(
       color: tileColor,
-      borderColor: isStarBonus ? const Color(0xFF00D2FF) : Colors.black87,
-      borderWidth: isStarBonus ? 2.5 : 1.5,
+      borderColor:
+          highlight
+              ? Colors.amber
+              : (isStarBonus ? const Color(0xFF00D2FF) : Colors.black87),
+      borderWidth: highlight ? 3.0 : (isStarBonus ? 2.5 : 1.5),
       shadowColor:
-          isStarBonus ? const Color(0xFF00D2FF).withOpacity(0.5) : null,
+          highlight
+              ? Colors.amber
+              : (isStarBonus ? const Color(0xFF00D2FF).withOpacity(0.5) : null),
       letter: letter,
       letterSize: size * 0.75,
       letterColor: isJoker ? Colors.black54 : Colors.black,

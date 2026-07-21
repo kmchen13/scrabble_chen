@@ -46,20 +46,20 @@ class GameUpdateHandler {
     return setA.length == 2 && setA.containsAll(setB);
   }
 
+  // =================================================
+  // ATTACH / DETACH
+  // =================================================
   void attach() {
     if (debug) {
-      print('[GameUpdateHandler] attach');
+      print(
+        '$logHeader(GameUpdateHandler) attach onGameStateReceived, onGameOverReceived, onError',
+      );
     }
-
-    // =================================================
     // GAMESTATE
-    // =================================================
     net.onGameStateReceived = (incoming) async {
       final mounted = isMounted();
       final currentGame = getCurrentGame();
-
       final sameGame = _sameGame(incoming, currentGame);
-
       final bool isRematch =
           mounted &&
           sameGame &&
@@ -76,22 +76,16 @@ class GameUpdateHandler {
             onFlushPending?.call();
           }
         });
-
         return;
       }
 
       // autre partie sauvegardée
-
       await gameStorage.save(incoming);
-
       onBackgroundMove?.call(incoming);
-
       net.startPolling(settings.localUserName);
     };
 
-    // =================================================
     // GAMEOVER
-    // =================================================
     net.onGameOverReceived = (finalState) async {
       if (!isMounted()) return;
 

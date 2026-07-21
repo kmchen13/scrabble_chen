@@ -23,7 +23,10 @@ class _GameStateDispatcher {
     void Function(GameState)? callback,
   ) async {
     // 🔴 PERSISTANCE IMMÉDIATE (clé de tout)
-    if (debug) print("${logHeader('handleIncoming')} Sauvegarde immédiate");
+    if (debug)
+      print(
+        "${logHeader('relayNet.handleIncoming')} Sauvegarde immédiate et appel du callback",
+      );
     gameStorage.save(state);
 
     if (callback != null) {

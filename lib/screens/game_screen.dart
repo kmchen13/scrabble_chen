@@ -72,26 +72,27 @@ class _GameScreenState extends State<GameScreen> {
   final AdMobManager _adMobManager = AdMobManager();
 
   void _applyGameState(GameState newState) {
+    if (debug) {
+      print("$logHeader(gameScreen._applyGameState) ${identityHashCode(this)}");
+    }
     _appBarTitle = defaultTitle;
 
-    setState(() {
-      //Force flutter à reconnaître le changement de l’état du jeu
-      // 🔥 REMPLACEMENT COMPLET (clé du bug)
-      _gameState = newState;
+    //Force flutter à reconnaître le changement de l’état du jeu
+    // 🔥 REMPLACEMENT COMPLET (clé du bug)
+    _gameState = newState;
 
-      final localName = settings.localUserName;
-      _board = _gameState.board.map((row) => List<String>.from(row)).toList();
+    final localName = settings.localUserName;
+    _board = _gameState.board.map((row) => List<String>.from(row)).toList();
 
-      _playerLetters = _gameState.localRack(localName);
-      _initialRack = List.from(_playerLetters);
+    _playerLetters = _gameState.localRack(localName);
+    _initialRack = List.from(_playerLetters);
 
-      _lettersPlacedThisTurn
-        ..clear()
-        ..addAll(_gameState.lettersPlacedThisTurn);
+    _lettersPlacedThisTurn
+      ..clear()
+      ..addAll(_gameState.lettersPlacedThisTurn);
 
-      _boardController.value = Matrix4.identity();
-      _firstLetter = true;
-    });
+    _boardController.value = Matrix4.identity();
+    _firstLetter = true;
   }
 
   void _onGameOver(GameState state) {
@@ -165,8 +166,12 @@ class _GameScreenState extends State<GameScreen> {
     _updateHandler = GameUpdateHandler(
       net: _net,
 
-      // 🔥 applique un état entrant (UI ou non)
+      // 🔥 applique un gameState entrant (UI ou non)
       applyIncomingState: (newState, {required bool updateUI}) async {
+        if (debug)
+          print(
+            "$logHeader(game_screen.applyIncomingState) ${identityHashCode(this)}",
+          );
         _applyGameState(newState);
         if (updateUI && mounted) setState(() {});
       },
@@ -601,6 +606,8 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _handleStarUsed() {
+    if (debug)
+      print("$logHeader(gameScreen._handleStarUsed) ${identityHashCode(this)}");
     final playerName = settings.localUserName;
     final isLeft = _gameState.leftName == playerName;
 
