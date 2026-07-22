@@ -217,5 +217,6 @@ Refonte mode web en polling
     Ajustements visuels
 3.5.2
     Correction perte highlight des lettersPlacedThisTurn
-    
+3.5.3
+    Amélioration des couleurs des bonus
     

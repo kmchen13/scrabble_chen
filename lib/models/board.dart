@@ -73,9 +73,8 @@ Widget buildScrabbleBoard({
   return LayoutBuilder(
     builder: (context, constraints) {
       final tileSize = _calculateTileSize(context);
-      final backgroundColor = const Color(
-        0xFF1A2A3A,
-      ); // Bleu nuit profond original
+      // Fond général plus foncé
+      final backgroundColor = const Color(0xFF0D1B2A); // Bleu nuit très foncé
       final spacing = tileSize * 0.04;
 
       return Container(
@@ -119,26 +118,14 @@ Widget buildScrabbleBoard({
                 final bonus = bonusMap[row][col];
                 final isPlacedThisTurn = cellLetterRecord != null;
 
-                // Couleur de base de la case selon le bonus (charte originale)
+                // Utiliser getColorForBonus pour la couleur de base
                 final baseColor = getColorForBonus(bonus);
 
-                // Couleur des octogones plus foncée
+                // Couleur des octogones - toujours la même opacité
                 final bgColor =
-                    cellLetter.isNotEmpty
-                        ? (bonus != BonusType.none
-                            ? baseColor.withOpacity(
-                              0.85,
-                            ) // Plus opaque pour les bonus
-                            : const Color(
-                              0xFF555555,
-                            )) // Plus clair pour cases occupées
-                        : (bonus != BonusType.none
-                            ? baseColor.withOpacity(
-                              0.35,
-                            ) // Bonus visibles mais atténués
-                            : const Color(
-                              0xFF3A3A3A,
-                            )); // Gris foncé pour cases vides
+                    bonus != BonusType.none
+                        ? baseColor.withOpacity(0.50)
+                        : const Color(0xFF4A4A4A);
 
                 bool isHovered = false;
 
@@ -197,11 +184,13 @@ Widget buildScrabbleBoard({
                                   isHovered
                                       ? Colors.white
                                       : (cellLetter.isNotEmpty
-                                          ? Colors
-                                              .grey
-                                              .shade500 // Bordure visible pour cases occupées
-                                          : Colors.grey.shade700),
-                              borderWidth: isHovered ? 3.0 : 1.2,
+                                          ? const Color(
+                                            0xFF9E9E9E,
+                                          ) // Gris plus clair pour cases occupées
+                                          : const Color(
+                                            0xFF757575,
+                                          )), // Gris moyen pour cases vides
+                              borderWidth: isHovered ? 3.0 : 1.5,
                             ),
                             child: Container(
                               alignment: Alignment.center,
@@ -238,8 +227,7 @@ Widget buildScrabbleBoard({
                                                   size: tileSize * 1.8,
                                                   highlight: isPlacedThisTurn,
                                                   isJoker: isJoker,
-                                                  isStarBonus:
-                                                      bonus == BonusType.star,
+                                                  bonusType: bonus,
                                                 ),
                                               ),
                                             ),
@@ -250,8 +238,7 @@ Widget buildScrabbleBoard({
                                                 size: tileSize * 0.9,
                                                 highlight: isPlacedThisTurn,
                                                 isJoker: isJoker,
-                                                isStarBonus:
-                                                    bonus == BonusType.star,
+                                                bonusType: bonus,
                                               ),
                                             ),
                                             child: _buildLetterTile(
@@ -259,16 +246,14 @@ Widget buildScrabbleBoard({
                                               size: tileSize * 0.9,
                                               highlight: isPlacedThisTurn,
                                               isJoker: isJoker,
-                                              isStarBonus:
-                                                  bonus == BonusType.star,
+                                              bonusType: bonus,
                                             ),
                                           )
                                           : _buildLetterTile(
                                             cellLetter,
                                             size: tileSize * 0.9,
                                             isJoker: isJoker,
-                                            isStarBonus:
-                                                bonus == BonusType.star,
+                                            bonusType: bonus,
                                           ))
                                       : Center(
                                         child: Text(
@@ -282,7 +267,9 @@ Widget buildScrabbleBoard({
                                                     ? Colors.white.withOpacity(
                                                       0.9,
                                                     )
-                                                    : Colors.grey.shade600,
+                                                    : Colors
+                                                        .grey
+                                                        .shade500, // Gris plus clair
                                             fontWeight: FontWeight.bold,
                                             fontFamily: 'Roboto',
                                             letterSpacing: 0.5,
@@ -325,38 +312,66 @@ Widget _buildLetterTile(
   required double size,
   bool highlight = false,
   bool isJoker = false,
-  bool isStarBonus = false,
+  BonusType? bonusType,
 }) {
   final point = isJoker ? 0 : (letterPoints[letter.toUpperCase()] ?? 0);
 
+  // Tuiles plus claires
   final tileColor =
       isJoker
-          ? Colors.grey.shade300
+          ? Colors.grey.shade200
           : (highlight
-              ? Colors
-                  .yellow
-                  .shade100 // Couleur de surbrillance plus visible
-              : Colors.white);
+              ? const Color(
+                0xFFFFD54F,
+              ) // Ambre clair pour les lettres placées ce tour
+              : const Color(
+                0xFFF5E6CA,
+              )); // Blanc cassé/beige pour les tuiles normales
+
+  // Lettres toujours gris très foncé
+  final letterColor = isJoker ? Colors.black54 : Colors.grey.shade900;
+
+  // Utiliser la même couleur que le fond des octogones vides
+  Color getBorderColor() {
+    if (bonusType == null || bonusType == BonusType.none) {
+      return Colors.black87;
+    }
+    // Même couleur que le fond des cases vides avec bonus
+    return getColorForBonus(bonusType).withOpacity(0.50);
+  }
+
+  // Largeur de bordure en fonction du bonus
+  double getBorderWidth() {
+    if (bonusType == null || bonusType == BonusType.none) {
+      return 1.5;
+    }
+    return 2.5; // Bordure plus épaisse pour les bonus (mais même couleur)
+  }
+
+  // Ombre portée pour les cases bonus
+  Color? getShadowColor() {
+    if (bonusType == null || bonusType == BonusType.none) {
+      return null;
+    }
+    return getColorForBonus(bonusType).withOpacity(0.3);
+  }
+
+  final bool showBonus = bonusType != null && bonusType != BonusType.none;
 
   return CustomPaint(
     painter: _LetterTilePainter(
       color: tileColor,
-      borderColor:
-          highlight
-              ? Colors.amber
-              : (isStarBonus ? const Color(0xFF00D2FF) : Colors.black87),
-      borderWidth: highlight ? 3.0 : (isStarBonus ? 2.5 : 1.5),
-      shadowColor:
-          highlight
-              ? Colors.amber
-              : (isStarBonus ? const Color(0xFF00D2FF).withOpacity(0.5) : null),
+      borderColor: getBorderColor(), // Même couleur que le fond des cases vides
+      borderWidth: getBorderWidth(),
+      shadowColor: getShadowColor(),
       letter: letter,
       letterSize: size * 0.75,
-      letterColor: isJoker ? Colors.black54 : Colors.black,
+      letterColor: letterColor,
       point: point,
       pointSize: size * 0.3,
-      showStar: isStarBonus,
-      starSize: size * 0.2,
+      showBonusIndicator: showBonus,
+      bonusLabel: showBonus ? bonusLabel(bonusType!) : null,
+      bonusColor: showBonus ? getColorForBonus(bonusType!) : null,
     ),
     child: SizedBox(width: size, height: size),
   );
@@ -415,8 +430,9 @@ class _LetterTilePainter extends CustomPainter {
   final Color letterColor;
   final int point;
   final double pointSize;
-  final bool showStar;
-  final double starSize;
+  final bool showBonusIndicator; // bool, pas bool?
+  final String? bonusLabel;
+  final Color? bonusColor;
 
   const _LetterTilePainter({
     required this.color,
@@ -428,13 +444,14 @@ class _LetterTilePainter extends CustomPainter {
     required this.letterColor,
     required this.point,
     required this.pointSize,
-    required this.showStar,
-    required this.starSize,
+    this.showBonusIndicator = false, // Valeur par défaut
+    this.bonusLabel,
+    this.bonusColor,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Ombre portée pour les cases étoile
+    // Ombre portée pour les cases bonus
     if (shadowColor != null) {
       final shadowPaint =
           Paint()
@@ -506,20 +523,24 @@ class _LetterTilePainter extends CustomPainter {
       canvas.restore();
     }
 
-    // Étoile pour les tuiles sur case Étoile (en haut à gauche)
-    if (showStar) {
-      const starPath = '⭐';
-      final starPainter = TextPainter(
+    // Indicateur de bonus (petit texte en haut à gauche)
+    if (showBonusIndicator && bonusLabel != null && bonusColor != null) {
+      final bonusTextPainter = TextPainter(
         text: TextSpan(
-          text: starPath,
-          style: TextStyle(fontSize: starSize, color: const Color(0xFF00D2FF)),
+          text: bonusLabel,
+          style: TextStyle(
+            fontSize: size.width * 0.22,
+            color: bonusColor,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Roboto',
+          ),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
 
       canvas.save();
-      canvas.translate(size.width * 0.05, size.height * 0.02);
-      starPainter.paint(canvas, Offset.zero);
+      canvas.translate(size.width * 0.06, size.height * 0.02);
+      bonusTextPainter.paint(canvas, Offset.zero);
       canvas.restore();
     }
   }
@@ -528,7 +549,12 @@ class _LetterTilePainter extends CustomPainter {
   bool shouldRepaint(covariant _LetterTilePainter oldDelegate) {
     return oldDelegate.color != color ||
         oldDelegate.borderColor != borderColor ||
+        oldDelegate.borderWidth != borderWidth ||
         oldDelegate.letter != letter ||
-        oldDelegate.point != point;
+        oldDelegate.letterColor != letterColor ||
+        oldDelegate.point != point ||
+        oldDelegate.showBonusIndicator != showBonusIndicator ||
+        oldDelegate.bonusLabel != bonusLabel ||
+        oldDelegate.bonusColor != bonusColor;
   }
 }
