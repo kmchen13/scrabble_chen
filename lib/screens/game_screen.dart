@@ -10,6 +10,7 @@ import 'package:scrabble_P2P/services/settings_service.dart';
 import 'package:scrabble_P2P/services/game_storage.dart';
 import 'package:scrabble_P2P/services/utility.dart';
 import 'package:scrabble_P2P/services/game_end.dart';
+import 'package:scrabble_P2P/services/turn_pass.dart';
 import 'package:scrabble_P2P/services/game_update.dart';
 import 'package:scrabble_P2P/services/dictionary.dart';
 import 'package:scrabble_P2P/services/dictionary_loader.dart';
@@ -658,6 +659,91 @@ class _GameScreenState extends State<GameScreen> {
     _updateHandler.applyIncomingState(_gameState, updateUI: true);
   }
 
+  /// 🔹 Gestion du passage de tour
+  void _handlePass() {
+    // Vérifier que c'est bien le tour du joueur
+    final localName = settings.localUserName;
+    final isCurrentTurn =
+        _gameState.isLeft
+            ? (_gameState.leftName == localName)
+            : (_gameState.rightName == localName);
+
+    if (!isCurrentTurn) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ce n\'est pas votre tour'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+      return;
+    }
+
+    // Ouvrir le dialogue de passage de tour
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return TurnPassDialog(
+          playerLetters: _playerLetters,
+          bag: _gameState.bag,
+          onPass: (newLetters) {
+            // ✅ Mettre à jour _playerLetters avec les nouvelles lettres
+            _playerLetters = List.from(newLetters);
+
+            // ✅ Créer une copie du GameState avec les modifications
+            GameState newState;
+            final playerName = settings.localUserName;
+            final isLeft = _gameState.leftName == playerName;
+
+            // Changer le tour (passer à l'autre joueur)
+            final newIsLeft = !_gameState.isLeft;
+
+            if (isLeft) {
+              newState = _gameState.copyWith(
+                leftLetters: _playerLetters,
+                lettersPlacedThisTurn: [],
+                isLeft: newIsLeft, // ✅ Changer le tour
+              );
+            } else {
+              newState = _gameState.copyWith(
+                rightLetters: _playerLetters,
+                lettersPlacedThisTurn: [],
+                isLeft: newIsLeft, // ✅ Changer le tour
+              );
+            }
+
+            // ✅ Remplacer l'ancien GameState par le nouveau
+            _gameState = newState;
+            _lettersPlacedThisTurn.clear();
+            _appBarTitle = defaultTitle;
+
+            // ✅ Sauvegarder
+            gameStorage.save(_gameState);
+
+            // ✅ Envoyer la mise à jour sur le réseau
+            widget.net.sendGameState(_gameState);
+
+            // ✅ Mettre à jour l'UI
+            setState(() {
+              // Forcer le rebuild avec le nouveau state
+            });
+
+            // ✅ Utiliser applyIncomingState pour forcer le rebuild
+            _updateHandler.applyIncomingState(_gameState, updateUI: true);
+
+            // ✅ Afficher un feedback
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Tour passé avec succès'),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   void dispose() {
     _net.onError = null;
@@ -902,6 +988,20 @@ class _GameScreenState extends State<GameScreen> {
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               splashRadius: 18,
+            ),
+
+            // ⭐ NOUVEAU : Bouton Passer son tour
+            Tooltip(
+              message: 'Passer son tour',
+              preferBelow: false,
+              child: IconButton(
+                icon: Icon(Icons.skip_next, size: iconSize),
+                color: isCurrentTurn ? Colors.white : Colors.grey.shade600,
+                onPressed: isCurrentTurn ? _handlePass : null,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                splashRadius: 18,
+              ),
             ),
 
             // Bouton Envoyer

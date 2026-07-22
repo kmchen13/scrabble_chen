@@ -20,75 +20,75 @@ enum BonusType {
 const List<List<BonusType>> bonusMap = [
   //    A  B  C  D  E  F  G  H  I  J  K  L  M  N  O
   [
-    BonusType.none, // A1
+    BonusType.star, // A1
     BonusType.none, // B1
-    BonusType.star, // C1
+    BonusType.doubleLetter, // C1
     BonusType.none, // D1
-    BonusType.none, // E1
-    BonusType.doubleWord, // F1
+    BonusType.tripleLetter, // E1
+    BonusType.none, // F1
     BonusType.none, // G1
     BonusType.none, // H1
     BonusType.none, // I1
-    BonusType.doubleWord, // J1
-    BonusType.none, // K1
+    BonusType.none, // J1
+    BonusType.tripleLetter, // K1
     BonusType.none, // L1
-    BonusType.star, // M1
+    BonusType.doubleLetter, // M1
     BonusType.none, // N1
-    BonusType.none, // O1
+    BonusType.star, // O1
   ],
   [
     BonusType.none, // A2
-    BonusType.doubleLetter, // B2
+    BonusType.tripleWord, // B2
     BonusType.none, // C2
     BonusType.none, // D2
     BonusType.none, // E2
-    BonusType.none, // F2
-    BonusType.tripleLetter, // G2
+    BonusType.doubleLetter, // F2
+    BonusType.none, // G2
     BonusType.none, // H2
-    BonusType.tripleLetter, // I2
-    BonusType.none, // J2
+    BonusType.none, // I2
+    BonusType.doubleLetter, // J2
     BonusType.none, // K2
     BonusType.none, // L2
     BonusType.none, // M2
-    BonusType.doubleLetter, // N2
+    BonusType.tripleWord, // N2
     BonusType.none, // O2
   ],
   [
-    BonusType.star, // A3
+    BonusType.doubleLetter, // A3
     BonusType.none, // B3
-    BonusType.tripleLetter, // C3
+    BonusType.doubleWord, // C3
     BonusType.none, // D3
     BonusType.none, // E3
     BonusType.none, // F3
-    BonusType.none, // G3
-    BonusType.tripleWord, // H3
-    BonusType.none, // I3
+    BonusType.tripleLetter, // G3
+    BonusType.none, // H3
+    BonusType.tripleLetter, // I3
     BonusType.none, // J3
     BonusType.none, // K3
     BonusType.none, // L3
-    BonusType.tripleLetter, // M3
+    BonusType.doubleWord, // M3
     BonusType.none, // N3
-    BonusType.star, // O3
+    BonusType.doubleLetter, // O3
   ],
   [
     BonusType.none, // A4
     BonusType.none, // B4
     BonusType.none, // C4
-    BonusType.doubleLetter, // D4
+    BonusType.tripleWord, // D4
     BonusType.none, // E4
     BonusType.none, // F4
     BonusType.none, // G4
-    BonusType.none, // H4
+    BonusType.doubleLetter, // H4
     BonusType.none, // I4
     BonusType.none, // J4
     BonusType.none, // K4
-    BonusType.doubleLetter, // L4
+    BonusType.tripleWord, // L4
     BonusType.none, // M4
     BonusType.none, // N4
     BonusType.none, // O4
   ],
   [
-    BonusType.none, // A5
+    BonusType.tripleLetter, // A5
     BonusType.none, // B5
     BonusType.none, // C5
     BonusType.none, // D5
@@ -102,11 +102,11 @@ const List<List<BonusType>> bonusMap = [
     BonusType.none, // L5
     BonusType.none, // M5
     BonusType.none, // N5
-    BonusType.none, // O5
+    BonusType.tripleLetter, // O5
   ],
   [
-    BonusType.doubleWord, // A6
-    BonusType.none, // B6
+    BonusType.none, // A6
+    BonusType.doubleLetter, // B6
     BonusType.none, // C6
     BonusType.none, // D6
     BonusType.none, // E6
@@ -118,63 +118,63 @@ const List<List<BonusType>> bonusMap = [
     BonusType.none, // K6
     BonusType.none, // L6
     BonusType.none, // M6
-    BonusType.none, // N6
-    BonusType.doubleWord, // O6
+    BonusType.doubleLetter, // N6
+    BonusType.none, // O6
   ],
   [
     BonusType.none, // A7
-    BonusType.tripleLetter, // B7
-    BonusType.none, // C7
+    BonusType.none, // B7
+    BonusType.tripleLetter, // C7
     BonusType.none, // D7
     BonusType.none, // E7
     BonusType.none, // F7
-    BonusType.doubleLetter, // G7
+    BonusType.tripleLetter, // G7
     BonusType.none, // H7
-    BonusType.doubleLetter, // I7
+    BonusType.tripleLetter, // I7
     BonusType.none, // J7
     BonusType.none, // K7
     BonusType.none, // L7
-    BonusType.none, // M7
-    BonusType.tripleLetter, // N7
+    BonusType.tripleLetter, // M7
+    BonusType.none, // N7
     BonusType.none, // O7
   ],
   [
     BonusType.none, // A8
     BonusType.none, // B8
-    BonusType.tripleWord, // C8
-    BonusType.none, // D8
+    BonusType.none, // C8
+    BonusType.doubleLetter, // D8
     BonusType.none, // E8
     BonusType.none, // F8
     BonusType.none, // G8
-    BonusType.none, // H8 (case centrale - standard)
+    BonusType.none, // H8
     BonusType.none, // I8
     BonusType.none, // J8
     BonusType.none, // K8
-    BonusType.none, // L8
-    BonusType.tripleWord, // M8
+    BonusType.doubleLetter, // L8
+    BonusType.none, // M8
     BonusType.none, // N8
     BonusType.none, // O8
   ],
   [
     BonusType.none, // A9
-    BonusType.tripleLetter, // B9
-    BonusType.none, // C9
+    BonusType.none, // B9
+    BonusType.tripleLetter, // C9
     BonusType.none, // D9
     BonusType.none, // E9
     BonusType.none, // F9
-    BonusType.doubleLetter, // G9
+    BonusType.tripleLetter, // G9
     BonusType.none, // H9
-    BonusType.doubleLetter, // I9
+    BonusType.tripleLetter, // I9
     BonusType.none, // J9
     BonusType.none, // K9
     BonusType.none, // L9
-    BonusType.none, // M9
-    BonusType.tripleLetter, // N9
+    BonusType.tripleLetter, // M9
+    BonusType.none, // N9
     BonusType.none, // O9
   ],
   [
-    BonusType.doubleWord, // A10
-    BonusType.none, // B10
+    BonusType.none, // A10
+    BonusType.doubleLetter, // B10
     BonusType.none, // C10
     BonusType.none, // D10
     BonusType.none, // E10
@@ -186,11 +186,11 @@ const List<List<BonusType>> bonusMap = [
     BonusType.none, // K10
     BonusType.none, // L10
     BonusType.none, // M10
-    BonusType.none, // N10
-    BonusType.doubleWord, // O10
+    BonusType.doubleLetter, // N10
+    BonusType.none, // O10
   ],
   [
-    BonusType.none, // A11
+    BonusType.tripleLetter, // A11
     BonusType.none, // B11
     BonusType.none, // C11
     BonusType.none, // D11
@@ -204,75 +204,75 @@ const List<List<BonusType>> bonusMap = [
     BonusType.none, // L11
     BonusType.none, // M11
     BonusType.none, // N11
-    BonusType.none, // O11
+    BonusType.tripleLetter, // O11
   ],
   [
     BonusType.none, // A12
     BonusType.none, // B12
     BonusType.none, // C12
-    BonusType.doubleLetter, // D12
+    BonusType.tripleWord, // D12
     BonusType.none, // E12
     BonusType.none, // F12
     BonusType.none, // G12
-    BonusType.none, // H12
+    BonusType.doubleLetter, // H12
     BonusType.none, // I12
     BonusType.none, // J12
     BonusType.none, // K12
-    BonusType.doubleLetter, // L12
+    BonusType.tripleWord, // L12
     BonusType.none, // M12
     BonusType.none, // N12
     BonusType.none, // O12
   ],
   [
-    BonusType.star, // A13
+    BonusType.doubleLetter, // A13
     BonusType.none, // B13
-    BonusType.tripleLetter, // C13
+    BonusType.doubleWord, // C13
     BonusType.none, // D13
     BonusType.none, // E13
     BonusType.none, // F13
-    BonusType.none, // G13
-    BonusType.tripleWord, // H13
-    BonusType.none, // I13
+    BonusType.tripleLetter, // G13
+    BonusType.none, // H13
+    BonusType.tripleLetter, // I13
     BonusType.none, // J13
     BonusType.none, // K13
     BonusType.none, // L13
-    BonusType.tripleLetter, // M13
+    BonusType.doubleWord, // M13
     BonusType.none, // N13
-    BonusType.star, // O13
+    BonusType.doubleLetter, // O13
   ],
   [
     BonusType.none, // A14
-    BonusType.doubleLetter, // B14
+    BonusType.tripleWord, // B14
     BonusType.none, // C14
     BonusType.none, // D14
     BonusType.none, // E14
-    BonusType.none, // F14
-    BonusType.tripleLetter, // G14
+    BonusType.doubleLetter, // F14
+    BonusType.none, // G14
     BonusType.none, // H14
-    BonusType.tripleLetter, // I14
-    BonusType.none, // J14
+    BonusType.none, // I14
+    BonusType.doubleLetter, // J14
     BonusType.none, // K14
     BonusType.none, // L14
     BonusType.none, // M14
-    BonusType.doubleLetter, // N14
+    BonusType.tripleWord, // N14
     BonusType.none, // O14
   ],
   [
-    BonusType.none, // A15
+    BonusType.star, // A15
     BonusType.none, // B15
-    BonusType.star, // C15
+    BonusType.doubleLetter, // C15
     BonusType.none, // D15
-    BonusType.none, // E15
-    BonusType.doubleWord, // F15
+    BonusType.tripleLetter, // E15
+    BonusType.none, // F15
     BonusType.none, // G15
     BonusType.none, // H15
     BonusType.none, // I15
-    BonusType.doubleWord, // J15
-    BonusType.none, // K15
+    BonusType.none, // J15
+    BonusType.tripleLetter, // K15
     BonusType.none, // L15
-    BonusType.star, // M15
+    BonusType.doubleLetter, // M15
     BonusType.none, // N15
-    BonusType.none, // O15
+    BonusType.star, // O15
   ],
 ];
 

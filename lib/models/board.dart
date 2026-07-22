@@ -522,27 +522,6 @@ class _LetterTilePainter extends CustomPainter {
       pointPainter.paint(canvas, Offset.zero);
       canvas.restore();
     }
-
-    // Indicateur de bonus (petit texte en haut à gauche)
-    if (showBonusIndicator && bonusLabel != null && bonusColor != null) {
-      final bonusTextPainter = TextPainter(
-        text: TextSpan(
-          text: bonusLabel,
-          style: TextStyle(
-            fontSize: size.width * 0.22,
-            color: bonusColor,
-            fontWeight: FontWeight.bold,
-            fontFamily: 'Roboto',
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-
-      canvas.save();
-      canvas.translate(size.width * 0.06, size.height * 0.02);
-      bonusTextPainter.paint(canvas, Offset.zero);
-      canvas.restore();
-    }
   }
 
   @override

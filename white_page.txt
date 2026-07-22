@@ -31,3 +31,27 @@ si D et gagne: startPolling
 SCENARIES
 G finit: sendGameOver, startpolling - D onGameOverReceived: joue, sendGameOver, popup, rematch - G ongameOverReceived: popup, rematch
 D finit: popup, sendGameOver - G onGameOverReceived: popup, rematch
+
+
+DISTRIBUTION DES BONUS
+______________________
+
+Légende :
+• = case standard (bois)
+V = Vert (Lettre ×2)
+O = Or (Lettre ×3)
+R = Rouge (Mot ×2)
+P = Violet (Mot ×3)
+C = Cyan (Étoile - nouvelle case bonus)
+
+    A  B  C  D  E  F  G  H  I  J  K  L  M  N  O
+  ┌──────────────────────────────────────────────┐
+ 1│ C  •  V  •  O  *  •  • 
+ 2│ •  P  •  •  •  V  *  * 
+ 3│ V  •  R  •  •  •  O  * 
+ 4│ •  •  •  P  •  •  •  V
+ 5│ O  •  •  •  R  •  •  *
+ 6│ *  V  •  •  •  C  •  • 
+ 7│ •  *  O  •  •  •  O  •
+ 8│ •  *  *  V  *  •  •  • 
+ 
