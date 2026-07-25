@@ -223,3 +223,8 @@ Refonte mode web en polling
     Modification duplacement des bonus
 3.6.0
     Ajout passage de tour
+3.6.1
+    Correction passage de tour sans aucune lettre changée
+3.7.0
+    Affichage des parties non lues en vert
+    homeScreen ne navigue plus vers gameScreen sur onGameScreeReceived mais réaffiche les savedGames

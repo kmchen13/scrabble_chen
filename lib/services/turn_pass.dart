@@ -60,36 +60,40 @@ class _TurnPassDialogState extends State<TurnPassDialog> {
   }
 
   void _handlePass() {
-    // Récupérer les lettres à retirer avec leurs indices
-    final lettersToRemove = <String>[];
-    final indicesToRemove = <int>[];
+    // Si des lettres sont sélectionnées, les changer
+    if (_lettersToRemove.isNotEmpty) {
+      // Récupérer les lettres à retirer avec leurs indices
+      final lettersToRemove = <String>[];
+      final indicesToRemove = <int>[];
 
-    for (final key in _lettersToRemove) {
-      final parts = key.split('-');
-      lettersToRemove.add(parts[0]);
-      indicesToRemove.add(int.parse(parts[1]));
+      for (final key in _lettersToRemove) {
+        final parts = key.split('-');
+        lettersToRemove.add(parts[0]);
+        indicesToRemove.add(int.parse(parts[1]));
+      }
+
+      // Trier les indices en ordre décroissant pour supprimer sans problème
+      indicesToRemove.sort((a, b) => b.compareTo(a));
+
+      // Supprimer les lettres du rack
+      for (final index in indicesToRemove) {
+        _playerLetters.removeAt(index);
+      }
+
+      // Tirer de nouvelles lettres du sac
+      final newLetters = widget.bag.drawLetters(lettersToRemove.length);
+
+      // Ajouter les nouvelles lettres au rack
+      _playerLetters.addAll(newLetters);
+
+      // Remettre les lettres retirées dans le sac
+      for (final letter in lettersToRemove) {
+        widget.bag.addLetter(letter);
+      }
     }
+    // Si aucune lettre sélectionnée, on passe juste le tour sans changer les lettres
 
-    // Trier les indices en ordre décroissant pour supprimer sans problème
-    indicesToRemove.sort((a, b) => b.compareTo(a));
-
-    // Supprimer les lettres du rack
-    for (final index in indicesToRemove) {
-      _playerLetters.removeAt(index);
-    }
-
-    // Tirer de nouvelles lettres du sac
-    final newLetters = widget.bag.drawLetters(lettersToRemove.length);
-
-    // Ajouter les nouvelles lettres au rack
-    _playerLetters.addAll(newLetters);
-
-    // Remettre les lettres retirées dans le sac
-    for (final letter in lettersToRemove) {
-      widget.bag.addLetter(letter);
-    }
-
-    // Fermer le dialogue et retourner les nouvelles lettres
+    // Fermer le dialogue et retourner les lettres (inchangées ou modifiées)
     Navigator.of(context).pop();
     widget.onPass(_playerLetters);
   }
@@ -117,7 +121,7 @@ class _TurnPassDialogState extends State<TurnPassDialog> {
             ),
             const SizedBox(height: 10),
             Text(
-              'Cliquez sur les lettres que vous souhaitez changer',
+              'Cliquez sur les lettres que vous souhaitez changer, puis sur "Passer" pour valider. Si aucune lettre n\'est sélectionnée, vous passerez simplement votre tour.',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
             ),
@@ -209,7 +213,7 @@ class _TurnPassDialogState extends State<TurnPassDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                // Bouton Annuler
+                // Bouton Annuler / Fermer
                 Expanded(
                   child: OutlinedButton(
                     onPressed: _handleCancel,
@@ -228,10 +232,10 @@ class _TurnPassDialogState extends State<TurnPassDialog> {
                 ),
                 const SizedBox(width: 10),
 
-                // Bouton Passer
+                // Bouton Passer - Toujours actif
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: _lettersToRemove.isEmpty ? null : _handlePass,
+                    onPressed: _handlePass, // ✅ Toujours actif
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF1A2A3A),
                       padding: const EdgeInsets.symmetric(vertical: 12),

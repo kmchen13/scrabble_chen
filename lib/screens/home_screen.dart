@@ -6,6 +6,7 @@ import 'package:scrabble_P2P/services/settings_service.dart';
 import 'package:scrabble_P2P/services/app_log.dart';
 import 'package:scrabble_P2P/services/game_initializer.dart';
 import 'package:scrabble_P2P/models/game_state.dart';
+import 'package:scrabble_P2P/services/utility.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:scrabble_P2P/network/scrabble_net.dart';
 import '../constants.dart';
@@ -42,144 +43,6 @@ class _HomeScreenState extends State<HomeScreen>
     if (_route is PageRoute) {
       routeObserver.subscribe(this, _route as PageRoute);
     }
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    if (_route is PageRoute) {
-      routeObserver.unsubscribe(this);
-    }
-    _net.onStatusUpdate = null;
-    _net.onMatched = null;
-    super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      print('[HomeScreen] App resumed, refreshing data...');
-      if (!_loading) {
-        _refreshData();
-      }
-    }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-
-    WidgetsBinding.instance.addObserver(this);
-
-    _navigated = false;
-    _bufferedGameState = null;
-
-    // ✅ Écouter les mises à jour de statut
-    _net.onStatusUpdate = (msg) {
-      if (mounted) {
-        print('[HomeScreen] Status: $msg');
-        setState(() {
-          _searchStatus = msg;
-        });
-      }
-    };
-
-    // ✅ Écouter le match avec un partenaire
-    _net.onMatched = _handleMatched;
-
-    // ✅ Écouter les GameState entrants
-    _net.onGameStateReceived = (GameState gameState) {
-      if (!mounted) return;
-
-      print(
-        '[HomeScreen] GameState reçu de ${gameState.partnerFrom(settings.localUserName)}',
-      );
-
-      if (_navigated) {
-        _bufferedGameState = gameState;
-        return;
-      }
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder:
-                (_) => GameScreen(
-                  net: _net,
-                  gameState: gameState,
-                  onGameStateUpdated: (gs) => _net.sendGameState(gs),
-                ),
-          ),
-        );
-      });
-    };
-
-    // ✅ Écouter la fin de partie (GameOver)
-    _net.onGameOverReceived = (GameState gameState) {
-      if (!mounted) return;
-
-      print(
-        '[HomeScreen] GameOver reçu de ${gameState.partnerFrom(settings.localUserName)}',
-      );
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              "Partie terminée ! ${gameState.partnerFrom(settings.localUserName)} a terminé la partie.",
-            ),
-            backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-
-        final partner = gameState.partnerFrom(settings.localUserName);
-        gameStorage.delete(partner).then((_) {
-          if (mounted) {
-            setState(() {
-              _savedGames.remove(partner);
-            });
-          }
-        });
-      });
-    };
-
-    // ✅ Écouter l'abandon de partie (Quit)
-    _net.onGameQuitReceived = (String partner) {
-      if (!mounted) return;
-
-      print('[HomeScreen] Quit reçu de $partner');
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("$partner a abandonné la partie"),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-
-        gameStorage.delete(partner).then((_) {
-          if (mounted) {
-            setState(() {
-              _savedGames.remove(partner);
-            });
-          }
-        });
-      });
-    };
-
-    // ⚡ Chargement initial
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _initializeData();
-    });
   }
 
   // 📦 Chargement initial complet
@@ -263,6 +126,129 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    if (_route is PageRoute) {
+      routeObserver.unsubscribe(this);
+    }
+    _net.onStatusUpdate = null;
+    _net.onMatched = null;
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      print('[HomeScreen] App resumed, refreshing data...');
+      if (!_loading) {
+        _refreshData();
+      }
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    WidgetsBinding.instance.addObserver(this);
+
+    _navigated = false;
+    _bufferedGameState = null;
+
+    // ✅ Écouter les mises à jour de statut
+    _net.onStatusUpdate = (msg) {
+      if (mounted) {
+        print('[HomeScreen] Status: $msg');
+        setState(() {
+          _searchStatus = msg;
+        });
+      }
+    };
+
+    // ✅ Écouter le match avec un partenaire
+    _net.onMatched = _handleMatched;
+
+    // ✅ Écouter les GameState entrants
+    _net.onGameStateReceived = (GameState gameState) {
+      if (debug) {
+        print(
+          '$logHeader(HomeScreen.onGameStateReceived) GameState reçu de ${gameState.partnerFrom(settings.localUserName)}',
+        );
+      }
+      if (!mounted) return;
+
+      // 🔥 Rafraîchir simplement la liste des parties sauvegardées
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _refreshSavedGames();
+      });
+    };
+
+    // ✅ Écouter la fin de partie (GameOver)
+    _net.onGameOverReceived = (GameState gameState) {
+      if (!mounted) return;
+
+      print(
+        '[HomeScreen] GameOver reçu de ${gameState.partnerFrom(settings.localUserName)}',
+      );
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Partie terminée ! ${gameState.partnerFrom(settings.localUserName)} a terminé la partie.",
+            ),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+
+        final partner = gameState.partnerFrom(settings.localUserName);
+        gameStorage.delete(partner).then((_) {
+          if (mounted) {
+            setState(() {
+              _savedGames.remove(partner);
+            });
+          }
+        });
+      });
+    };
+
+    // ✅ Écouter l'abandon de partie (Quit)
+    _net.onGameQuitReceived = (String partner) {
+      if (!mounted) return;
+
+      print('[HomeScreen] Quit reçu de $partner');
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("$partner a abandonné la partie"),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+
+        gameStorage.delete(partner).then((_) {
+          if (mounted) {
+            setState(() {
+              _savedGames.remove(partner);
+            });
+          }
+        });
+      });
+    }; //Aucun ackGameQuit. Donc si on reçoit un GameQuit alors que le widget n'est plus monté, on perd le gameQuit.
+    // ⚡ Chargement initial
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _initializeData();
+    });
+  }
+
   // ✅ Gestion du match
   void _handleMatched({
     required String leftName,
@@ -280,7 +266,8 @@ class _HomeScreenState extends State<HomeScreen>
       "DEBUG onMatched triggered: local=$localName, left=$leftName, right=$rightName, _navigated=$_navigated",
     );
 
-    if (_navigated) return;
+    if (_navigated)
+      return; //erreur: on peut avoir navigué vers gameScreen et recevoir un match pour une autre partie
     _navigated = true;
 
     // ✅ Cacher le SnackBar de recherche
@@ -533,67 +520,107 @@ class _HomeScreenState extends State<HomeScreen>
               // ✅ Liste des parties sauvegardées
               if (_savedGames.isNotEmpty) ...[
                 const Text("Reprendre une partie :"),
-                for (final partner in _savedGames)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            final saved = await gameStorage.load(partner);
-                            if (saved == null) return;
+                const SizedBox(height: 8),
 
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder:
-                                    (_) => GameScreen(
-                                      net: _net,
-                                      gameState: saved,
-                                      onGameStateUpdated: (saved) {
-                                        _net.sendGameState(saved);
-                                      },
+                for (final ids in _savedGames)
+                  Builder(
+                    builder: (context) {
+                      final bool newGame = ids.endsWith('*');
+                      final String partner =
+                          newGame ? ids.substring(0, ids.length - 1) : ids;
+
+                      return Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton(
+                                  onPressed: () async {
+                                    final saved = await gameStorage.load(
+                                      partner,
+                                    );
+                                    if (saved == null) return;
+
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder:
+                                            (_) => GameScreen(
+                                              net: _net,
+                                              gameState: saved,
+                                              onGameStateUpdated: (gs) {
+                                                _net.sendGameState(gs);
+                                              },
+                                            ),
+                                      ),
+                                    );
+
+                                    WidgetsBinding.instance
+                                        .addPostFrameCallback((_) {
+                                          if (saved.isMyTurn(myName)) {
+                                            _net.onGameStateReceived?.call(
+                                              saved,
+                                            );
+                                          } else {
+                                            _net.startPolling(myName);
+                                          }
+                                        });
+                                  },
+                                  child: Text(
+                                    "Partie avec $partner",
+                                    style: TextStyle(
+                                      color: newGame ? Colors.green : null,
+                                      fontWeight:
+                                          newGame
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
                                     ),
-                              ),
-                            );
-
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (saved.isMyTurn(myName)) {
-                                _net.onGameStateReceived?.call(saved);
-                              } else {
-                                _net.startPolling(myName);
-                              }
-                            });
-                          },
-                          child: Text("Partie avec $partner"),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () async {
-                          await gameStorage.delete(partner);
-                          _net.sendGameQuit(myName, partner);
-                          setState(() {
-                            _savedGames.remove(partner);
-                          });
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.refresh, color: Colors.blue),
-                        onPressed: () async {
-                          final saved = await gameStorage.load(partner);
-                          if (saved != null) {
-                            _net.sendGameState(saved);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  "Partie renvoyée au partenaire !",
+                                  ),
                                 ),
                               ),
-                            );
-                          }
-                        },
-                      ),
-                    ],
+
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete,
+                                  color: Colors.red,
+                                ),
+                                onPressed: () async {
+                                  await gameStorage.delete(partner);
+                                  _net.sendGameQuit(myName, partner);
+
+                                  setState(() {
+                                    _savedGames.remove(ids);
+                                  });
+                                },
+                              ),
+
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.refresh,
+                                  color: Colors.blue,
+                                ),
+                                onPressed: () async {
+                                  final saved = await gameStorage.load(partner);
+
+                                  if (saved != null) {
+                                    _net.sendGameState(saved);
+
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          "Partie renvoyée au partenaire !",
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                      );
+                    },
                   ),
               ],
 

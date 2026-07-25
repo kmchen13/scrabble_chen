@@ -64,13 +64,18 @@ class GameStorage {
   Future<void> save(GameState gameState) async {
     if (_box == null) throw Exception("GameStorage not initialized");
     try {
-      final key = buildKey(gameState.partnerFrom(settings.localUserName));
-      await _box!.put(key, gameState.toMap());
+      final partner = gameState.partnerFrom(settings.localUserName);
+      final key = buildKey(partner);
+
+      // 🔥 Ajouter un "*" pour marquer que c'est un nouveau save
+      final markedKey = "$key*";
+
+      await _box!.put(markedKey, gameState.toMap());
       await _box!.flush();
-      // await gameStorage.debugDump();
+
       if (debug) {
         print(
-          "${logHeader('GameStorage')} game.hash(${gameState.hashCode} sauvegardé sous $key",
+          "${logHeader('GameStorage')} game.hash(${gameState.hashCode} sauvegardé sous $markedKey",
         );
       }
     } catch (e) {
@@ -79,20 +84,60 @@ class GameStorage {
   }
 
   Future<GameState?> load(String partner) async {
-    // await gameStorage.debugDump();
-    if (partner.isEmpty) return null; // safeguard
+    if (partner.isEmpty) return null;
     if (_box == null) throw Exception("GameStorage not initialized");
     try {
-      final key = GameStorage.buildKey(partner);
-      final data = _box!.get(key);
-      if (data == null) return null;
-      if (data is! Map) {
-        print("${logHeader('GameStorage')} Donnée invalide pour $key");
+      final key = buildKey(partner);
+
+      // 🔥 Essayer d'abord avec "*" (nouveau save)
+      String? actualKey;
+      Map? data;
+
+      // Vérifier si la clé avec "*" existe
+      if (_box!.containsKey("$key*")) {
+        actualKey = "$key*";
+        data = _box!.get(actualKey);
+        if (debug) {
+          print("${logHeader('GameStorage')} chargé depuis clé marquée (*)");
+        }
+      }
+      // Sinon utiliser la clé normale
+      else if (_box!.containsKey(key)) {
+        actualKey = key;
+        data = _box!.get(actualKey);
+        if (debug) {
+          print("${logHeader('GameStorage')} chargé depuis clé normale");
+        }
+      } else {
         return null;
       }
+
+      if (data == null) return null;
+      if (data is! Map) {
+        print("${logHeader('GameStorage')} Donnée invalide pour $actualKey");
+        return null;
+      }
+
       final map = deepCastMap(data);
       final gameState = GameState.fromMap(map);
-      if (debug) print("${logHeader('GameStorage')} restauré sous $key");
+
+      // 🔥 Après chargement, supprimer le "*" s'il existe
+      if (actualKey?.endsWith("*") == true) {
+        // Option 1: Supprimer la clé marquée et sauvegarder sans "*"
+        await _box!.delete(actualKey!);
+        await _box!.put(key, map);
+        await _box!.flush();
+
+        if (debug) {
+          print(
+            "${logHeader('GameStorage')} clé marquée transformée en clé normale",
+          );
+        }
+      }
+
+      if (debug) {
+        print("${logHeader('GameStorage')} restauré sous $key");
+      }
       return gameState;
     } catch (e) {
       print("${logHeader('GameStorage')} Erreur load: $e");
@@ -111,7 +156,7 @@ class GameStorage {
     }
   }
 
-  /// Retourne la liste des partner sauvegardés
+  /// Retourne la liste des clés complètes (avec "*" si présent)
   Future<List<String>> listSavedGames() async {
     if (_box == null) throw Exception("GameStorage not initialized");
     try {
@@ -120,7 +165,11 @@ class GameStorage {
               .whereType<String>()
               .where((k) => k.startsWith("game_"))
               .toList();
-      return keys.map((k) => k.substring(5)).toList(); // retire "game_"
+
+      // 🔥 Retourner les clés telles quelles (avec "*" si présent)
+      return keys
+          .map((k) => k.substring(5))
+          .toList(); // retire "game_" mais garde "*"
     } catch (e) {
       print("${logHeader('GameStorage')} Erreur listSavedGames: $e");
       return [];

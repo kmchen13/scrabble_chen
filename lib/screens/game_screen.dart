@@ -71,6 +71,7 @@ class _GameScreenState extends State<GameScreen> {
   ({List<String> words, int totalScore, int totalStarsUsed})? _cachedTurnResult;
   bool _cachedTurnValid = false;
   final AdMobManager _adMobManager = AdMobManager();
+  final localName = settings.localUserName;
 
   void _applyGameState(GameState newState) {
     if (debug) {
@@ -82,7 +83,6 @@ class _GameScreenState extends State<GameScreen> {
     // 🔥 REMPLACEMENT COMPLET (clé du bug)
     _gameState = newState;
 
-    final localName = settings.localUserName;
     _board = _gameState.board.map((row) => List<String>.from(row)).toList();
 
     _playerLetters = _gameState.localRack(localName);
@@ -662,7 +662,6 @@ class _GameScreenState extends State<GameScreen> {
   /// 🔹 Gestion du passage de tour
   void _handlePass() {
     // Vérifier que c'est bien le tour du joueur
-    final localName = settings.localUserName;
     final isCurrentTurn =
         _gameState.isLeft
             ? (_gameState.leftName == localName)
@@ -753,7 +752,6 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final localName = settings.localUserName;
     final isCurrentTurn =
         _gameState.isLeft
             ? (_gameState.leftName == localName)

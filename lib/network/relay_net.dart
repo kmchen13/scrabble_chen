@@ -109,13 +109,6 @@ class RelayNet implements ScrabbleNet {
     required String expectedName,
     required int startTime,
   }) async {
-    // if (_isConnected) {
-    //   if (debug)
-    //     print(
-    //       "${logHeader("relayNet")} Déjà connecté, nouvelle tentative de connexion ignorée",
-    //     );
-    //   return;
-    // }
     onStatusUpdate?.call("Connexion au serveur relai $_relayServerUrl...");
     try {
       final res = await http.post(

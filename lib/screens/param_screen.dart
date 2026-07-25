@@ -71,12 +71,39 @@ class _ParamScreenState extends State<ParamScreen> {
       );
       return;
     }
+
+    // Déterminer l'IP en fonction du mode de communication
+    String localIP;
+    if (_communicationMode == 'web') {
+      // Récupérer l'IP globale sur le réseau WAN
+      try {
+        final client = http.Client();
+        final ipResponse = await client
+            .get(Uri.parse('https://api.ipify.org?format=text'))
+            .timeout(Duration(seconds: 5)); // timeout sur la requête
+        localIP = ipResponse.body.trim();
+        client.close();
+      } catch (e) {
+        // Fallback sur l'IP actuelle si la récupération échoue
+        localIP =
+            _localIPController.text.isNotEmpty
+                ? _localIPController.text
+                : '0.0.0.0';
+      }
+    } else {
+      // Mode local : utiliser l'adresse IP locale
+      localIP =
+          _localIPController.text.isNotEmpty
+              ? _localIPController.text
+              : '127.0.0.1';
+    }
+
     settings = UserSettings(
       localUserName: _nameController.text,
       language: settings.language,
       communicationMode: _communicationMode ?? 'local',
       soundEnabled: _soundEnabled,
-      localIP: _localIPController.text,
+      localIP: localIP,
       localPort: int.tryParse(_localPortController.text) ?? 4567,
       udpPort: int.tryParse(_udpPortController.text) ?? 4560,
       expectedUserName: '',

@@ -23,9 +23,9 @@ class GameUpdateHandler {
 
   final GameStateCallback? onBackgroundMove;
   final GameStateCallback? onGameOver;
+  final GameStateCallback? onRematch;
   final StringCallback? onError;
   final VoidCallback? onFlushPending;
-  final GameStateCallback? onRematch;
 
   GameUpdateHandler({
     required this.net,
@@ -55,7 +55,8 @@ class GameUpdateHandler {
         '$logHeader(GameUpdateHandler) attach onGameStateReceived, onGameOverReceived, onError',
       );
     }
-    // GAMESTATE
+
+    /// GAMESTATE
     net.onGameStateReceived = (incoming) async {
       final mounted = isMounted();
       final currentGame = getCurrentGame();
@@ -76,16 +77,15 @@ class GameUpdateHandler {
             onFlushPending?.call();
           }
         });
-        return;
+      } else {
+        // autre partie sauvegardée
+        await gameStorage.save(incoming);
+        onBackgroundMove?.call(incoming);
+        net.startPolling(settings.localUserName);
       }
-
-      // autre partie sauvegardée
-      await gameStorage.save(incoming);
-      onBackgroundMove?.call(incoming);
-      net.startPolling(settings.localUserName);
     };
 
-    // GAMEOVER
+    /// GAMEOVER
     net.onGameOverReceived = (finalState) async {
       if (!isMounted()) return;
 
@@ -118,19 +118,14 @@ class GameUpdateHandler {
       }
     };
 
-    // =================================================
-    // ERREUR
-    // =================================================
+    /// Error
     net.onError = (message) {
       if (!isMounted()) return;
 
       onError?.call(message);
     };
 
-    // =================================================
-    // flush initial
-    // =================================================
-
+    /// flush initial
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (isMounted()) {
         onFlushPending?.call();
