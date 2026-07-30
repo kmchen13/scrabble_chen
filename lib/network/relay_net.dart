@@ -22,12 +22,10 @@ class _GameStateDispatcher {
     GameState state,
     void Function(GameState)? callback,
   ) async {
-    // 🔴 PERSISTANCE IMMÉDIATE (clé de tout)
     if (debug)
       print(
-        "${logHeader('relayNet.handleIncoming')} Sauvegarde immédiate et appel du callback",
+        "${logHeader('relayNet.handleIncoming')} Appel du callback pour gameId=${state.gameId} (hash=${state.hashCode}) avec callback=${callback?.hashCode})",
       );
-    gameStorage.save(state);
 
     if (callback != null) {
       callback(state);
@@ -55,10 +53,6 @@ class RelayNet implements ScrabbleNet {
   GameState? _pendingGameState;
   bool _sendingPending = false;
   bool appInForeground = true;
-
-  // Cache pour éviter les doublons
-  String? _lastProcessedGameId;
-  DateTime? _lastProcessedTime;
 
   Future<void> _playNotificationSound() async {
     try {
@@ -494,24 +488,14 @@ class RelayNet implements ScrabbleNet {
 
               if (debug) {
                 print(
-                  "${logHeader("relayNet")} GAMESTATE reçu de $partner (gameId=$stateId)",
+                  "${logHeader("relayNet")} GAMESTATE reçu de $partner (gameId=$stateId) (hash=${gameState.hashCode})",
                 );
               }
 
-              // 🔥 Vérifier les doublons
-              if (_lastProcessedGameId == stateId &&
-                  _lastProcessedTime != null &&
-                  now.difference(_lastProcessedTime!) <
-                      const Duration(seconds: 2)) {
-                print('⚠️ Doublon détecté pour gameId: $stateId, ignoré');
-                return;
-              }
+              // 🔥 UNIQUE SAUVEGARDE ICI (avant le dispatcher)
+              await gameStorage.save(gameState, markAsUnread: true);
 
-              // Mettre à jour le cache
-              _lastProcessedGameId = stateId;
-              _lastProcessedTime = now;
-
-              // 🔐 Attendre que le traitement soit terminé
+              // Puis dispatcher vers le callback
               await _dispatcher.handleIncoming(gameState, onGameStateReceived);
 
               // ✅ Jouer le son
@@ -550,7 +534,7 @@ class RelayNet implements ScrabbleNet {
               final gameState = GameState.fromJson(message);
 
               // sauvegarde immédiate
-              await gameStorage.save(gameState);
+              await gameStorage.save(gameState, markAsUnread: true);
 
               // même pipeline que GAMESTATE
               if (_onGameOverReceived != null) {

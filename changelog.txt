@@ -228,3 +228,5 @@ Refonte mode web en polling
 3.7.0
     Affichage des parties non lues en vert
     homeScreen ne navigue plus vers gameScreen sur onGameScreeReceived mais réaffiche les savedGames
+3.7.1
+    Correction bug plusieurs versions de gameStates sauvegardées

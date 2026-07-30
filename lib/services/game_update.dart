@@ -39,50 +39,40 @@ class GameUpdateHandler {
     this.onRematch,
   });
 
-  bool _sameGame(GameState a, GameState b) {
-    final setA = {a.leftName, a.rightName};
-    final setB = {b.leftName, b.rightName};
-
-    return setA.length == 2 && setA.containsAll(setB);
+  bool _isRematch(GameState state) {
+    return state.leftScore == 0 &&
+        state.rightScore == 0 &&
+        state.lettersPlacedThisTurn.isEmpty &&
+        state.board.every((row) => row.every((c) => c.isEmpty));
   }
 
-  // =================================================
-  // ATTACH / DETACH
-  // =================================================
   void attach() {
     if (debug) {
-      print(
-        '$logHeader(GameUpdateHandler) attach onGameStateReceived, onGameOverReceived, onError',
-      );
+      print('$logHeader(GameUpdateHandler) attach');
     }
 
-    /// GAMESTATE
     net.onGameStateReceived = (incoming) async {
       final mounted = isMounted();
       final currentGame = getCurrentGame();
-      final sameGame = _sameGame(incoming, currentGame);
-      final bool isRematch =
-          mounted &&
-          sameGame &&
-          incoming.leftScore == 0 &&
-          incoming.rightScore == 0 &&
-          incoming.lettersPlacedThisTurn.isEmpty &&
-          incoming.board.every((row) => row.every((c) => c.isEmpty));
 
-      if (mounted && (sameGame || isRematch)) {
+      // 🔥 Comparaison par gameId (UNIQUE)
+      final bool sameGame = currentGame.gameId == incoming.gameId;
+
+      if (mounted && sameGame) {
+        // Même partie → mise à jour
         await applyIncomingState(incoming, updateUI: true);
-
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (isMounted()) {
-            onFlushPending?.call();
-          }
-        });
-      } else {
-        // autre partie sauvegardée
-        await gameStorage.save(incoming);
-        onBackgroundMove?.call(incoming);
-        net.startPolling(settings.localUserName);
+        return;
       }
+
+      if (mounted && _isRematch(incoming)) {
+        // C'est un rematch (nouvelle partie avec les mêmes joueurs)
+        await applyIncomingState(incoming, updateUI: true);
+        return;
+      }
+
+      // Autre partie → sauvegarde en arrière-plan
+      onBackgroundMove?.call(incoming);
+      net.startPolling(settings.localUserName);
     };
 
     /// GAMEOVER

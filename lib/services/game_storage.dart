@@ -32,6 +32,9 @@ class GameStorage {
   static const String _boxName = 'gameBox';
   static Box? _box;
 
+  // 🔥 Suffixe pour marquer les parties non lues
+  static const String _unreadSuffix = '*';
+
   static String buildKey(String partner) => "game_$partner";
 
   Future<void> init() async {
@@ -61,25 +64,40 @@ class GameStorage {
     return savedGames.isEmpty;
   }
 
-  Future<void> save(GameState gameState) async {
+  /// Sauvegarde l'état du jeu pour un partenaire donné
+  /// Si markAsUnread est true, la clé sera suffixée avec "*"
+  Future<void> save(GameState gameState, {bool markAsUnread = false}) async {
     if (_box == null) throw Exception("GameStorage not initialized");
     try {
       final partner = gameState.partnerFrom(settings.localUserName);
       final key = buildKey(partner);
 
-      // 🔥 Ajouter un "*" pour marquer que c'est un nouveau save
-      final markedKey = "$key*";
+      final unreadKey = "$key$_unreadSuffix";
+      final storageKey = markAsUnread ? unreadKey : key;
 
-      await _box!.put(markedKey, gameState.toMap());
+      // 🔥 Afficher la liste AVANT la sauvegarde
+      if (debug) {
+        // 🔥 Afficher la pile d'appels
+        print("${logHeader('GameStorage.save')} Appelé depuis:");
+        print(StackTrace.current);
+        final before = await listSavedGames();
+        print("${logHeader('GameStorage.save')} AVANT: $before");
+      }
+
+      await delete(partner); // Supprime l'ancienne version (normale ou non lue)
+      await _box!.put(storageKey, gameState.toMap());
       await _box!.flush();
 
+      // 🔥 Afficher la liste APRÈS la sauvegarde
       if (debug) {
+        final after = await listSavedGames();
+        print("${logHeader('GameStorage.save')} APRÈS: $after");
         print(
-          "${logHeader('GameStorage')} game.hash(${gameState.hashCode} sauvegardé sous $markedKey",
+          "${logHeader('GameStorage.save')} game.hash(${gameState.hashCode}) sauvegardé sous $storageKey${markAsUnread ? ' (non lu)' : ''}",
         );
       }
     } catch (e) {
-      print("${logHeader('GameStorage')} Erreur save: $e");
+      print("${logHeader('GameStorage.save')} Erreur save: $e");
     }
   }
 
@@ -88,17 +106,17 @@ class GameStorage {
     if (_box == null) throw Exception("GameStorage not initialized");
     try {
       final key = buildKey(partner);
+      final unreadKey = "$key$_unreadSuffix";
 
-      // 🔥 Essayer d'abord avec "*" (nouveau save)
+      // 🔥 Essayer d'abord avec "*" (non lu)
       String? actualKey;
       Map? data;
 
-      // Vérifier si la clé avec "*" existe
-      if (_box!.containsKey("$key*")) {
-        actualKey = "$key*";
+      if (_box!.containsKey(unreadKey)) {
+        actualKey = unreadKey;
         data = _box!.get(actualKey);
         if (debug) {
-          print("${logHeader('GameStorage')} chargé depuis clé marquée (*)");
+          print("${logHeader('GameStorage')} chargé depuis clé non lue");
         }
       }
       // Sinon utiliser la clé normale
@@ -121,16 +139,15 @@ class GameStorage {
       final map = deepCastMap(data);
       final gameState = GameState.fromMap(map);
 
-      // 🔥 Après chargement, supprimer le "*" s'il existe
-      if (actualKey?.endsWith("*") == true) {
-        // Option 1: Supprimer la clé marquée et sauvegarder sans "*"
-        await _box!.delete(actualKey!);
+      // 🔥 Si c'était une clé non lue, la transformer en clé normale
+      if (actualKey == unreadKey) {
+        await _box!.delete(unreadKey);
         await _box!.put(key, map);
         await _box!.flush();
 
         if (debug) {
           print(
-            "${logHeader('GameStorage')} clé marquée transformée en clé normale",
+            "${logHeader('GameStorage')} clé non lue transformée en clé normale",
           );
         }
       }
@@ -176,20 +193,52 @@ class GameStorage {
     }
   }
 
-  /// Supprime une entrée par clé complète (ex: "game_partner")
+  /// 🔥 Vérifie si une partie est non lue
+  Future<bool> isUnread(String partner) async {
+    if (_box == null) return false;
+    final key = buildKey(partner);
+    final unreadKey = "$key$_unreadSuffix";
+    return _box!.containsKey(unreadKey);
+  }
+
+  /// 🔥 Marque une partie comme lue (supprime le "*" si présent)
+  Future<void> markAsRead(String partner) async {
+    if (_box == null) return;
+    final key = buildKey(partner);
+    final unreadKey = "$key$_unreadSuffix";
+
+    if (_box!.containsKey(unreadKey)) {
+      final data = _box!.get(unreadKey);
+      await _box!.delete(unreadKey);
+      if (data != null) {
+        await _box!.put(key, data);
+        await _box!.flush();
+        if (debug) {
+          print("${logHeader('GameStorage')} $partner marqué comme lu");
+        }
+      }
+    }
+  }
+
+  /// Supprime une entrée (supprime aussi la version non lue si présente)
   Future<void> delete(String partner) async {
     if (_box == null) throw Exception("GameStorage not initialized");
     final key = buildKey(partner);
+    final unreadKey = "$key$_unreadSuffix";
     try {
       await _box!.delete(key);
+      await _box!.delete(unreadKey);
       await _box!.flush();
-      if (debug) print("${logHeader('GameStorage')} supprimé $key");
+      if (debug)
+        print(
+          "${logHeader('GameStorage')} supprimé $key (et sa version non lue)",
+        );
     } catch (e) {
       print("${logHeader('GameStorage')} Erreur delete: $e");
     }
   }
 
-  ///Supprime toutes les parties sauvegardées
+  /// Supprime toutes les parties sauvegardées
   Future<void> deleteAllGames() async {
     if (_box == null) throw Exception("GameStorage not initialized");
 
