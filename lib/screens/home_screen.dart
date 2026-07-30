@@ -5,6 +5,7 @@ import 'package:scrabble_P2P/services/game_storage.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
 import 'package:scrabble_P2P/services/app_log.dart';
 import 'package:scrabble_P2P/services/game_initializer.dart';
+import 'package:scrabble_P2P/services/game_callback_manager.dart'; // 🔥 NOUVEAU
 import 'package:scrabble_P2P/models/game_state.dart';
 import 'package:scrabble_P2P/services/utility.dart';
 import 'package:share_plus/share_plus.dart';
@@ -132,6 +133,9 @@ class _HomeScreenState extends State<HomeScreen>
     if (_route is PageRoute) {
       routeObserver.unsubscribe(this);
     }
+    // 🔥 Nettoyer les callbacks HomeScreen via le manager
+    GameCallbackManager().clearCallbacks(owner: 'home');
+    // Nettoyer les callbacks directs (non gérés par le manager)
     _net.onStatusUpdate = null;
     _net.onMatched = null;
     super.dispose();
@@ -156,7 +160,7 @@ class _HomeScreenState extends State<HomeScreen>
     _navigated = false;
     _bufferedGameState = null;
 
-    // ✅ Écouter les mises à jour de statut
+    // ✅ Écouter les mises à jour de statut (direct, pas dans le manager)
     _net.onStatusUpdate = (msg) {
       if (mounted) {
         print('[HomeScreen] Status: $msg');
@@ -166,83 +170,91 @@ class _HomeScreenState extends State<HomeScreen>
       }
     };
 
-    // ✅ Écouter le match avec un partenaire
+    // ✅ Écouter le match avec un partenaire (direct)
     _net.onMatched = _handleMatched;
 
-    // ✅ Écouter les GameState entrants
-    _net.onGameStateReceived = (GameState gameState) {
-      if (debug) {
+    // ✅ 🔥 Enregistrer tous les callbacks via le GameCallbackManager
+    GameCallbackManager().setCallbacks(
+      owner: 'home',
+      onGameState: (GameState gameState) {
+        if (debug) {
+          print(
+            '$logHeader(HomeScreen.onGameStateReceived) GameState reçu de ${gameState.partnerFrom(settings.localUserName)}',
+          );
+        }
+        if (!mounted) return;
+
+        // 🔥 Rafraîchir simplement la liste des parties sauvegardées
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _refreshSavedGames();
+        });
+      },
+      onGameOver: (GameState gameState) {
+        if (!mounted) return;
+
         print(
-          '$logHeader(HomeScreen.onGameStateReceived) GameState reçu de ${gameState.partnerFrom(settings.localUserName)}',
+          '[HomeScreen] GameOver reçu de ${gameState.partnerFrom(settings.localUserName)}',
         );
-      }
-      if (!mounted) return;
 
-      // 🔥 Rafraîchir simplement la liste des parties sauvegardées
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _refreshSavedGames();
-      });
-    };
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
 
-    // ✅ Écouter la fin de partie (GameOver)
-    _net.onGameOverReceived = (GameState gameState) {
-      if (!mounted) return;
-
-      print(
-        '[HomeScreen] GameOver reçu de ${gameState.partnerFrom(settings.localUserName)}',
-      );
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              "Partie terminée ! ${gameState.partnerFrom(settings.localUserName)} a terminé la partie.",
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                "Partie terminée ! ${gameState.partnerFrom(settings.localUserName)} a terminé la partie.",
+              ),
+              backgroundColor: Colors.orange,
+              duration: const Duration(seconds: 4),
             ),
-            backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 4),
-          ),
-        );
+          );
 
-        final partner = gameState.partnerFrom(settings.localUserName);
-        gameStorage.delete(partner).then((_) {
-          if (mounted) {
-            setState(() {
-              _savedGames.remove(partner);
-            });
-          }
+          final partner = gameState.partnerFrom(settings.localUserName);
+          gameStorage.delete(partner).then((_) {
+            if (mounted) {
+              setState(() {
+                _savedGames.remove(partner);
+              });
+            }
+          });
         });
-      });
-    };
-
-    // ✅ Écouter l'abandon de partie (Quit)
-    _net.onGameQuitReceived = (String partner) {
-      if (!mounted) return;
-
-      print('[HomeScreen] Quit reçu de $partner');
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      },
+      onGameQuit: (String partner) {
         if (!mounted) return;
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("$partner a abandonné la partie"),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
+        print('[HomeScreen] Quit reçu de $partner');
 
-        gameStorage.delete(partner).then((_) {
-          if (mounted) {
-            setState(() {
-              _savedGames.remove(partner);
-            });
-          }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text("$partner a abandonné la partie"),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+
+          gameStorage.delete(partner).then((_) {
+            if (mounted) {
+              setState(() {
+                _savedGames.remove(partner);
+              });
+            }
+          });
         });
-      });
-    }; //Aucun ackGameQuit. Donc si on reçoit un GameQuit alors que le widget n'est plus monté, on perd le gameQuit.
+      },
+      onError: (String message) {
+        print('[HomeScreen] Erreur réseau: $message');
+        if (!mounted) return;
+        // Optionnel : afficher un snackbar
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Erreur: $message")));
+      },
+    );
+
     // ⚡ Chargement initial
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _initializeData();

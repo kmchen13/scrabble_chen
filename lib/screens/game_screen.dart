@@ -9,6 +9,7 @@ import 'package:scrabble_P2P/services/admob_manager.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
 import 'package:scrabble_P2P/services/game_storage.dart';
 import 'package:scrabble_P2P/services/utility.dart';
+import 'package:scrabble_P2P/services/game_callback_manager.dart'; // 🔥 NOUVEAU
 import 'package:scrabble_P2P/services/game_end.dart';
 import 'package:scrabble_P2P/services/turn_pass.dart';
 import 'package:scrabble_P2P/services/game_update.dart';
@@ -79,8 +80,6 @@ class _GameScreenState extends State<GameScreen> {
     }
     _appBarTitle = defaultTitle;
 
-    //Force flutter à reconnaître le changement de l’état du jeu
-    // 🔥 REMPLACEMENT COMPLET (clé du bug)
     _gameState = newState;
 
     _board = _gameState.board.map((row) => List<String>.from(row)).toList();
@@ -106,27 +105,15 @@ class _GameScreenState extends State<GameScreen> {
       net: _net,
       onRematchStarted: (newGameState) {
         if (!mounted) return;
-        // 🔓 autoriser les envois
         _net.resetGameOver();
-        // 🔁 prêt pour une nouvelle partie
         _endPopupShown = false;
 
         _applyGameState(newGameState);
         setState(() {});
 
-        // ▶️ relancer le polling pour recevoir les coups du partenaire
         _net.startPolling(settings.localUserName);
       },
     );
-  }
-
-  ///compare deux GameState pour vérifier s'ils représentent la même partie
-  bool compareGameState(GameState a, GameState b) {
-    // Même couple de joueurs ? (dans n’importe quel sens)
-    final setA = {a.leftName, a.rightName};
-    final setB = {b.leftName, b.rightName};
-
-    return setA.length == 2 && setA.containsAll(setB);
   }
 
   @override
@@ -134,63 +121,30 @@ class _GameScreenState extends State<GameScreen> {
     super.initState();
 
     _gameState = widget.gameState;
-
     _net = widget.net;
 
-    _net.onGameQuitReceived = (partner) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('$partner a quitté la partie'),
-          duration: const Duration(seconds: 3),
-        ),
-      );
-
-      // si je suis actuellement dans cette partie
-      final currentPartner = _gameState.partnerFrom(settings.localUserName);
-
-      if (currentPartner == partner) {
-        Future.delayed(const Duration(milliseconds: 300), () {
-          if (!mounted) return;
-
-          Navigator.of(context).popUntil((route) => route.isFirst);
-        });
-      }
-    };
-
     _board = _gameState.board.map((row) => List<String>.from(row)).toList();
-
     _playerLetters = _gameState.localRack(settings.localUserName);
     _initialRack = List.from(_playerLetters);
 
+    // 🔥 Création de l'handler (sans attach)
     _updateHandler = GameUpdateHandler(
       net: _net,
-
-      // 🔥 applique un gameState entrant (UI ou non)
       applyIncomingState: (newState, {required bool updateUI}) async {
-        if (debug)
+        if (debug) {
           print(
             "$logHeader(game_screen.applyIncomingState) ${identityHashCode(this)}",
           );
+        }
         _applyGameState(newState);
         if (updateUI && mounted) setState(() {});
       },
-
-      // 🔥 état courant TOUJOURS à jour
       getCurrentGame: () => _gameState,
-
-      // 🔥 état du widget
       isMounted: () => mounted,
-
-      // 🔔 notification quand un autre joueur joue sur une autre partie
       onBackgroundMove: (incoming) {
         if (!mounted) return;
-
         final opponent = incoming.partnerFrom(settings.localUserName);
-
         final context = this.context;
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('$opponent a joué un coup'),
@@ -203,9 +157,8 @@ class _GameScreenState extends State<GameScreen> {
                   MaterialPageRoute(
                     builder:
                         (_) => GameScreen(
-                          net: widget.net, // réutilise le net existant
-                          gameState:
-                              incoming, // gameState de la partie à ouvrir
+                          net: widget.net,
+                          gameState: incoming,
                           onMovePlayed: widget.onMovePlayed,
                           onGameStateUpdated: widget.onGameStateUpdated,
                         ),
@@ -217,15 +170,52 @@ class _GameScreenState extends State<GameScreen> {
         );
       },
       onGameOver: _onGameOver,
+      onError: (msg) {
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Erreur réseau: $msg')));
+        }
+      },
     );
 
-    _updateHandler.attach();
+    // 🔥 Enregistrement des callbacks via le manager (plus de attach())
+    GameCallbackManager().setCallbacks(
+      owner: 'game',
+      onGameState: (GameState incoming) {
+        _updateHandler.onGameStateReceived(incoming);
+      },
+      onGameOver: (GameState finalState) {
+        _updateHandler.onGameOverReceived(finalState);
+      },
+      onGameQuit: (String partner) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$partner a quitté la partie'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        final currentPartner = _gameState.partnerFrom(settings.localUserName);
+        if (currentPartner == partner) {
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (!mounted) return;
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          });
+        }
+      },
+      onError: (String message) {
+        _updateHandler.onErrorReceived(message);
+      },
+    );
 
+    // 🔥 Flush initial (équivalent à l'ancien attach)
+    _updateHandler.flushPending();
+
+    // Chargement du dictionnaire
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
-
       await loadDefaultDictionary();
-
       if (debug) {
         print(
           '[GameScreen] dictionnaire prêt après affichage '
@@ -234,6 +224,7 @@ class _GameScreenState extends State<GameScreen> {
       }
     });
 
+    // AdMob
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _adMobManager.setCallbacks(
         onLoaded: () {
@@ -243,7 +234,7 @@ class _GameScreenState extends State<GameScreen> {
           if (mounted) setState(() {});
         },
       );
-      _adMobManager.loadBanner(context); // 👈 Une seule bannière
+      _adMobManager.loadBanner(context);
     });
 
     saveSettings();
@@ -747,6 +738,9 @@ class _GameScreenState extends State<GameScreen> {
   void dispose() {
     _net.onError = null;
     _adMobManager.dispose();
+    // 🔥 Libérer les callbacks du GameScreen
+    GameCallbackManager().clearCallbacks(owner: 'game');
+    // Nettoyer l'handler si nécessaire (il n'y a plus de detach)
     super.dispose();
   }
 

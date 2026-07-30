@@ -7,6 +7,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:scrabble_P2P/models/game_state\.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
 import 'package:scrabble_P2P/services/game_storage.dart';
+import 'package:scrabble_P2P/services/game_callback_manager.dart';
 import 'package:scrabble_P2P/services/assets_manager.dart';
 import 'package:scrabble_P2P/services/log.dart';
 import 'package:scrabble_P2P/services/notification.dart';
@@ -367,15 +368,14 @@ class RelayNet implements ScrabbleNet {
   }
 
   // Implémentation du getter pour satisfaire l'interface
-  @override
-  void Function(GameState state)? get onGameStateReceived =>
-      _onGameStateReceived;
 
-  void Function(GameState state)? _onGameStateReceived;
+  @override
+  void Function(GameState state)? get onGameStateReceived {
+    return GameCallbackManager().onGameStateReceived;
+  }
 
   @override
   set onGameStateReceived(void Function(GameState state)? callback) {
-    _onGameStateReceived = callback;
     print(
       "${logHeader("relayNet")} onGameStateReceived setter (hash=${callback?.hashCode})",
     );
@@ -406,17 +406,6 @@ class RelayNet implements ScrabbleNet {
       Future.microtask(() {
         callback(pending);
       });
-    }
-  }
-
-  /// Permet de vider manuellement le buffer si un état était en attente
-  void flushPending() {
-    _dispatcher.flush(_onGameStateReceived);
-
-    if (_pendingGameOver != null && _onGameOverReceived != null) {
-      final state = _pendingGameOver!;
-      _pendingGameOver = null;
-      _onGameOverReceived?.call(state);
     }
   }
 

@@ -445,7 +445,4 @@ class LocalNet implements ScrabbleNet {
   void resetGameOver() {
     _gameIsOver = false;
   }
-
-  @override
-  void flushPending() {}
 }

@@ -46,76 +46,72 @@ class GameUpdateHandler {
         state.board.every((row) => row.every((c) => c.isEmpty));
   }
 
-  void attach() {
-    if (debug) {
-      print('$logHeader(GameUpdateHandler) attach');
+  // 🔥 Méthode publique pour traiter un GameState reçu
+  Future<void> onGameStateReceived(GameState incoming) async {
+    final mounted = isMounted();
+    final currentGame = getCurrentGame();
+
+    // Comparaison par gameId (UNIQUE)
+    final bool sameGame = currentGame.gameId == incoming.gameId;
+
+    if (mounted && sameGame) {
+      // Même partie → mise à jour UI
+      await applyIncomingState(incoming, updateUI: true);
+      return;
     }
 
-    net.onGameStateReceived = (incoming) async {
-      final mounted = isMounted();
-      final currentGame = getCurrentGame();
+    if (mounted && _isRematch(incoming)) {
+      // C'est un rematch (nouvelle partie avec les mêmes joueurs)
+      await applyIncomingState(incoming, updateUI: true);
+      return;
+    }
 
-      // 🔥 Comparaison par gameId (UNIQUE)
-      final bool sameGame = currentGame.gameId == incoming.gameId;
+    // Autre partie → notification en arrière-plan (sans sauvegarde car déjà faite par RelayNet)
+    onBackgroundMove?.call(incoming);
+    net.startPolling(settings.localUserName);
+  }
 
-      if (mounted && sameGame) {
-        // Même partie → mise à jour
-        await applyIncomingState(incoming, updateUI: true);
-        return;
+  // 🔥 Méthode publique pour traiter un GameOver reçu
+  Future<void> onGameOverReceived(GameState finalState) async {
+    if (!isMounted()) return;
+
+    // applique le dernier état reçu
+    await applyIncomingState(finalState, updateUI: true);
+
+    final me = settings.localUserName;
+
+    final iAmLeft = me == finalState.leftName;
+    final iAmRight = me == finalState.rightName;
+
+    if (iAmLeft) {
+      // Je suis G, je reçois le GAMEOVER de D
+      if (debug) {
+        print("$logHeader(GameUpdateHandler) Je suis G, reçois GAMEOVER de D");
       }
-
-      if (mounted && _isRematch(incoming)) {
-        // C'est un rematch (nouvelle partie avec les mêmes joueurs)
-        await applyIncomingState(incoming, updateUI: true);
-        return;
+      await gameStorage.delete(finalState.partnerFrom(me));
+      if (onGameOver != null) {
+        onGameOver!.call(finalState);
+      } else {
+        print("⚠️ onGameOver est NULL !");
       }
+      return;
+    }
 
-      // Autre partie → sauvegarde en arrière-plan
-      onBackgroundMove?.call(incoming);
-      net.startPolling(settings.localUserName);
-    };
+    if (iAmRight) {
+      // Je suis D, je reçois le GAMEOVER de G, je joue le dernier coup.
+      // handleSubmit détectera que G est vide donc la partie est finie.
+      return;
+    }
+  }
 
-    /// GAMEOVER
-    net.onGameOverReceived = (finalState) async {
-      if (!isMounted()) return;
+  // 🔥 Méthode publique pour traiter une erreur
+  void onErrorReceived(String message) {
+    if (!isMounted()) return;
+    onError?.call(message);
+  }
 
-      // applique le dernier état reçu
-      await applyIncomingState(finalState, updateUI: true);
-
-      final me = settings.localUserName;
-
-      final iAmLeft = me == finalState.leftName;
-      final iAmRight = me == finalState.rightName;
-
-      if (iAmLeft) {
-        // Je suis G, je reçois le GAMEOVER de D la partie e
-        if (debug)
-          print(
-            "$logHeader( GameUpdateHandler) Je suis G, je reçois le GAMEOVER de D, partie terminée affichage du popup si $onGameOver != null",
-          );
-        await gameStorage.delete(finalState.partnerFrom(me));
-        if (onGameOver != null) {
-          onGameOver!.call(finalState);
-        } else {
-          print("⚠️ onGameOver est NULL !");
-        }
-        return;
-      }
-
-      if (iAmRight) {
-        // Je suis D, je reçois le GAMEOVER de G je joue le dernier coup. handleSubmit détectera que G est vide donc la partie est finie. popup
-        return;
-      }
-    };
-
-    /// Error
-    net.onError = (message) {
-      if (!isMounted()) return;
-
-      onError?.call(message);
-    };
-
-    /// flush initial
+  // 🔥 Méthode publique pour flush initial
+  void flushPending() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (isMounted()) {
         onFlushPending?.call();
@@ -123,11 +119,9 @@ class GameUpdateHandler {
     });
   }
 
-  void detach() {
-    net.onGameStateReceived = null;
-    net.onGameOverReceived = null;
-    net.onError = null;
-  }
+  // 🔥 Suppression des méthodes attach/detach
+  // void attach() { ... }   // SUPPRIMÉ
+  // void detach() { ... }   // SUPPRIMÉ
 
   void handleRematch(GameState oldGameState) {
     final newGameState = GameInitializer.createGame(
