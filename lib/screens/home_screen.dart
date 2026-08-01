@@ -129,15 +129,23 @@ class _HomeScreenState extends State<HomeScreen>
 
   @override
   void dispose() {
+    if (debug) {
+      print("${logHeader('homeScreen.dispose')} ${identityHashCode(this)}");
+    }
+    // 🔥 Arrêter le polling pour éviter les messages orphelins
+    _net.stopPolling();
+
     WidgetsBinding.instance.removeObserver(this);
     if (_route is PageRoute) {
       routeObserver.unsubscribe(this);
     }
-    // 🔥 Nettoyer les callbacks HomeScreen via le manager
+
     GameCallbackManager().clearCallbacks(owner: 'home');
-    // Nettoyer les callbacks directs (non gérés par le manager)
+
+    // Nettoyer les callbacks directs
     _net.onStatusUpdate = null;
     _net.onMatched = null;
+
     super.dispose();
   }
 
@@ -154,7 +162,9 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void initState() {
     super.initState();
-
+    if (debug) {
+      print("${logHeader('homeScreen.initState')} ${identityHashCode(this)}");
+    }
     WidgetsBinding.instance.addObserver(this);
 
     _navigated = false;

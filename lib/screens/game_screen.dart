@@ -119,7 +119,9 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
-
+    if (debug) {
+      print("${logHeader('gameScreen.initState')} ${identityHashCode(this)}");
+    }
     _gameState = widget.gameState;
     _net = widget.net;
 
@@ -736,7 +738,10 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   void dispose() {
+    if (debug)
+      print("${logHeader('gameScreen.dispose')} ${identityHashCode(this)}");
     _net.onError = null;
+    _net.stopPolling();
     _adMobManager.dispose();
     // 🔥 Libérer les callbacks du GameScreen
     GameCallbackManager().clearCallbacks(owner: 'game');
