@@ -232,3 +232,5 @@ Refonte mode web en polling
     Correction bug plusieurs versions de gameStates sauvegardées
 3.7.2
     Centralisation des callback communs home/game_screen
+3.7.3
+    Déplacement initialisation de Admob dans game_screen

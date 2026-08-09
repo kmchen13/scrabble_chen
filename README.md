@@ -1,11 +1,10 @@
-# scrabble_chen
+# StarWords
 
-Un jeu de Scrabble en ligne gratuit compatible Android et IOS
+Un jeu de type Scrabble en ligne gratuit compatible Android et IOS
 
 AVERTISSEMENTS
-Ce jeu ne suit pas les règles prétendues officielles du Scrabble.
-La vérification orthographique est basée non sur le dictionnaire officiel du scrablle (ODS) qui comporte de nombreuses définitions incomplètes mais sur Wikitionnaire, beaucoup plus complet et mis à jour.
-Contrairement à la règle "Officielle", la fin de partie n'est pas seulement quand un joueur n'a plus de lettres. Il faut aussi que les 2 joueurs aient joué le même nombre de coups.
+La vérification orthographique est basée sur le Wikitionnaire;
+La fin de partie n'est pas seulement quand un joueur n'a plus de lettres. Il faut aussi que les 2 joueurs aient joué le même nombre de coups.
 
 ## Getting Started
 
@@ -19,4 +18,4 @@ A la première execution vous devrez entrer un identifiant, valider pour pouvoir
 Mode d'emploi à venir
 
 ## Contact
-Suggestions, questions à webologix@gmail.com
+Suggestions, questions via github

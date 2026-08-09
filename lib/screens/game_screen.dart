@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 import 'package:scrabble_P2P/models/board.dart';
 import 'package:scrabble_P2P/models/game_state.dart';
 import 'package:scrabble_P2P/models/player_rack.dart';
@@ -226,17 +230,13 @@ class _GameScreenState extends State<GameScreen> {
       }
     });
 
-    // AdMob
+    /// AdMob
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _adMobManager.setCallbacks(
-        onLoaded: () {
-          if (mounted) setState(() {});
-        },
-        onFailed: () {
-          if (mounted) setState(() {});
-        },
+        onLoaded: () => setState(() {}),
+        onFailed: () => setState(() {}),
       );
-      _adMobManager.loadBanner(context);
+      _adMobManager.loadBanner(context); // Tout est géré à l'intérieur
     });
 
     saveSettings();

@@ -3,17 +3,29 @@ import 'package:flutter/material.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
-/// Gestionnaire des bannières AdMob - Version simplifiée (1 bannière)
 class AdMobManager {
   static final AdMobManager _instance = AdMobManager._internal();
   factory AdMobManager() => _instance;
   AdMobManager._internal();
 
-  BannerAd? _bannerAd;
-  bool _isAdLoaded = false;
-  AdSize? _adSize;
+  // ---------- Initialisation unique ----------
+  Future<void>? _initFuture;
 
-  // ✅ Vérification de la plateforme supportée
+  Future<void> initialize() async {
+    if (_initFuture != null) return _initFuture!;
+    _initFuture = MobileAds.instance
+        .initialize()
+        .then((_) {
+          print('✅ AdMob SDK initialisé avec succès');
+        })
+        .catchError((e) {
+          print('❌ Échec de l’initialisation AdMob : $e');
+          // _initFuture = null; // Décommente pour autoriser une nouvelle tentative
+        });
+    return _initFuture!;
+  }
+
+  // ---------- Vérification des plateformes ----------
   bool get isSupportedPlatform {
     if (kIsWeb) return false;
     if (Platform.isWindows) return false;
@@ -21,6 +33,11 @@ class AdMobManager {
     if (Platform.isMacOS) return false;
     return Platform.isAndroid || Platform.isIOS;
   }
+
+  // ---------- Gestion de la bannière ----------
+  BannerAd? _bannerAd;
+  bool _isAdLoaded = false;
+  AdSize? _adSize;
 
   bool get isAdLoaded => _isAdLoaded;
   AdSize? get adSize => _adSize;
@@ -44,10 +61,19 @@ class AdMobManager {
     return '';
   }
 
-  /// Charger une seule bannière adaptative
   Future<void> loadBanner(BuildContext context) async {
+    // ✅ Vérification et log pour les plateformes non supportées
+    if (!isSupportedPlatform) {
+      print(
+        'ℹ️ AdMob désactivé sur cette plateforme (${Platform.operatingSystem})',
+      );
+      return;
+    }
+
+    // ✅ Initialisation automatique (garantie une seule fois)
+    await initialize();
+
     if (_bannerAd != null) return;
-    if (!Platform.isAndroid && !Platform.isIOS) return;
 
     try {
       final AdSize? adSize =
@@ -82,7 +108,6 @@ class AdMobManager {
     }
   }
 
-  /// Hauteur de la bannière (0 si non chargée)
   double get bannerHeight {
     if (_isAdLoaded && _adSize != null) {
       return _adSize!.height.toDouble();
@@ -90,7 +115,6 @@ class AdMobManager {
     return 0;
   }
 
-  /// Libérer les ressources
   void dispose() {
     _bannerAd?.dispose();
     _bannerAd = null;
