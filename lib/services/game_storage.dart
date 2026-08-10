@@ -69,7 +69,7 @@ class GameStorage {
   Future<void> save(GameState gameState, {bool markAsUnread = false}) async {
     if (_box == null) throw Exception("GameStorage not initialized");
     try {
-      final partner = gameState.partnerFrom(settings.localUserName);
+      final partner = gameState.partnerFrom(settings.localUser);
       final key = buildKey(partner);
 
       final unreadKey = "$key$_unreadSuffix";

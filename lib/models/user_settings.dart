@@ -44,6 +44,8 @@ class UserSettings {
   DateTime? startTime;
   int nameDisplayLimit;
 
+  String get localUser => '$localUserName-$localIP';
+
   UserSettings({
     required this.localUserName,
     this.language = 'fr',

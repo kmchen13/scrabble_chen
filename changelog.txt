@@ -234,3 +234,5 @@ Refonte mode web en polling
     Centralisation des callback communs home/game_screen
 3.7.3
     Déplacement initialisation de Admob dans game_screen
+3.7.4
+    Ajout IP au nom d'utilisateur

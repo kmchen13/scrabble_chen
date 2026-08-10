@@ -68,7 +68,7 @@ class GameUpdateHandler {
 
     // Autre partie → notification en arrière-plan (sans sauvegarde car déjà faite par RelayNet)
     onBackgroundMove?.call(incoming);
-    net.startPolling(settings.localUserName);
+    net.startPolling(settings.localUser);
   }
 
   // 🔥 Méthode publique pour traiter un GameOver reçu
@@ -78,7 +78,7 @@ class GameUpdateHandler {
     // applique le dernier état reçu
     await applyIncomingState(finalState, updateUI: true);
 
-    final me = settings.localUserName;
+    final me = settings.localUser;
 
     final iAmLeft = me == finalState.leftName;
     final iAmRight = me == finalState.rightName;

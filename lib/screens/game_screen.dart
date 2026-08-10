@@ -76,7 +76,7 @@ class _GameScreenState extends State<GameScreen> {
   ({List<String> words, int totalScore, int totalStarsUsed})? _cachedTurnResult;
   bool _cachedTurnValid = false;
   final AdMobManager _adMobManager = AdMobManager();
-  final localName = settings.localUserName;
+  final localName = settings.localUser;
 
   void _applyGameState(GameState newState) {
     if (debug) {
@@ -115,7 +115,7 @@ class _GameScreenState extends State<GameScreen> {
         _applyGameState(newGameState);
         setState(() {});
 
-        _net.startPolling(settings.localUserName);
+        _net.startPolling(settings.localUser);
       },
     );
   }
@@ -130,7 +130,7 @@ class _GameScreenState extends State<GameScreen> {
     _net = widget.net;
 
     _board = _gameState.board.map((row) => List<String>.from(row)).toList();
-    _playerLetters = _gameState.localRack(settings.localUserName);
+    _playerLetters = _gameState.localRack(settings.localUser);
     _initialRack = List.from(_playerLetters);
 
     // 🔥 Création de l'handler (sans attach)
@@ -149,7 +149,7 @@ class _GameScreenState extends State<GameScreen> {
       isMounted: () => mounted,
       onBackgroundMove: (incoming) {
         if (!mounted) return;
-        final opponent = incoming.partnerFrom(settings.localUserName);
+        final opponent = incoming.partnerFrom(settings.localUser);
         final context = this.context;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -202,7 +202,7 @@ class _GameScreenState extends State<GameScreen> {
             duration: const Duration(seconds: 3),
           ),
         );
-        final currentPartner = _gameState.partnerFrom(settings.localUserName);
+        final currentPartner = _gameState.partnerFrom(settings.localUser);
         if (currentPartner == partner) {
           Future.delayed(const Duration(milliseconds: 300), () {
             if (!mounted) return;
@@ -531,14 +531,14 @@ class _GameScreenState extends State<GameScreen> {
 
       if (leftEmpty || rightEmpty) {
         final finalState = GameState.fromJson(_gameState.toJson());
-        final iAmLeft = settings.localUserName == finalState.leftName;
-        final iAmRight = settings.localUserName == finalState.rightName;
+        final iAmLeft = settings.localUser == finalState.leftName;
+        final iAmRight = settings.localUser == finalState.rightName;
 
         if (leftEmpty) {
           if (iAmLeft) {
             //G(gauche) a fini. Je suis G. J’ai joué mon dernier coup. Je dois attendre le dernier coup de D.
             _net.sendGameOver(finalState);
-            _net.startPolling(settings.localUserName);
+            _net.startPolling(settings.localUser);
             return;
           }
 
@@ -602,7 +602,7 @@ class _GameScreenState extends State<GameScreen> {
   void _handleStarUsed() {
     if (debug)
       print("$logHeader(gameScreen._handleStarUsed) ${identityHashCode(this)}");
-    final playerName = settings.localUserName;
+    final playerName = settings.localUser;
     final isLeft = _gameState.leftName == playerName;
 
     if (isLeft && _gameState.leftStars <= 0) return;
@@ -684,7 +684,7 @@ class _GameScreenState extends State<GameScreen> {
 
             // ✅ Créer une copie du GameState avec les modifications
             GameState newState;
-            final playerName = settings.localUserName;
+            final playerName = settings.localUser;
             final isLeft = _gameState.leftName == playerName;
 
             // Changer le tour (passer à l'autre joueur)
@@ -944,7 +944,7 @@ class _GameScreenState extends State<GameScreen> {
     final buttonText = "Envoyer";
 
     // Récupérer le nombre d'étoiles du joueur local
-    final playerName = settings.localUserName;
+    final playerName = settings.localUser;
     final starBonus = _gameState.getStarsForPlayer(playerName);
 
     // ✅ Vérifier si c'est son tour ET s'il a des étoiles
@@ -1114,7 +1114,7 @@ class _GameScreenState extends State<GameScreen> {
 
                         if (confirmQuit != true) return;
 
-                        final user = settings.localUserName;
+                        final user = settings.localUser;
                         final partner = _gameState.partnerFrom(user);
 
                         try {

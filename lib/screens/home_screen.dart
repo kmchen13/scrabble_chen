@@ -50,7 +50,7 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _initializeData() async {
     await gameStorage.init();
 
-    if (settings.localUserName.trim().isEmpty) {
+    if (settings.localUser.trim().isEmpty) {
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
@@ -69,9 +69,7 @@ class _HomeScreenState extends State<HomeScreen>
       final players = results[1] as List<Map<String, dynamic>>;
 
       final filtered =
-          players
-              .where((p) => p['user_name'] != settings.localUserName)
-              .toList();
+          players.where((p) => p['user_name'] != settings.localUser).toList();
 
       if (mounted) {
         setState(() {
@@ -79,7 +77,7 @@ class _HomeScreenState extends State<HomeScreen>
           _freePlayers = filtered;
           _loading = false;
         });
-        _net.startPolling(settings.localUserName);
+        _net.startPolling(settings.localUser);
       }
     } catch (e) {
       print('[HomeScreen] Erreur lors du chargement initial: $e');
@@ -111,9 +109,7 @@ class _HomeScreenState extends State<HomeScreen>
     try {
       final players = await _net.getFreePlayers();
       final filtered =
-          players
-              .where((p) => p['user_name'] != settings.localUserName)
-              .toList();
+          players.where((p) => p['user_name'] != settings.localUser).toList();
 
       if (mounted) {
         setState(() => _freePlayers = filtered);
@@ -189,7 +185,7 @@ class _HomeScreenState extends State<HomeScreen>
       onGameState: (GameState gameState) {
         if (debug) {
           print(
-            '$logHeader(HomeScreen.onGameStateReceived) GameState reçu de ${gameState.partnerFrom(settings.localUserName)}',
+            '$logHeader(HomeScreen.onGameStateReceived) GameState reçu de ${gameState.partnerFrom(settings.localUser)}',
           );
         }
         if (!mounted) return;
@@ -204,7 +200,7 @@ class _HomeScreenState extends State<HomeScreen>
         if (!mounted) return;
 
         print(
-          '[HomeScreen] GameOver reçu de ${gameState.partnerFrom(settings.localUserName)}',
+          '[HomeScreen] GameOver reçu de ${gameState.partnerFrom(settings.localUser)}',
         );
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -213,14 +209,14 @@ class _HomeScreenState extends State<HomeScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                "Partie terminée ! ${gameState.partnerFrom(settings.localUserName)} a terminé la partie.",
+                "Partie terminée ! ${gameState.partnerFrom(settings.localUser)} a terminé la partie.",
               ),
               backgroundColor: Colors.orange,
               duration: const Duration(seconds: 4),
             ),
           );
 
-          final partner = gameState.partnerFrom(settings.localUserName);
+          final partner = gameState.partnerFrom(settings.localUser);
           gameStorage.delete(partner).then((_) {
             if (mounted) {
               setState(() {
@@ -282,7 +278,7 @@ class _HomeScreenState extends State<HomeScreen>
     required String rightIP,
     required int rightPort,
   }) {
-    final localName = settings.localUserName;
+    final localName = settings.localUser;
 
     print(
       "DEBUG onMatched triggered: local=$localName, left=$leftName, right=$rightName, _navigated=$_navigated",
@@ -360,7 +356,7 @@ class _HomeScreenState extends State<HomeScreen>
     final expectedName = targetPlayer ?? '';
 
     _net.connect(
-      localName: settings.localUserName,
+      localName: settings.localUser,
       expectedName: expectedName,
       startTime: startTime,
     );
@@ -431,7 +427,7 @@ class _HomeScreenState extends State<HomeScreen>
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    String myName = settings.localUserName;
+    String myName = settings.localUser;
 
     return Scaffold(
       backgroundColor: const Color(0xFF1A2A3A),
