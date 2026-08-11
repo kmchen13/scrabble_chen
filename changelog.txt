@@ -236,3 +236,5 @@ Refonte mode web en polling
     Déplacement initialisation de Admob dans game_screen
 3.7.4
     Ajout IP au nom d'utilisateur
+3.7.5
+    Uniformisation affichage nom utilisateur

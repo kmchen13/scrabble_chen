@@ -62,7 +62,7 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   final GlobalKey _boardKey = GlobalKey();
-  String _appBarTitle = defaultTitle;
+  String _appBarTitle = getDefaultTitle();
   late ScrabbleNet _net;
   late List<String> _playerLetters;
   late List<List<String>> _board;
@@ -82,7 +82,6 @@ class _GameScreenState extends State<GameScreen> {
     if (debug) {
       print("$logHeader(gameScreen._applyGameState) ${identityHashCode(this)}");
     }
-    _appBarTitle = defaultTitle;
 
     _gameState = newState;
 
@@ -577,7 +576,7 @@ class _GameScreenState extends State<GameScreen> {
         if (debug) print("${logHeader('handleSubmit')} Sauvegarde après envoi");
         gameStorage.save(_gameState);
 
-        setState(() => _appBarTitle = defaultTitle);
+        setState(() => _appBarTitle = getDefaultTitle());
       }
       // 🔹 Réinitialiser le zoom à 100% (identité)
       _boardController.value = Matrix4.identity();
@@ -640,7 +639,7 @@ class _GameScreenState extends State<GameScreen> {
     // ✅ Remplacer l'ancien GameState par le nouveau
     _gameState = newState;
     _lettersPlacedThisTurn.clear();
-    _appBarTitle = defaultTitle;
+    _appBarTitle = getDefaultTitle();
 
     // ✅ Sauvegarder
     gameStorage.save(_gameState);
@@ -707,7 +706,7 @@ class _GameScreenState extends State<GameScreen> {
             // ✅ Remplacer l'ancien GameState par le nouveau
             _gameState = newState;
             _lettersPlacedThisTurn.clear();
-            _appBarTitle = defaultTitle;
+            _appBarTitle = getDefaultTitle();
 
             // ✅ Sauvegarder
             gameStorage.save(_gameState);
@@ -1189,7 +1188,7 @@ class _GameScreenState extends State<GameScreen> {
   void _updateTitleWithProvisionalScore() {
     if (_lettersPlacedThisTurn.isEmpty) {
       setState(() {
-        _appBarTitle = defaultTitle;
+        _appBarTitle = getDefaultTitle();
         _cachedTurnResult = null;
         _cachedTurnValid = false;
       });

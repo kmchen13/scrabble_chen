@@ -26,6 +26,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen>
     with RouteAware, WidgetsBindingObserver {
   late final ScrabbleNet _net = ScrabbleNet();
+
+  String _title = getDefaultTitle();
   bool _loading = true;
   late ModalRoute? _route;
   List<String> _savedGames = [];
@@ -433,7 +435,7 @@ class _HomeScreenState extends State<HomeScreen>
       backgroundColor: const Color(0xFF1A2A3A),
       appBar: AppBar(
         backgroundColor: const Color(0xFF1A2A3A),
-        title: Text("$appName-v$version ;-) $myName"),
+        title: Text("$_title"),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),

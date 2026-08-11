@@ -44,4 +44,10 @@ Future<void> saveSettings() async {
   await prefs.setString(key, json.encode(settings.toJson()));
 }
 
-String defaultTitle = "$appName -v$version' ${settings.localUser}";
+String getDefaultTitle() {
+  final base = settings.localUser;
+  final limit = settings.nameDisplayLimit;
+  final displayName =
+      limit > 0 && base.length > limit ? base.substring(0, limit) : base;
+  return "$appName -v$version  $displayName";
+}
