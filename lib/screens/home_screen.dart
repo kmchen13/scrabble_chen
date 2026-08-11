@@ -199,11 +199,12 @@ class _HomeScreenState extends State<HomeScreen>
         });
       },
       onGameOver: (GameState gameState) {
+        if (debug) {
+          print(
+            '$logHeader(HomeScreen.onGameOverReceived) GameOver reçu de ${gameState.partnerFrom(settings.localUser)}',
+          );
+        }
         if (!mounted) return;
-
-        print(
-          '[HomeScreen] GameOver reçu de ${gameState.partnerFrom(settings.localUser)}',
-        );
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
@@ -228,10 +229,15 @@ class _HomeScreenState extends State<HomeScreen>
           });
         });
       },
-      onGameQuit: (String partner) {
-        if (!mounted) return;
 
-        print('[HomeScreen] Quit reçu de $partner');
+      onGameQuit: (String partner) {
+        if (debug) {
+          print(
+            '$logHeader(HomeScreen.onGameQuitReceived) GameQuit reçu de $partner',
+          );
+        }
+
+        if (!mounted) return;
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;

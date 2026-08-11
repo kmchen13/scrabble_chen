@@ -2,7 +2,7 @@
 
 Un jeu de type Scrabble en ligne gratuit compatible Android et IOS
 
-AVERTISSEMENTS
+AVERTISSEMENTS:
 La vérification orthographique est basée sur le Wikitionnaire;
 La fin de partie n'est pas seulement quand un joueur n'a plus de lettres. Il faut aussi que les 2 joueurs aient joué le même nombre de coups.
 

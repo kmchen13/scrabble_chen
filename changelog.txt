@@ -238,3 +238,5 @@ Refonte mode web en polling
     Ajout IP au nom d'utilisateur
 3.7.5
     Uniformisation affichage nom utilisateur
+3.7.6
+    Correction param_screen setState(_nameController=localUserName)

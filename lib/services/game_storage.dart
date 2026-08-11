@@ -75,23 +75,12 @@ class GameStorage {
       final unreadKey = "$key$_unreadSuffix";
       final storageKey = markAsUnread ? unreadKey : key;
 
-      // 🔥 Afficher la liste AVANT la sauvegarde
-      if (debug) {
-        // 🔥 Afficher la pile d'appels
-        print("${logHeader('GameStorage.save')} Appelé depuis:");
-        print(StackTrace.current);
-        final before = await listSavedGames();
-        print("${logHeader('GameStorage.save')} AVANT: $before");
-      }
-
       await delete(partner); // Supprime l'ancienne version (normale ou non lue)
       await _box!.put(storageKey, gameState.toMap());
       await _box!.flush();
 
       // 🔥 Afficher la liste APRÈS la sauvegarde
       if (debug) {
-        final after = await listSavedGames();
-        print("${logHeader('GameStorage.save')} APRÈS: $after");
         print(
           "${logHeader('GameStorage.save')} game.hash(${gameState.hashCode}) sauvegardé sous $storageKey${markAsUnread ? ' (non lu)' : ''}",
         );

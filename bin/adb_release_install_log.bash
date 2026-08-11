@@ -10,7 +10,7 @@ if [ -z "$VERSION" ]; then
 fi
 echo "cOMPILATION Version $VERSION"
 
-NEW_NAME="scrabble_P2P-v$VERSION.apk"
+NEW_NAME="starWords-v$VERSION.apk"
 APK_DIR="build/app/outputs/flutter-apk"
 APK_NAME="app-release.apk"
     

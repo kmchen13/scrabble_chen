@@ -42,7 +42,7 @@ class _ParamScreenState extends State<ParamScreen> {
     await loadSettings();
 
     setState(() {
-      _nameController.text = settings.localUser;
+      _nameController.text = settings.localUserName;
       _localIPController.text = settings.localIP;
       _localPortController.text = settings.localPort.toString();
       _udpPortController.text = settings.udpPort.toString();
