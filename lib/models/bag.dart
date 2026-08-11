@@ -55,8 +55,8 @@ class BagModel {
     final random = Random();
     final drawn = <String>[];
 
-    //    for (int i = 0; i < count && _bag.isNotEmpty; i++) {
-    for (int i = 0; i < count && _bag.length > 86; i++) {
+    for (int i = 0; i < count && _bag.isNotEmpty; i++) {
+      // for (int i = 0; i < count && _bag.length > 86; i++) {
       //forcer la fin pour debug
       final index = random.nextInt(_bag.length);
       drawn.add(_bag.removeAt(index));

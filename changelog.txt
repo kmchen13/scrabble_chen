@@ -240,3 +240,5 @@ Refonte mode web en polling
     Uniformisation affichage nom utilisateur
 3.7.6
     Correction param_screen setState(_nameController=localUserName)
+3.7.7
+    Débridage fin de partie
