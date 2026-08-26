@@ -242,3 +242,7 @@ Refonte mode web en polling
     Correction param_screen setState(_nameController=localUserName)
 3.7.7
     Débridage fin de partie
+3.7.8
+    Changement disposition des bonus
+    modification starBonus
+    

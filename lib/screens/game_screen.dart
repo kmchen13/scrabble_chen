@@ -23,6 +23,7 @@ import 'package:scrabble_P2P/models/placed_letter.dart';
 import 'package:scrabble_P2P/screens/show_bag.dart';
 import 'package:scrabble_P2P/screens/home_screen.dart';
 import 'package:scrabble_P2P/screens/admob_widgets.dart';
+import 'package:scrabble_P2P/screens/change_letters_dialog.dart';
 import 'package:scrabble_P2P/score.dart';
 import 'package:scrabble_P2P/constants.dart';
 
@@ -599,56 +600,74 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _handleStarUsed() {
-    if (debug)
+    if (debug) {
       print("$logHeader(gameScreen._handleStarUsed) ${identityHashCode(this)}");
+    }
+
     final playerName = settings.localUser;
     final isLeft = _gameState.leftName == playerName;
 
+    // Vérifier que le joueur a encore des étoiles
     if (isLeft && _gameState.leftStars <= 0) return;
     if (!isLeft && _gameState.rightStars <= 0) return;
 
-    // ✅ Créer une copie du GameState avec les modifications
-    GameState newState;
+    // Préparer les lettres du joueur
+    final currentLetters =
+        isLeft
+            ? List<String>.from(_gameState.leftLetters)
+            : List<String>.from(_gameState.rightLetters);
 
-    if (isLeft) {
-      final currentLetters = List<String>.from(_gameState.leftLetters);
-      for (final letter in currentLetters) {
-        _gameState.bag.addLetter(letter);
-      }
-      final newLetters = _gameState.bag.drawLetters(7);
+    // Afficher le dialogue de sélection
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => ChangeLettersDialog(
+            playerLetters: currentLetters,
+            bag: _gameState.bag,
+            title: 'Utiliser une étoile',
+            description:
+                'Cliquez sur les lettres que vous souhaitez remplacer, puis sur "Changer" pour valider. '
+                'Vous devez sélectionner au moins une lettre.',
+            confirmText: 'Changer',
+            allowEmptySelection:
+                false, // le bouton est désactivé si aucune sélection
+            cancelRemovesLast: false, // annuler ferme simplement le dialogue
+            onConfirm: (newLetters) {
+              // L'utilisateur a validé le changement
+              // Créer une copie du GameState avec les modifications
+              GameState newState;
 
-      newState = _gameState.copyWith(
-        leftStars: _gameState.leftStars - 1,
-        leftLetters: newLetters,
-        lettersPlacedThisTurn: [],
-      );
-    } else {
-      final currentLetters = List<String>.from(_gameState.rightLetters);
-      for (final letter in currentLetters) {
-        _gameState.bag.addLetter(letter);
-      }
-      final newLetters = _gameState.bag.drawLetters(7);
+              if (isLeft) {
+                newState = _gameState.copyWith(
+                  leftStars: _gameState.leftStars - 1,
+                  leftLetters: newLetters,
+                  lettersPlacedThisTurn: [],
+                );
+              } else {
+                newState = _gameState.copyWith(
+                  rightStars: _gameState.rightStars - 1,
+                  rightLetters: newLetters,
+                  lettersPlacedThisTurn: [],
+                );
+              }
 
-      newState = _gameState.copyWith(
-        rightStars: _gameState.rightStars - 1,
-        rightLetters: newLetters,
-        lettersPlacedThisTurn: [],
-      );
-    }
+              // Remplacer l'ancien GameState par le nouveau
+              _gameState = newState;
+              _lettersPlacedThisTurn.clear();
+              _appBarTitle = getDefaultTitle();
 
-    // ✅ Remplacer l'ancien GameState par le nouveau
-    _gameState = newState;
-    _lettersPlacedThisTurn.clear();
-    _appBarTitle = getDefaultTitle();
+              // Sauvegarder
+              gameStorage.save(_gameState);
 
-    // ✅ Sauvegarder
-    gameStorage.save(_gameState);
+              // Envoyer la mise à jour
+              widget.net.sendGameState(_gameState);
 
-    // ✅ Envoyer la mise à jour
-    widget.net.sendGameState(_gameState);
-
-    // ✅ Utiliser applyIncomingState pour forcer le rebuild (comme pour les messages réseau)
-    _updateHandler.applyIncomingState(_gameState, updateUI: true);
+              // Appliquer l'état pour forcer le rebuild
+              _updateHandler.applyIncomingState(_gameState, updateUI: true);
+            },
+          ),
+    );
   }
 
   /// 🔹 Gestion du passage de tour
