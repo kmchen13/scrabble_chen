@@ -249,3 +249,6 @@ Refonte mode web en polling
     Compte fin de partie
     Correction écrasement gameOver par retryPendingGameState
     Correction getter onGameOverReceived non propagé vers relay_net
+3.8.1
+    Débridage fin de partie
+    
