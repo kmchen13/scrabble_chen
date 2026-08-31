@@ -263,6 +263,7 @@ class RelayNet implements ScrabbleNet {
 
   Future<void> retryPendingGameState() async {
     if (_pendingGameState == null) return;
+    if (_gameIsOver) return;
     if (_sendingPending) return;
 
     _sendingPending = true;
@@ -342,6 +343,7 @@ class RelayNet implements ScrabbleNet {
   @override
   void sendGameOver(GameState finalState) async {
     final String user = settings.localUser;
+    _pendingGameState = null;
     try {
       final res = await http.post(
         Uri.parse("$_relayServerUrl/gameover"), // ⭐️ endpoint dédié
@@ -367,8 +369,6 @@ class RelayNet implements ScrabbleNet {
     }
   }
 
-  // Implémentation du getter pour satisfaire l'interface
-
   @override
   void Function(GameState state)? get onGameStateReceived {
     return GameCallbackManager().onGameStateReceived;
@@ -384,28 +384,23 @@ class RelayNet implements ScrabbleNet {
     _dispatcher.flush(callback);
   }
 
-  ///Attachement du callback pour GameOver
   @override
-  void Function(GameState state)? get onGameOverReceived => _onGameOverReceived;
-  GameState? _pendingGameOver;
-  void Function(GameState state)? _onGameOverReceived;
+  void Function(GameState state)? get onGameOverReceived {
+    return GameCallbackManager().onGameOverReceived;
+  }
 
+  GameState? _pendingGameOver;
   @override
   set onGameOverReceived(void Function(GameState state)? callback) {
-    _onGameOverReceived = callback;
-
     print(
-      "${logHeader("relayNet")} onGameOverReceived setter "
-      "(hash=${callback?.hashCode})",
+      "${logHeader("relayNet")} onGameOverReceived setter (hash=${callback?.hashCode})",
     );
 
+    // Si un callback est passé et qu'il y a un gameOver en attente, on le traite
     if (callback != null && _pendingGameOver != null) {
       final pending = _pendingGameOver!;
       _pendingGameOver = null;
-
-      Future.microtask(() {
-        callback(pending);
-      });
+      Future.microtask(() => callback(pending));
     }
   }
 
@@ -526,8 +521,8 @@ class RelayNet implements ScrabbleNet {
               await gameStorage.save(gameState, markAsUnread: true);
 
               // même pipeline que GAMESTATE
-              if (_onGameOverReceived != null) {
-                _onGameOverReceived!(gameState);
+              if (onGameOverReceived != null) {
+                onGameOverReceived!(gameState);
               }
 
               // ⚠️ surtout ne pas arrêter le polling ici

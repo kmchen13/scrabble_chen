@@ -245,4 +245,7 @@ Refonte mode web en polling
 3.7.8
     Changement disposition des bonus
     modification starBonus
-    
+3.8.0
+    Compte fin de partie
+    Correction écrasement gameOver par retryPendingGameState
+    Correction getter onGameOverReceived non propagé vers relay_net

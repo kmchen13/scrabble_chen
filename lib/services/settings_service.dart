@@ -35,9 +35,9 @@ Future<void> loadSettings() async {
 }
 
 Future<void> saveSettings() async {
-  if (debug) {
-    print("Sauvegarde des réglages : ${settings.toJson()}");
-  }
+  // if (debug) {
+  //   print("Sauvegarde des réglages : ${settings.toJson()}");
+  // }
   final prefs = await SharedPreferences.getInstance();
   final key = buildSettingsKey();
 

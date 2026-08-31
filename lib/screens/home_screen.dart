@@ -581,16 +581,18 @@ class _HomeScreenState extends State<HomeScreen>
                                       ),
                                     );
 
-                                    WidgetsBinding.instance
-                                        .addPostFrameCallback((_) {
-                                          if (saved.isMyTurn(myName)) {
-                                            _net.onGameStateReceived?.call(
-                                              saved,
-                                            );
-                                          } else {
-                                            _net.startPolling(myName);
-                                          }
-                                        });
+                                    WidgetsBinding.instance.addPostFrameCallback((
+                                      _,
+                                    ) {
+                                      if (saved.isMyTurn(myName)) {
+                                        _net.onGameStateReceived?.call(
+                                          //simule la réception d'un game pour l'afficher
+                                          saved,
+                                        );
+                                      } else {
+                                        _net.startPolling(myName);
+                                      }
+                                    });
                                   },
                                   child: Text(
                                     "Partie avec $partner",
@@ -629,7 +631,16 @@ class _HomeScreenState extends State<HomeScreen>
                                   final saved = await gameStorage.load(partner);
 
                                   if (saved != null) {
-                                    _net.sendGameState(saved);
+                                    if (debug) {
+                                      print(
+                                        '$logHeader(HomeScreen.sendGameState) saved.leftLetters=${saved.leftLetters.length}, saved.rightLetters=${saved.rightLetters.length}',
+                                      );
+                                    }
+                                    if (saved.leftLetters.length == 0 ||
+                                        saved.rightLetters.length == 0) {
+                                      _net.sendGameOver(saved);
+                                    } else
+                                      _net.sendGameState(saved);
 
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(

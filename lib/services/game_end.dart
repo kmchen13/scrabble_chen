@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:scrabble_P2P/endgame_dialog.dart';
 import 'package:scrabble_P2P/models/game_state.dart';
+import 'package:scrabble_P2P/models/dragged_letter.dart';
 import 'package:scrabble_P2P/services/game_initializer.dart';
 import 'package:scrabble_P2P/services/game_storage.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
@@ -101,5 +102,24 @@ class GameEndService {
         );
       },
     );
+  }
+
+  /// ⚡️ Retranche les points des lettres restantes à chaque joueur
+  static GameState finalizeEndGameScore(GameState state) {
+    int leftRemainingPoints = state.leftLetters.fold(
+      0,
+      (sum, letter) => sum + letterPoints[letter]!,
+    );
+    int rightRemainingPoints = state.rightLetters.fold(
+      0,
+      (sum, letter) => sum + letterPoints[letter]!,
+    );
+
+    // Soustraire ces points des scores
+    int newLeftScore = state.leftScore - leftRemainingPoints;
+    int newRightScore = state.rightScore - rightRemainingPoints;
+
+    // Retourner un nouvel état avec les scores modifiés
+    return state.copyWith(leftScore: newLeftScore, rightScore: newRightScore);
   }
 }
