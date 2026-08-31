@@ -587,8 +587,9 @@ class _GameScreenState extends State<GameScreen> {
   void refillRack(int rackSize) {
     int missing = rackSize - _playerLetters.length;
     if (missing > 0) {
-      // final drawn = _gameState.bag.drawLetters(missing);
-      // _playerLetters.addAll(drawn);
+      //Débridage fin de partie commenter les 2 lignes suivantes
+      final drawn = _gameState.bag.drawLetters(missing);
+      _playerLetters.addAll(drawn);
 
       // ✅ MISE À JOUR du GameState avec les nouvelles lettres
       if (_gameState.isLeft) {
