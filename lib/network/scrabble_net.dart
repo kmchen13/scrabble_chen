@@ -3,6 +3,14 @@ import 'package:scrabble_P2P/models/game_state\.dart';
 import 'local_net.dart';
 import 'relay_net.dart';
 
+// Dans relay_net.dart (ou un fichier séparé)
+class NetworkException implements Exception {
+  final String message;
+  NetworkException(this.message);
+  @override
+  String toString() => 'NetworkException: $message';
+}
+
 abstract class ScrabbleNet {
   factory ScrabbleNet() {
     if (settings.communicationMode == 'web') {

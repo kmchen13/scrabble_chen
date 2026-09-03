@@ -288,11 +288,14 @@ class RelayNet implements ScrabbleNet {
   }
 
   @override
-  /// Récupère la liste des joueurs libres depuis le relay_server
   Future<List<Map<String, dynamic>>> getFreePlayers() async {
     try {
       final uri = Uri.parse('$_relayServerUrl/freeplayers');
-      final response = await http.get(uri);
+      final response = await http
+          .get(uri)
+          .timeout(
+            const Duration(seconds: 5), // optionnel : timeout explicite
+          );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -300,10 +303,12 @@ class RelayNet implements ScrabbleNet {
           return List<Map<String, dynamic>>.from(data['players']);
         }
       }
-      return [];
+      // Si le code n'est pas 200, on considère que c'est une erreur réseau
+      throw NetworkException('Le réseau ne répond pas');
     } catch (e) {
+      // On relance l'exception pour la remonter, en enrobant si besoin
       print('[ScrabbleNet] Erreur getFreePlayers: $e');
-      return [];
+      throw NetworkException('Le réseau ne répond pas');
     }
   }
 

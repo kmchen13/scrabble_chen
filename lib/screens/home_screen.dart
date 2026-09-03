@@ -50,8 +50,10 @@ class _HomeScreenState extends State<HomeScreen>
 
   // 📦 Chargement initial complet
   Future<void> _initializeData() async {
+    // 1. Initialisation du storage (indispensable)
     await gameStorage.init();
 
+    // 2. Vérification de l'utilisateur local
     if (settings.localUser.trim().isEmpty) {
       if (!mounted) return;
       Navigator.pushReplacement(
@@ -61,29 +63,57 @@ class _HomeScreenState extends State<HomeScreen>
       return;
     }
 
+    // Variables pour stocker les résultats
+    List<String> savedIds = [];
+    List<Map<String, dynamic>> freePlayers = [];
+
+    // 3. Chargement des parties sauvegardées (indépendant)
     try {
-      final results = await Future.wait([
-        gameStorage.listSavedGames(),
-        _net.getFreePlayers(),
-      ]);
+      savedIds = await gameStorage.listSavedGames();
+    } catch (e) {
+      print('[HomeScreen] Erreur chargement sauvegardes: $e');
+      // savedIds reste vide, on continue
+    }
 
-      final ids = results[0] as List<String>;
-      final players = results[1] as List<Map<String, dynamic>>;
+    // 4. Chargement des joueurs libres (avec gestion réseau)
+    try {
+      freePlayers = await _net.getFreePlayers();
 
-      final filtered =
-          players.where((p) => p['user_name'] != settings.localUser).toList();
+      // Filtrer le joueur local
+      freePlayers =
+          freePlayers
+              .where((p) => p['user_name'] != settings.localUser)
+              .toList();
 
+      // Si tout s'est bien passé, on démarre le polling
       if (mounted) {
-        setState(() {
-          _savedGames = ids;
-          _freePlayers = filtered;
-          _loading = false;
-        });
         _net.startPolling(settings.localUser);
       }
+    } on NetworkException catch (e) {
+      // Le réseau ne répond pas → afficher un message utilisateur
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.message), // "Le réseau ne répond pas"
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+      // freePlayers reste vide, on continue sans polling
     } catch (e) {
-      print('[HomeScreen] Erreur lors du chargement initial: $e');
-      if (mounted) setState(() => _loading = false);
+      // Autre erreur inattendue (ex: décodage JSON)
+      print('[HomeScreen] Erreur inattendue getFreePlayers: $e');
+      // freePlayers reste vide, on continue
+    }
+
+    // 5. Mise à jour de l'UI une fois les deux chargements terminés
+    if (mounted) {
+      setState(() {
+        _savedGames = savedIds;
+        _freePlayers = freePlayers;
+        _loading = false;
+      });
     }
   }
 

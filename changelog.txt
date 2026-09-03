@@ -251,4 +251,7 @@ Refonte mode web en polling
     Correction getter onGameOverReceived non propagé vers relay_net
 3.8.1
     Débridage fin de partie
+3.8.2
+    Correction affichage totalTiles dans le sac
+    Affichage erreur réseau sur homeScreen.getFreePlayers
     

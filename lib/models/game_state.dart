@@ -181,6 +181,7 @@ class GameState {
               .map((row) => row.map((e) => e?.cast<String, dynamic>()).toList())
               .toList(),
       'bag': bag.toMap(),
+      'bagInitialTotal': bag.totalTiles,
       'leftLetters': leftLetters.toList(),
       'rightLetters': rightLetters.toList(),
       'leftScore': leftScore,
@@ -221,6 +222,7 @@ class GameState {
         (_) => List<Map<String, dynamic>?>.filled(15, null),
       );
     }
+    final int bagInitialTotal = (map['bagInitialTotal'] as int?) ?? 102;
 
     return GameState(
       isLeft: map['isLeft'] as bool,
@@ -233,7 +235,10 @@ class GameState {
       board:
           (map['board'] as List).map((row) => List<String>.from(row)).toList(),
       boardJokerInfo: boardJokerInfoData,
-      bag: BagModel.fromMap(Map<String, dynamic>.from(map['bag'])),
+      bag: BagModel.fromMap(
+        Map<String, dynamic>.from(map['bag']),
+        initialTotal: bagInitialTotal, // 🔹 On le passe ici
+      ),
       leftLetters: List<String>.from(map['leftLetters']),
       rightLetters: List<String>.from(map['rightLetters']),
       leftScore: map['leftScore'] as int,
