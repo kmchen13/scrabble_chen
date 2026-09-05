@@ -597,19 +597,7 @@ class _HomeScreenState extends State<HomeScreen>
                                     );
                                     if (saved == null) return;
 
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (_) => GameScreen(
-                                              net: _net,
-                                              gameState: saved,
-                                              onGameStateUpdated: (gs) {
-                                                _net.sendGameState(gs);
-                                              },
-                                            ),
-                                      ),
-                                    );
+                                    _navigateToGameScreen(saved);
 
                                     WidgetsBinding.instance.addPostFrameCallback((
                                       _,

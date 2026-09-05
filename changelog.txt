@@ -254,4 +254,7 @@ Refonte mode web en polling
 3.8.2
     Correction affichage totalTiles dans le sac
     Affichage erreur réseau sur homeScreen.getFreePlayers
+    Ajout de WUS dans le dictionnaire
+    Correction superposition affichage lors du passage home->gameScreen
+    
     
