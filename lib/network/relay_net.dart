@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:audioplayers/audioplayers.dart';
 
-import 'package:scrabble_P2P/models/game_state\.dart';
+import 'package:scrabble_P2P/models/game_state.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
 import 'package:scrabble_P2P/services/game_storage.dart';
 import 'package:scrabble_P2P/services/game_callback_manager.dart';
@@ -55,6 +55,10 @@ class RelayNet implements ScrabbleNet {
   bool _sendingPending = false;
   bool appInForeground = true;
 
+  // Pour les GameOver en attente (en mémoire + persistance)
+  GameState? _pendingGameOver;
+  bool _sendingGameOver = false;
+
   Future<void> _playNotificationSound() async {
     try {
       if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
@@ -77,13 +81,96 @@ class RelayNet implements ScrabbleNet {
   Timer? _pollingTimer;
   bool _isConnected = false;
   bool _retrying = false;
-  int _timerFrequency = 5; // fréquence de polling en secondes
-  int _retryDelay = 5; // fré&quence de retry connect si "waiting" ou erreur
+  int _timerFrequency = 5;
+  int _retryDelay = 5;
 
   RelayNet() {
     _relayServerUrl = settings.relayServerUrl;
     print('[relayNet] constructor called id=${identityHashCode(this)}');
+    // Tenter d'envoyer tous les pending au démarrage
+    Future.delayed(Duration(seconds: 1), () async {
+      await _resumeAllPendingGameOver();
+      await _resumeAllPendingGameStates();
+    });
   }
+
+  // ==================== Persistance GameState ====================
+  Future<void> _savePendingGameState(GameState state) async {
+    try {
+      await gameStorage.savePending(state);
+    } catch (e) {
+      logger.w("Erreur sauvegarde pending: $e");
+    }
+  }
+
+  Future<void> _clearPendingGameState(GameState state) async {
+    try {
+      await gameStorage.deletePending(state);
+    } catch (e) {
+      logger.w("Erreur suppression pending: $e");
+    }
+  }
+
+  Future<void> _clearAllPendingGameStates() async {
+    try {
+      await gameStorage.deleteAllPending();
+    } catch (e) {
+      logger.w("Erreur suppression tous pending: $e");
+    }
+  }
+
+  Future<void> _resumeAllPendingGameStates() async {
+    if (_sendingPending) return;
+    try {
+      final all = await gameStorage.loadAllPending();
+      for (final state in all) {
+        // On utilise sendGameState qui gère les retries et la mise à jour de _pendingGameState
+        await sendGameState(state);
+      }
+    } catch (e) {
+      logger.w("Erreur résumé GameState pending: $e");
+    }
+  }
+
+  // ==================== Persistance GameOver ====================
+  Future<void> _savePendingGameOver(GameState state) async {
+    try {
+      await gameStorage.savePendingGameOver(state);
+    } catch (e) {
+      logger.w("Erreur sauvegarde gameover: $e");
+    }
+  }
+
+  Future<void> _clearPendingGameOver(GameState state) async {
+    try {
+      await gameStorage.deletePendingGameOver(state);
+    } catch (e) {
+      logger.w("Erreur suppression gameover: $e");
+    }
+  }
+
+  Future<void> _clearAllPendingGameOver() async {
+    try {
+      await gameStorage.deleteAllPendingGameOver();
+    } catch (e) {
+      logger.w("Erreur suppression tous gameover: $e");
+    }
+  }
+
+  Future<void> _resumeAllPendingGameOver() async {
+    if (_sendingGameOver) return;
+    try {
+      final all = await gameStorage.loadAllPendingGameOver();
+      for (final state in all) {
+        // On utilise sendGameOver qui gère les retries et la persistance
+        await sendGameOver(state);
+      }
+    } catch (e) {
+      logger.w("Erreur résumé GameOver pending: $e");
+    }
+  }
+
+  // ==================== Fin persistance ====================
 
   @override
   void Function({
@@ -104,6 +191,12 @@ class RelayNet implements ScrabbleNet {
     required String expectedName,
     required int startTime,
   }) async {
+    // Nettoyer tous les pending (nouvelle partie)
+    await _clearAllPendingGameStates();
+    await _clearAllPendingGameOver();
+    _pendingGameState = null;
+    _pendingGameOver = null;
+
     onStatusUpdate?.call("Connexion au serveur relai $_relayServerUrl...");
     try {
       final res = await http.post(
@@ -111,8 +204,7 @@ class RelayNet implements ScrabbleNet {
         body: jsonEncode({
           'user': localName,
           'expectedName': expectedName,
-          'startTime':
-              startTime, //startTime est conservé pour compatibilité localNet
+          'startTime': startTime,
         }),
         headers: {'Content-Type': 'application/json'},
       );
@@ -152,7 +244,6 @@ class RelayNet implements ScrabbleNet {
           print(
             "${logHeader("relayNet")} En attente de partenaire… démarrage du polling",
           );
-        // 🔥 Ajout demandé : informer StartScreen
         onStatusUpdate?.call(
           "Connecté au serveur WEB relais $_relayServerUrl, en attente d'un partenaire...",
         );
@@ -196,7 +287,7 @@ class RelayNet implements ScrabbleNet {
         print(
           "${logHeader("relayNet")} Polling déjà actif (timer=${identityHashCode(_pollingTimer)})",
         );
-      return; // n’en recrée pas un autre
+      return;
     }
     if (debug)
       print('${logHeader("relayNet")} Polling démarré pour $localName');
@@ -206,24 +297,20 @@ class RelayNet implements ScrabbleNet {
       try {
         await pollMessages(localName);
       } catch (e) {
-        // Log l'erreur et la stack trace pour le débogage
         if (debug) {
           print("${logHeader('pollMessages')} ⚠️ Erreur lors du polling: $e");
         }
-        // Vous pouvez aussi ajouter une logique de relance ou de notification ici
       }
     });
   }
 
   @override
-  // ⭐️ suspend explicitement
   void stopPolling() {
     if (debug) print("${logHeader("relayNet")} ⏸️ Polling suspendu");
     _pollingTimer?.cancel();
     _pollingTimer = null;
   }
 
-  // ⭐️ reprend explicitement
   void _resumePolling(String localName) {
     if (debug) print("${logHeader("relayNet")} ▶️ Polling repris");
     startPolling(localName);
@@ -275,8 +362,8 @@ class RelayNet implements ScrabbleNet {
         if (debug) {
           print("${logHeader("relayNet")} 🔁 GameState en attente envoyé");
         }
-
         _pendingGameState = null;
+        // Pas besoin de supprimer la persistance ici, car sendGameState l'a déjà fait
       }
     } catch (e) {
       if (debug) {
@@ -291,11 +378,7 @@ class RelayNet implements ScrabbleNet {
   Future<List<Map<String, dynamic>>> getFreePlayers() async {
     try {
       final uri = Uri.parse('$_relayServerUrl/freeplayers');
-      final response = await http
-          .get(uri)
-          .timeout(
-            const Duration(seconds: 5), // optionnel : timeout explicite
-          );
+      final response = await http.get(uri).timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -303,10 +386,8 @@ class RelayNet implements ScrabbleNet {
           return List<Map<String, dynamic>>.from(data['players']);
         }
       }
-      // Si le code n'est pas 200, on considère que c'est une erreur réseau
       throw NetworkException('Le réseau ne répond pas');
     } catch (e) {
-      // On relance l'exception pour la remonter, en enrobant si besoin
       print('[ScrabbleNet] Erreur getFreePlayers: $e');
       throw NetworkException('Le réseau ne répond pas');
     }
@@ -331,46 +412,64 @@ class RelayNet implements ScrabbleNet {
             "${logHeader("relayNet")} ✅ GameState envoyé (hash=${state.hashCode})",
           );
         }
-
         _pendingGameState = null;
+        // Supprimer la sauvegarde pour ce partenaire
+        await _clearPendingGameState(state);
         _resumePolling(settings.localUser);
       } else {
         throw Exception("Server refused gamestate");
       }
     } catch (e) {
       logger.w("⚠️ Réseau indisponible, GameState mis en attente");
-
-      // garder seulement le dernier state
+      // Garder en mémoire
       _pendingGameState = state;
+      // Persister
+      await _savePendingGameState(state);
     }
   }
 
   @override
-  void sendGameOver(GameState finalState) async {
+  Future<void> sendGameOver(GameState finalState) async {
     final String user = settings.localUser;
+    // Nettoyer le GameState en attente pour ce partenaire (la partie est finie)
     _pendingGameState = null;
+    await _clearPendingGameState(finalState);
+
+    if (_sendingGameOver) return;
+    _sendingGameOver = true;
+
     try {
-      final res = await http.post(
-        Uri.parse("$_relayServerUrl/gameover"), // ⭐️ endpoint dédié
-        body: jsonEncode({
-          'user': user,
-          'partner': finalState.partnerFrom(user),
-          'type': 'gameOver',
-          'message': finalState.toJson(),
-        }),
-        headers: {'Content-Type': 'application/json'},
-      );
+      final res = await http
+          .post(
+            Uri.parse("$_relayServerUrl/gameover"),
+            body: jsonEncode({
+              'user': user,
+              'partner': finalState.partnerFrom(user),
+              'type': 'gameOver',
+              'message': finalState.toJson(),
+            }),
+            headers: {'Content-Type': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 8));
 
       final json = jsonDecode(res.body);
-      if (json['status'] == 'SENT') {
-        print("${logHeader("relayNet")} ✅ GameOver envoyé : $finalState");
+      if (res.statusCode == 200 && json['status'] == 'SENT') {
+        print("${logHeader("relayNet")} ✅ GameOver envoyé");
+        _pendingGameOver = null;
+        // Supprimer la sauvegarde pour ce partenaire
+        await _clearPendingGameOver(finalState);
+        _gameIsOver = true;
       } else {
-        logger.w("⚠️ Erreur serveur GameOver: $json");
+        throw Exception("Server refused gameover");
       }
-
-      _gameIsOver = true;
     } catch (e) {
-      logger.e("Erreur envoi GameOver : $e");
+      logger.w("⚠️ Réseau indisponible, GameOver mis en attente");
+      _pendingGameOver = finalState;
+      // Persister
+      await _savePendingGameOver(finalState);
+      // Ne pas mettre _gameIsOver à true tant que non envoyé
+    } finally {
+      _sendingGameOver = false;
     }
   }
 
@@ -384,8 +483,6 @@ class RelayNet implements ScrabbleNet {
     print(
       "${logHeader("relayNet")} onGameStateReceived setter (hash=${callback?.hashCode})",
     );
-
-    // 🔥 flush éventuel
     _dispatcher.flush(callback);
   }
 
@@ -394,14 +491,11 @@ class RelayNet implements ScrabbleNet {
     return GameCallbackManager().onGameOverReceived;
   }
 
-  GameState? _pendingGameOver;
   @override
   set onGameOverReceived(void Function(GameState state)? callback) {
     print(
       "${logHeader("relayNet")} onGameOverReceived setter (hash=${callback?.hashCode})",
     );
-
-    // Si un callback est passé et qu'il y a un gameOver en attente, on le traite
     if (callback != null && _pendingGameOver != null) {
       final pending = _pendingGameOver!;
       _pendingGameOver = null;
@@ -416,17 +510,13 @@ class RelayNet implements ScrabbleNet {
     required int date,
     required Future<void> Function() handler,
   }) async {
-    // 1️⃣ traiter / persister AVANT ack
     await handler();
-
-    // 2️⃣ ACK seulement après succès
     final res = await http.get(
       Uri.parse(
         '$_relayServerUrl/acknowledgement'
         '?user=$localName&partner=$partner&type=$type&date=$date',
       ),
     );
-
     final json = jsonDecode(res.body);
     if (json['status'] != 'OK') {
       logger.w('[relayNet] ACK échoué pour type=$type');
@@ -437,7 +527,11 @@ class RelayNet implements ScrabbleNet {
 
   Future<void> pollMessages(String localName) async {
     http.Response? response;
-    // if (debug) print('${logHeader("relayNet")} Poll de $localName');
+
+    // En priorité, envoyer tous les GameOver en attente
+    await _resumeAllPendingGameOver();
+    // Puis tous les GameState en attente
+    await _resumeAllPendingGameStates();
 
     await retryPendingGameState();
 
@@ -471,7 +565,6 @@ class RelayNet implements ScrabbleNet {
             handler: () async {
               final gameState = GameState.fromJson(message);
 
-              // 🔥 Utiliser gameId directement (non-nullable)
               final String stateId = gameState.gameId;
               final now = DateTime.now();
 
@@ -481,13 +574,10 @@ class RelayNet implements ScrabbleNet {
                 );
               }
 
-              // 🔥 UNIQUE SAUVEGARDE ICI (avant le dispatcher)
               await gameStorage.save(gameState, markAsUnread: true);
 
-              // Puis dispatcher vers le callback
               await _dispatcher.handleIncoming(gameState, onGameStateReceived);
 
-              // ✅ Jouer le son
               if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
                 await _playNotificationSound();
               } else if (AppLifecycle.isForeground) {
@@ -522,17 +612,11 @@ class RelayNet implements ScrabbleNet {
 
               final gameState = GameState.fromJson(message);
 
-              // sauvegarde immédiate
               await gameStorage.save(gameState, markAsUnread: true);
 
-              // même pipeline que GAMESTATE
               if (onGameOverReceived != null) {
                 onGameOverReceived!(gameState);
               }
-
-              // ⚠️ surtout ne pas arrêter le polling ici
-              // Le joueur droit doit recevoir son dernier tour
-              // stopPolling();  <-- supprimer
             },
           );
           break;
@@ -571,14 +655,12 @@ class RelayNet implements ScrabbleNet {
                 print("${logHeader("relayNet")} GAMEQUIT reçu de $partner");
               }
 
-              // 🧹 suppression de la partie sauvegardée
               if (partner.isNotEmpty) {
                 await gameStorage.delete(partner);
               }
 
               _gameIsOver = false;
 
-              // 🔔 notification logique vers l'UI
               onGameQuitReceived?.call(partner);
             },
           );
@@ -613,25 +695,17 @@ class RelayNet implements ScrabbleNet {
     }
   }
 
-  ///Déconnecter, ne plus faire partie de la liste des joueurs "libres" (en attente de n'importe quel joueur)
   @override
   Future<void> disconnect() async {
     try {
       final user = settings.localUser;
-
       await http.get(Uri.parse('$_relayServerUrl/disconnect?user=$user'));
-
-      if (debug) {
-        print('[relayNet] disconnect envoyé pour $user');
-      }
+      if (debug) print('[relayNet] disconnect envoyé pour $user');
     } catch (e) {
-      if (debug) {
-        print('[relayNet] disconnect erreur: $e');
-      }
+      if (debug) print('[relayNet] disconnect erreur: $e');
     }
   }
 
-  ///Quitte une partie
   @override
   Future<void> sendGameQuit(me, partner) async {
     try {

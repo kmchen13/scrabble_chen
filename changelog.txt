@@ -256,5 +256,5 @@ Refonte mode web en polling
     Affichage erreur réseau sur homeScreen.getFreePlayers
     Ajout de WUS dans le dictionnaire
     Correction superposition affichage lors du passage home->gameScreen
-    
-    
+3.8.3
+    Correction perte game si pas de réseau et app fermée

@@ -35,6 +35,9 @@ class GameStorage {
   // 🔥 Suffixe pour marquer les parties non lues
   static const String _unreadSuffix = '*';
 
+  // 🔥 Préfixe pour les états en attente d'envoi réseau
+  static const String _pendingPrefix = 'pending_';
+
   static String buildKey(String partner) => "game_$partner";
 
   Future<void> init() async {
@@ -79,7 +82,6 @@ class GameStorage {
       await _box!.put(storageKey, gameState.toMap());
       await _box!.flush();
 
-      // 🔥 Afficher la liste APRÈS la sauvegarde
       if (debug) {
         print(
           "${logHeader('GameStorage.save')} game.hash(${gameState.hashCode}) sauvegardé sous $storageKey${markAsUnread ? ' (non lu)' : ''}",
@@ -97,7 +99,6 @@ class GameStorage {
       final key = buildKey(partner);
       final unreadKey = "$key$_unreadSuffix";
 
-      // 🔥 Essayer d'abord avec "*" (non lu)
       String? actualKey;
       Map? data;
 
@@ -107,9 +108,7 @@ class GameStorage {
         if (debug) {
           print("${logHeader('GameStorage')} chargé depuis clé non lue");
         }
-      }
-      // Sinon utiliser la clé normale
-      else if (_box!.containsKey(key)) {
+      } else if (_box!.containsKey(key)) {
         actualKey = key;
         data = _box!.get(actualKey);
         if (debug) {
@@ -128,7 +127,6 @@ class GameStorage {
       final map = deepCastMap(data);
       final gameState = GameState.fromMap(map);
 
-      // 🔥 Si c'était une clé non lue, la transformer en clé normale
       if (actualKey == unreadKey) {
         await _box!.delete(unreadKey);
         await _box!.put(key, map);
@@ -151,6 +149,107 @@ class GameStorage {
     }
   }
 
+  // ==================== Méthodes dédiées aux états en attente ====================
+  static String buildPendingKey(
+    GameState gameState, {
+    String prefix = 'pending',
+  }) {
+    final partner = gameState.partnerFrom(settings.localUser);
+    return '${prefix}_$partner';
+  }
+
+  // ========== GameState (pending) ==========
+  Future<void> savePending(GameState gameState) async {
+    if (_box == null) throw Exception("GameStorage not initialized");
+    final key = buildPendingKey(gameState, prefix: 'pending');
+    await _box!.put(key, gameState.toMap());
+    await _box!.flush();
+  }
+
+  // ⭐ Load tous les GameState en attente (globaux)
+  Future<List<GameState>> loadAllPending() async {
+    if (_box == null) return [];
+    final keys = _box!.keys.whereType<String>().where(
+      (k) => k.startsWith('pending_') && !k.startsWith('pending_gameover_'),
+    );
+    final list = <GameState>[];
+    for (final key in keys) {
+      final data = _box!.get(key);
+      if (data is Map) {
+        final map = deepCastMap(data);
+        list.add(GameState.fromMap(map));
+      }
+    }
+    return list;
+  }
+
+  // ⭐ Suppression ciblée (par partenaire)
+  Future<void> deletePending(GameState gameState) async {
+    if (_box == null) return;
+    final key = buildPendingKey(gameState, prefix: 'pending');
+    await _box!.delete(key);
+    await _box!.flush();
+  }
+
+  // ⭐ Suppression globale de tous les GameState en attente
+  Future<void> deleteAllPending() async {
+    if (_box == null) return;
+    final keys = _box!.keys.whereType<String>().where(
+      (k) => k.startsWith('pending_') && !k.startsWith('pending_gameover_'),
+    );
+    for (final key in keys) {
+      await _box!.delete(key);
+    }
+    await _box!.flush();
+  }
+
+  // ========== GameOver (pending) ==========
+  Future<void> savePendingGameOver(GameState gameState) async {
+    if (_box == null) throw Exception("GameStorage not initialized");
+    final key = buildPendingKey(gameState, prefix: 'pending_gameover');
+    await _box!.put(key, gameState.toMap());
+    await _box!.flush();
+  }
+
+  // ⭐ Load tous les GameOver en attente (globaux)
+  Future<List<GameState>> loadAllPendingGameOver() async {
+    if (_box == null) return [];
+    final keys = _box!.keys.whereType<String>().where(
+      (k) => k.startsWith('pending_gameover_'),
+    );
+    final list = <GameState>[];
+    for (final key in keys) {
+      final data = _box!.get(key);
+      if (data is Map) {
+        final map = deepCastMap(data);
+        list.add(GameState.fromMap(map));
+      }
+    }
+    return list;
+  }
+
+  // ⭐ Suppression ciblée (par partenaire)
+  Future<void> deletePendingGameOver(GameState gameState) async {
+    if (_box == null) return;
+    final key = buildPendingKey(gameState, prefix: 'pending_gameover');
+    await _box!.delete(key);
+    await _box!.flush();
+  }
+
+  // ⭐ Suppression globale de tous les GameOver en attente
+  Future<void> deleteAllPendingGameOver() async {
+    if (_box == null) return;
+    final keys = _box!.keys.whereType<String>().where(
+      (k) => k.startsWith('pending_gameover_'),
+    );
+    for (final key in keys) {
+      await _box!.delete(key);
+    }
+    await _box!.flush();
+  }
+
+  // ==================== Fin méthodes pending ====================
+
   Future<void> debugDump() async {
     if (_box == null) {
       print("${logHeader('GameStorage')} debugDump: box == null");
@@ -172,10 +271,7 @@ class GameStorage {
               .where((k) => k.startsWith("game_"))
               .toList();
 
-      // 🔥 Retourner les clés telles quelles (avec "*" si présent)
-      return keys
-          .map((k) => k.substring(5))
-          .toList(); // retire "game_" mais garde "*"
+      return keys.map((k) => k.substring(5)).toList();
     } catch (e) {
       print("${logHeader('GameStorage')} Erreur listSavedGames: $e");
       return [];
