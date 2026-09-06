@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'services/settings_service.dart';
 import 'services/app_log.dart';
+import 'services/audio.dart';
 import 'services/game_storage.dart';
 import 'models/game_state.dart';
 import 'screens/home_screen.dart';
@@ -21,6 +22,8 @@ void main() async {
   Hive.registerAdapter(GameStateAdapter());
   // Ouverture de la box via ton wrapper
   await gameStorage.init();
+  final audioService = AudioService();
+  await audioService.initAudioPlayer();
   // Intercepter la fermeture de l'app
   ProcessSignal.sigint.watch().listen((_) async {
     await gameStorage.close();

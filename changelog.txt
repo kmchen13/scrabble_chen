@@ -258,3 +258,6 @@ Refonte mode web en polling
     Correction superposition affichage lors du passage home->gameScreen
 3.8.3
     Correction perte game si pas de réseau et app fermée
+3.8.4
+    Correction coupure du son des autres app
+    

@@ -12,6 +12,7 @@ import 'package:scrabble_P2P/services/assets_manager.dart';
 import 'package:scrabble_P2P/services/log.dart';
 import 'package:scrabble_P2P/services/notification.dart';
 import 'package:scrabble_P2P/services/app_lifecycle.dart';
+import 'package:scrabble_P2P/services/audio.dart';
 import 'scrabble_net.dart';
 import 'package:scrabble_P2P/constants.dart';
 import 'package:scrabble_P2P/services/utility.dart';
@@ -50,6 +51,7 @@ class RelayNet implements ScrabbleNet {
   late final String _relayServerUrl;
   bool _gameIsOver = false;
   final _player = AudioPlayer();
+  final audioService = AudioService();
 
   GameState? _pendingGameState;
   bool _sendingPending = false;
@@ -58,25 +60,6 @@ class RelayNet implements ScrabbleNet {
   // Pour les GameOver en attente (en mémoire + persistance)
   GameState? _pendingGameOver;
   bool _sendingGameOver = false;
-
-  Future<void> _playNotificationSound() async {
-    try {
-      if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
-        await _player.play(
-          DeviceFileSource(
-            AssetManager.desktopPath('assets/sounds/notify.wav'),
-          ),
-        );
-      } else {
-        await _player.play(AssetSource('sounds/notify.wav'));
-      }
-    } catch (e) {
-      print(
-        '${logHeader("relayNet")} '
-        'Erreur lecture son : $e',
-      );
-    }
-  }
 
   Timer? _pollingTimer;
   bool _isConnected = false;
@@ -579,9 +562,11 @@ class RelayNet implements ScrabbleNet {
               await _dispatcher.handleIncoming(gameState, onGameStateReceived);
 
               if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
-                await _playNotificationSound();
+                await audioService.playNotificationSound();
+                ();
               } else if (AppLifecycle.isForeground) {
-                await _playNotificationSound();
+                await audioService.playNotificationSound();
+                ();
               } else {
                 final msg = "$partner a joué";
                 await NotificationService.showGameMessage(msg);
@@ -603,7 +588,8 @@ class RelayNet implements ScrabbleNet {
                   "dernier coup de la partie avec $partner. Celui qui a joué en deuxième joue le dernier coup";
 
               if (AppLifecycle.isForeground) {
-                await _playNotificationSound();
+                await audioService.playNotificationSound();
+                ();
               } else {
                 await NotificationService.showGameMessage(msg);
               }
@@ -675,7 +661,8 @@ class RelayNet implements ScrabbleNet {
             handler: () async {
               final msg = "$partner: $message";
               if (AppLifecycle.isForeground) {
-                await _playNotificationSound();
+                await audioService.playNotificationSound();
+                ();
               } else {
                 await NotificationService.showGameMessage(msg);
               }
