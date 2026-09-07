@@ -314,7 +314,7 @@ class RelayNet implements ScrabbleNet {
           }),
           headers: {'Content-Type': 'application/json'},
         )
-        .timeout(const Duration(seconds: 8));
+        .timeout(const Duration(seconds: 60));
 
     if (res.statusCode != 200) {
       return false;
@@ -361,7 +361,7 @@ class RelayNet implements ScrabbleNet {
   Future<List<Map<String, dynamic>>> getFreePlayers() async {
     try {
       final uri = Uri.parse('$_relayServerUrl/freeplayers');
-      final response = await http.get(uri).timeout(const Duration(seconds: 5));
+      final response = await http.get(uri).timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -433,7 +433,7 @@ class RelayNet implements ScrabbleNet {
             }),
             headers: {'Content-Type': 'application/json'},
           )
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 60));
 
       final json = jsonDecode(res.body);
       if (res.statusCode == 200 && json['status'] == 'SENT') {

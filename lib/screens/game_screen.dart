@@ -1145,11 +1145,11 @@ class _GameScreenState extends State<GameScreen> {
 
                         await gameStorage.delete(partner);
 
-                        if (context.mounted) {
-                          Navigator.of(
-                            context,
-                          ).popUntil((route) => route.isFirst);
-                        }
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(builder: (_) => const HomeScreen()),
+                          (route) => false,
+                        );
                       }
                       : null,
               padding: EdgeInsets.zero,

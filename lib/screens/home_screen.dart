@@ -242,7 +242,7 @@ class _HomeScreenState extends State<HomeScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                "Partie terminée ! ${gameState.partnerFrom(settings.localUser)} a terminé la partie.",
+                "Partie terminée ! ${gameState.partnerFrom(settings.localUser).substring(0, settings.nameDisplayLimit)}} a terminé la partie.",
               ),
               backgroundColor: Colors.orange,
               duration: const Duration(seconds: 4),
@@ -274,7 +274,9 @@ class _HomeScreenState extends State<HomeScreen>
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text("$partner a abandonné la partie"),
+              content: Text(
+                "${partner.substring(0, settings.nameDisplayLimit)} a abandonné la partie",
+              ),
               backgroundColor: Colors.red,
               duration: const Duration(seconds: 3),
             ),
@@ -344,9 +346,14 @@ class _HomeScreenState extends State<HomeScreen>
         );
         _navigateToGameScreen(gameState);
       } else {
+        final String displayName =
+            leftName.length > settings.nameDisplayLimit
+                ? '${leftName.substring(0, settings.nameDisplayLimit)}'
+                : leftName;
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Partie engagée avec $leftName, à lui de jouer"),
+            content: Text("Partie engagée avec $displayName, à lui de jouer"),
             backgroundColor: Colors.orange.shade700,
             duration: const Duration(seconds: 3),
             behavior: SnackBarBehavior.floating,
@@ -416,7 +423,7 @@ class _HomeScreenState extends State<HomeScreen>
             Expanded(
               child: Text(
                 targetPlayer != null
-                    ? "Recherche de $targetPlayer..."
+                    ? "Recherche de ${targetPlayer.substring(0, settings.nameDisplayLimit)}"
                     : "Recherche d'un adversaire...",
                 style: const TextStyle(fontSize: 14),
               ),
@@ -493,83 +500,107 @@ class _HomeScreenState extends State<HomeScreen>
                 child: const Text("Commencer une partie"),
               ),
 
-              // ✅ Liste des joueurs libres
+              // ✅ Liste des joueurs libres (troncature du nom + défilement)
               if (_freePlayers.isNotEmpty) ...[
                 const Divider(height: 20),
                 const Text(
-                  "Joueurs en attente :",
+                  "Joueurs libres :",
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 if (_loadingFreePlayers)
                   const CircularProgressIndicator()
                 else
-                  ..._freePlayers
-                      .map(
-                        (player) => Row(
-                          children: [
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  final user = player['user_name'];
-                                  _startSearching(user); // ✅ Recherche ciblée
-                                },
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(player['user_name']),
-                                    if (player['message'] != null &&
-                                        player['message'] != '')
-                                      Text(
-                                        player['message'],
-                                        style: const TextStyle(fontSize: 10),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.info_outline),
-                              onPressed: () {
-                                showDialog(
-                                  context: context,
-                                  builder:
-                                      (_) => AlertDialog(
-                                        title: Text(player['user_name']),
-                                        content: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            const Text("Message:"),
+                  // Conteneur limité en hauteur avec défilement
+                  SizedBox(
+                    height:
+                        300, // Ajustez cette valeur selon vos besoins (~10 lignes)
+                    child: SingleChildScrollView(
+                      child: Column(
+                        children:
+                            _freePlayers.map((player) {
+                              // ✅ Troncature du nom d'utilisateur
+                              final userName = player['user_name'] ?? '';
+                              final displayName =
+                                  userName.length > settings.nameDisplayLimit
+                                      ? '${userName.substring(0, settings.nameDisplayLimit)}'
+                                      : userName;
+
+                              return Row(
+                                children: [
+                                  Expanded(
+                                    child: ElevatedButton(
+                                      onPressed: () {
+                                        _startSearching(
+                                          userName,
+                                        ); // On utilise le nom complet pour l'action
+                                      },
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            displayName,
+                                          ), // ✅ Affichage tronqué
+                                          if (player['message'] != null &&
+                                              player['message'] != '')
                                             Text(
-                                              player['message'] ??
-                                                  'Aucun message',
-                                            ),
-                                            const SizedBox(height: 8),
-                                            Text(
-                                              "En attente depuis: ${DateTime.fromMillisecondsSinceEpoch(player['date']).toLocal()}",
+                                              player['message'],
                                               style: const TextStyle(
-                                                fontSize: 12,
+                                                fontSize: 10,
                                               ),
                                             ),
-                                          ],
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed:
-                                                () => Navigator.pop(context),
-                                            child: const Text("OK"),
-                                          ),
                                         ],
                                       ),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                      )
-                      .toList(),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.info_outline),
+                                    onPressed: () {
+                                      showDialog(
+                                        context: context,
+                                        builder:
+                                            (_) => AlertDialog(
+                                              title: Text(
+                                                displayName,
+                                              ), // Ou userName selon préférence
+                                              content: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  const Text("Message:"),
+                                                  Text(
+                                                    player['message'] ??
+                                                        'Aucun message',
+                                                  ),
+                                                  const SizedBox(height: 8),
+                                                  Text(
+                                                    "En attente depuis: ${DateTime.fromMillisecondsSinceEpoch(player['date']).toLocal()}",
+                                                    style: const TextStyle(
+                                                      fontSize: 12,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed:
+                                                      () => Navigator.pop(
+                                                        context,
+                                                      ),
+                                                  child: const Text("OK"),
+                                                ),
+                                              ],
+                                            ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              );
+                            }).toList(),
+                      ),
+                    ),
+                  ),
                 const Divider(height: 20),
               ],
 
@@ -613,7 +644,7 @@ class _HomeScreenState extends State<HomeScreen>
                                     });
                                   },
                                   child: Text(
-                                    "Partie avec $partner",
+                                    "Partie avec ${partner.substring(0, settings.nameDisplayLimit)}",
                                     style: TextStyle(
                                       color: newGame ? Colors.green : null,
                                       fontWeight:

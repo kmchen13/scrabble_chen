@@ -260,4 +260,9 @@ Refonte mode web en polling
     Correction perte game si pas de réseau et app fermée
 3.8.4
     Correction coupure du son des autres app
+3.8.5
+    Augmentation timeout accès réseau
+    tronquage des noms affichés dans homeScreen
+    limitation à 10 lignes la liste des joueurs libres
+    retour à homeScreen après abandon dans gameScreen
     
