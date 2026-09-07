@@ -722,7 +722,7 @@ class _HomeScreenState extends State<HomeScreen>
               ),
               ElevatedButton.icon(
                 icon: const Icon(Icons.share),
-                label: const Text("Partager les logs"),
+                label: const Text("Signaler un bug"),
                 onPressed: () async {
                   final file = await AppLog().getFile();
                   if (file != null && await file.exists()) {

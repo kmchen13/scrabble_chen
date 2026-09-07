@@ -267,4 +267,6 @@ Refonte mode web en polling
     retour à homeScreen après abandon dans gameScreen
 3.8.6
     Introduction de displayName dans utility.dart
+3.8.7
+    Maintien limitation settings.displayName sur scorBar
     
