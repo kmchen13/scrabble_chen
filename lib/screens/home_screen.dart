@@ -242,7 +242,7 @@ class _HomeScreenState extends State<HomeScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                "Partie terminée ! ${gameState.partnerFrom(settings.localUser).substring(0, settings.nameDisplayLimit)}} a terminé la partie.",
+                "Partie terminée ! ${displayName(gameState.partnerFrom(settings.localUser))} a terminé la partie.",
               ),
               backgroundColor: Colors.orange,
               duration: const Duration(seconds: 4),
@@ -274,9 +274,7 @@ class _HomeScreenState extends State<HomeScreen>
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                "${partner.substring(0, settings.nameDisplayLimit)} a abandonné la partie",
-              ),
+              content: Text("${displayName(partner)} a abandonné la partie"),
               backgroundColor: Colors.red,
               duration: const Duration(seconds: 3),
             ),
@@ -346,14 +344,11 @@ class _HomeScreenState extends State<HomeScreen>
         );
         _navigateToGameScreen(gameState);
       } else {
-        final String displayName =
-            leftName.length > settings.nameDisplayLimit
-                ? '${leftName.substring(0, settings.nameDisplayLimit)}'
-                : leftName;
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Partie engagée avec $displayName, à lui de jouer"),
+            content: Text(
+              "Partie engagée avec ${displayName(leftName)}, à lui de jouer",
+            ),
             backgroundColor: Colors.orange.shade700,
             duration: const Duration(seconds: 3),
             behavior: SnackBarBehavior.floating,
@@ -423,7 +418,7 @@ class _HomeScreenState extends State<HomeScreen>
             Expanded(
               child: Text(
                 targetPlayer != null
-                    ? "Recherche de ${targetPlayer.substring(0, settings.nameDisplayLimit)}"
+                    ? "Recherche de ${displayName(targetPlayer)}"
                     : "Recherche d'un adversaire...",
                 style: const TextStyle(fontSize: 14),
               ),
@@ -521,10 +516,6 @@ class _HomeScreenState extends State<HomeScreen>
                             _freePlayers.map((player) {
                               // ✅ Troncature du nom d'utilisateur
                               final userName = player['user_name'] ?? '';
-                              final displayName =
-                                  userName.length > settings.nameDisplayLimit
-                                      ? '${userName.substring(0, settings.nameDisplayLimit)}'
-                                      : userName;
 
                               return Row(
                                 children: [
@@ -539,7 +530,7 @@ class _HomeScreenState extends State<HomeScreen>
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Text(
-                                            displayName,
+                                            displayName(userName),
                                           ), // ✅ Affichage tronqué
                                           if (player['message'] != null &&
                                               player['message'] != '')
@@ -561,7 +552,7 @@ class _HomeScreenState extends State<HomeScreen>
                                         builder:
                                             (_) => AlertDialog(
                                               title: Text(
-                                                displayName,
+                                                displayName(userName),
                                               ), // Ou userName selon préférence
                                               content: Column(
                                                 mainAxisSize: MainAxisSize.min,
@@ -644,7 +635,7 @@ class _HomeScreenState extends State<HomeScreen>
                                     });
                                   },
                                   child: Text(
-                                    "Partie avec ${partner.substring(0, settings.nameDisplayLimit)}",
+                                    "Partie avec ${displayName(partner)}",
                                     style: TextStyle(
                                       color: newGame ? Colors.green : null,
                                       fontWeight:

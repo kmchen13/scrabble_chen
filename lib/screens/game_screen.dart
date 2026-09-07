@@ -897,16 +897,6 @@ class _GameScreenState extends State<GameScreen> {
       nameFontSize = 16;
     }
 
-    // Limite les noms à nameDspl caractères
-    String shortLeftName =
-        _gameState.leftName.length > nameDspl
-            ? _gameState.leftName.substring(0, nameDspl)
-            : _gameState.leftName;
-    String shortRightName =
-        _gameState.rightName.length > nameDspl
-            ? _gameState.rightName.substring(0, nameDspl)
-            : _gameState.rightName;
-
     return Container(
       color: const Color.fromARGB(255, 167, 156, 13),
       padding: const EdgeInsets.all(0),
@@ -914,7 +904,7 @@ class _GameScreenState extends State<GameScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _scoreContainer(
-            "$shortLeftName: ${_gameState.leftScore}",
+            "${displayName(_gameState.leftName)}: ${_gameState.leftScore}",
             _gameState.isLeft,
             fontSize: nameFontSize,
           ),
@@ -926,7 +916,7 @@ class _GameScreenState extends State<GameScreen> {
           ),
           const SizedBox(width: 12),
           _scoreContainer(
-            "$shortRightName: ${_gameState.rightScore}",
+            "${displayName(_gameState.rightName)}: ${_gameState.rightScore}",
             !_gameState.isLeft,
             fontSize: nameFontSize,
           ),

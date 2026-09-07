@@ -265,4 +265,6 @@ Refonte mode web en polling
     tronquage des noms affichés dans homeScreen
     limitation à 10 lignes la liste des joueurs libres
     retour à homeScreen après abandon dans gameScreen
+3.8.6
+    Introduction de displayName dans utility.dart
     

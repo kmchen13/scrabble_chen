@@ -14,3 +14,12 @@ String logHeader(String caller) {
 void wait(msTime) async {
   await Future.delayed(Duration(milliseconds: msTime), () {});
 }
+
+String displayName(String name) {
+  final int hyphenIndex = name.indexOf('-');
+  if (hyphenIndex != -1) {
+    return name.substring(0, hyphenIndex);
+  }
+
+  return name;
+}
