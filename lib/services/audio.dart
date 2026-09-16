@@ -1,6 +1,5 @@
-import 'dart:io';
-import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:scrabble_P2P/services/settings_service.dart';
 
 class AudioService {
   final AudioPlayer _player = AudioPlayer();
@@ -22,6 +21,10 @@ class AudioService {
   }
 
   Future<void> playNotificationSound() async {
+    await loadSettings();
+    if (!settings.soundEnabled) {
+      return;
+    }
     try {
       await _player.play(AssetSource('sounds/notify.wav'));
     } catch (e) {

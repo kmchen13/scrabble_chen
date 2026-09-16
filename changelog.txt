@@ -271,4 +271,6 @@ Refonte mode web en polling
     Maintien limitation settings.displayName sur scorBar
 3.8.8
     Suppression gestion focus audio dansinitAudioPlayer
+3.8.9
+    Conditionnement playNotificationSound par settings.soundEnabled
     
