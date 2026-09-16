@@ -9,14 +9,13 @@ class AudioService {
   Future<void> initAudioPlayer() async {
     await _player.setAudioContext(
       AudioContext(
-        android: AudioContextAndroid(
-          // ✅ Nom correct
-          audioFocus: AndroidAudioFocus.gainTransientMayDuck,
+        android: const AudioContextAndroid(
+          // 🔥 Supprimez la ligne audioFocus
+          // audioFocus: AndroidAudioFocus.gainTransientMayDuck,
         ),
         iOS: AudioContextIOS(
-          // ✅ Nom correct
           category: AVAudioSessionCategory.playback,
-          options: {AVAudioSessionOptions.duckOthers}, // Set, pas List
+          options: {AVAudioSessionOptions.duckOthers},
         ),
       ),
     );

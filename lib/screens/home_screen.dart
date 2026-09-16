@@ -289,6 +289,7 @@ class _HomeScreenState extends State<HomeScreen>
           });
         });
       },
+
       onError: (String message) {
         print('[HomeScreen] Erreur réseau: $message');
         if (!mounted) return;
@@ -425,7 +426,7 @@ class _HomeScreenState extends State<HomeScreen>
             ),
           ],
         ),
-        duration: const Duration(days: 1), // ✅ SnackBar persistant
+        duration: const Duration(seconds: 5),
         backgroundColor: Colors.blue.shade800,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -434,7 +435,7 @@ class _HomeScreenState extends State<HomeScreen>
           label: "Annuler",
           textColor: Colors.white,
           onPressed: () {
-            _net.stopPolling();
+            _net.disconnect();
             ScaffoldMessenger.of(context).hideCurrentSnackBar();
             setState(() {
               _searchStatus = "Recherche annulée";
@@ -487,12 +488,12 @@ class _HomeScreenState extends State<HomeScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (!kIsWeb) ...[
-              // ✅ Bouton "Commencer une partie" - recherche aléatoire
+              // ✅ Bouton "Recherche aléatoire
               ElevatedButton(
                 onPressed: () {
                   _startSearching(null); // ✅ Recherche aléatoire
                 },
-                child: const Text("Commencer une partie"),
+                child: const Text("Rechercher un partenaire"),
               ),
 
               // ✅ Liste des joueurs libres (troncature du nom + défilement)

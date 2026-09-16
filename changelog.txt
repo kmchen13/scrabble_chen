@@ -269,4 +269,6 @@ Refonte mode web en polling
     Introduction de displayName dans utility.dart
 3.8.7
     Maintien limitation settings.displayName sur scorBar
+3.8.8
+    Suppression gestion focus audio dansinitAudioPlayer
     
