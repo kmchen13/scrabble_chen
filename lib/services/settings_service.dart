@@ -45,9 +45,9 @@ Future<void> saveSettings() async {
 }
 
 String getDefaultTitle() {
-  final base = settings.localUser;
+  final base = settings.localUserName;
   final limit = settings.nameDisplayLimit;
-  final displayName =
+  final truncatedName =
       limit > 0 && base.length > limit ? base.substring(0, limit) : base;
-  return "$appName -v$version  $displayName";
+  return "$appName -v$version  $truncatedName";
 }

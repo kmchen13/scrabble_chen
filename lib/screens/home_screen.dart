@@ -54,11 +54,11 @@ class _HomeScreenState extends State<HomeScreen>
     await gameStorage.init();
 
     // 2. Vérification de l'utilisateur local
-    if (settings.localUser.trim().isEmpty) {
+    if (settings.localUserName.trim().isEmpty) {
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const ParamScreen()),
+        MaterialPageRoute(builder: (_) => ParamScreen(net: _net)),
       );
       return;
     }
@@ -82,12 +82,12 @@ class _HomeScreenState extends State<HomeScreen>
       // Filtrer le joueur local
       freePlayers =
           freePlayers
-              .where((p) => p['user_name'] != settings.localUser)
+              .where((p) => p['user_name'] != settings.localUserName)
               .toList();
 
       // Si tout s'est bien passé, on démarre le polling
       if (mounted) {
-        _net.startPolling(settings.localUser);
+        _net.startPolling(settings.localUserName);
       }
     } on NetworkException catch (e) {
       // Le réseau ne répond pas → afficher un message utilisateur
@@ -141,7 +141,9 @@ class _HomeScreenState extends State<HomeScreen>
     try {
       final players = await _net.getFreePlayers();
       final filtered =
-          players.where((p) => p['user_name'] != settings.localUser).toList();
+          players
+              .where((p) => p['user_name'] != settings.localUserName)
+              .toList();
 
       if (mounted) {
         setState(() => _freePlayers = filtered);
@@ -217,7 +219,7 @@ class _HomeScreenState extends State<HomeScreen>
       onGameState: (GameState gameState) {
         if (debug) {
           print(
-            '$logHeader(HomeScreen.onGameStateReceived) GameState reçu de ${gameState.partnerFrom(settings.localUser)}',
+            '$logHeader(HomeScreen.onGameStateReceived) GameState reçu de ${gameState.partnerFrom(settings.localUserName)}',
           );
         }
         if (!mounted) return;
@@ -231,7 +233,7 @@ class _HomeScreenState extends State<HomeScreen>
       onGameOver: (GameState gameState) {
         if (debug) {
           print(
-            '$logHeader(HomeScreen.onGameOverReceived) GameOver reçu de ${gameState.partnerFrom(settings.localUser)}',
+            '$logHeader(HomeScreen.onGameOverReceived) GameOver reçu de ${gameState.partnerFrom(settings.localUserName)}',
           );
         }
         if (!mounted) return;
@@ -242,14 +244,14 @@ class _HomeScreenState extends State<HomeScreen>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                "Partie terminée ! ${displayName(gameState.partnerFrom(settings.localUser))} a terminé la partie.",
+                "Partie terminée ! ${displayName(gameState.partnerFrom(settings.localUserName))} a terminé la partie.",
               ),
               backgroundColor: Colors.orange,
               duration: const Duration(seconds: 4),
             ),
           );
 
-          final partner = gameState.partnerFrom(settings.localUser);
+          final partner = gameState.partnerFrom(settings.localUserName);
           gameStorage.delete(partner).then((_) {
             if (mounted) {
               setState(() {
@@ -317,7 +319,7 @@ class _HomeScreenState extends State<HomeScreen>
     required String rightIP,
     required int rightPort,
   }) {
-    final localName = settings.localUser;
+    final localName = settings.localUserName;
 
     print(
       "DEBUG onMatched triggered: local=$localName, left=$leftName, right=$rightName, _navigated=$_navigated",
@@ -397,7 +399,7 @@ class _HomeScreenState extends State<HomeScreen>
     final expectedName = targetPlayer ?? '';
 
     _net.connect(
-      localName: settings.localUser,
+      localName: settings.localUserName,
       expectedName: expectedName,
       startTime: startTime,
     );
@@ -468,7 +470,7 @@ class _HomeScreenState extends State<HomeScreen>
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    String myName = settings.localUser;
+    String myName = settings.localUserName;
 
     return Scaffold(
       backgroundColor: const Color(0xFF1A2A3A),
@@ -709,7 +711,7 @@ class _HomeScreenState extends State<HomeScreen>
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const ParamScreen()),
+                    MaterialPageRoute(builder: (_) => ParamScreen(net: _net)),
                   );
                 },
                 child: const Text("Paramètres"),

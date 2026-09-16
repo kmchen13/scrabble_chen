@@ -16,7 +16,7 @@ class GameEndService {
     required ScrabbleNet net,
     required void Function(GameState newState) onRematchStarted,
   }) {
-    final me = settings.localUser;
+    final me = settings.localUserName;
     final partner = finalState.partnerFrom(me);
 
     showEndGameDialog(
@@ -33,7 +33,7 @@ class GameEndService {
         final String newRight =
             leftWon ? finalState.leftName : finalState.rightName;
 
-        final bool iStart = settings.localUser == newLeft;
+        final bool iStart = settings.localUserName == newLeft;
 
         if (!iStart) {
           // ✅ Je suis le nouveau joueur droit.

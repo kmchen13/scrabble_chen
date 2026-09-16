@@ -300,7 +300,7 @@ class RelayNet implements ScrabbleNet {
   }
 
   Future<bool> _sendGameStateToServer(GameState state) async {
-    final String user = settings.localUser;
+    final String user = settings.localUserName;
     final String to = state.partnerFrom(user);
 
     final res = await http
@@ -398,7 +398,7 @@ class RelayNet implements ScrabbleNet {
         _pendingGameState = null;
         // Supprimer la sauvegarde pour ce partenaire
         await _clearPendingGameState(state);
-        _resumePolling(settings.localUser);
+        _resumePolling(settings.localUserName);
       } else {
         throw Exception("Server refused gamestate");
       }
@@ -413,7 +413,7 @@ class RelayNet implements ScrabbleNet {
 
   @override
   Future<void> sendGameOver(GameState finalState) async {
-    final String user = settings.localUser;
+    final String user = settings.localUserName;
     // Nettoyer le GameState en attente pour ce partenaire (la partie est finie)
     _pendingGameState = null;
     await _clearPendingGameState(finalState);
@@ -685,7 +685,7 @@ class RelayNet implements ScrabbleNet {
   @override
   Future<void> disconnect() async {
     try {
-      final user = settings.localUser;
+      final user = settings.localUserName;
       await http.get(Uri.parse('$_relayServerUrl/disconnect?user=$user'));
       if (debug) print('[relayNet] disconnect envoyé pour $user');
     } catch (e) {

@@ -1,21 +1,28 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:scrabble_P2P/constants.dart';
 import 'package:scrabble_P2P/models/user_settings.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
+import 'package:scrabble_P2P/services/utility.dart';
 import 'package:scrabble_P2P/screens/home_screen.dart';
 import 'package:scrabble_P2P/services/game_storage.dart';
 import 'package:scrabble_P2P/services/dictionary.dart';
+import 'package:scrabble_P2P/network/scrabble_net.dart';
 
 class ParamScreen extends StatefulWidget {
-  const ParamScreen({super.key});
+  final ScrabbleNet? net;
+  const ParamScreen({super.key, this.net});
 
   @override
   State<ParamScreen> createState() => _ParamScreenState();
 }
 
 class _ParamScreenState extends State<ParamScreen> {
+  ScrabbleNet? get _net => widget.net;
   static const String settingsKey = 'usersettings';
 
   final TextEditingController _nameController = TextEditingController();
@@ -30,6 +37,7 @@ class _ParamScreenState extends State<ParamScreen> {
   bool _soundEnabled = true;
   String? _communicationMode;
   DateTime? _startTime;
+  bool _canChangeName = true;
 
   @override
   void initState() {
@@ -37,12 +45,32 @@ class _ParamScreenState extends State<ParamScreen> {
     _initializeControllers();
   }
 
+  /// Déconnecte l'utilisateur courant du relay server.
+  /// Échoue silencieusement : on ne bloque pas la sauvegarde des settings
+  /// si le relay est injoignable ou si aucune connexion n'est active.
+  Future<void> _disconnectOldUser() async {
+    final net = _net;
+    if (net == null) return;
+
+    try {
+      await net.disconnect();
+    } catch (e) {
+      if (debug) {
+        print('Erreur lors de la déconnexion du relay : $e');
+      }
+    }
+  }
+
   Future<void> _initializeControllers() async {
     // Charge les settings globaux
     await loadSettings();
 
+    // Vérifie si le pseudo peut être modifié (aucune partie en cours)
+    final canChangeName = await gameStorage.isEmpty;
+
     setState(() {
-      _nameController.text = settings.localUserName;
+      _canChangeName = canChangeName;
+      _nameController.text = displayName(settings.localUserName);
       _localIPController.text = settings.localIP;
       _localPortController.text = settings.localPort.toString();
       _udpPortController.text = settings.udpPort.toString();
@@ -59,10 +87,63 @@ class _ParamScreenState extends State<ParamScreen> {
     });
   }
 
-  Future<void> _saveSettings() async {
-    final name = _nameController.text.trim();
+  /// Retourne un identifiant unique pour l'appareil.
+  /// En cas d'échec, retourne l'IP globale sans les points.
+  /// Ne retourne jamais 'unknown' ni null.
+  Future<String> _getDeviceId() async {
+    // 1. Tentative par plateforme
+    try {
+      final deviceInfo = DeviceInfoPlugin();
+      if (Platform.isAndroid) {
+        final id = (await deviceInfo.androidInfo).id;
+        if (id.isNotEmpty) return id;
+      } else if (Platform.isIOS) {
+        final id = (await deviceInfo.iosInfo).identifierForVendor;
+        if (id != null && id.isNotEmpty) return id;
+      } else if (Platform.isLinux) {
+        final id = (await deviceInfo.linuxInfo).machineId;
+        if (id != null && id.isNotEmpty) return id;
+      } else if (Platform.isMacOS) {
+        final id = (await deviceInfo.macOsInfo).systemGUID;
+        if (id != null && id.isNotEmpty) return id;
+      } else if (Platform.isWindows) {
+        final id = (await deviceInfo.windowsInfo).deviceId;
+        if (id.isNotEmpty) return id;
+      }
+    } catch (_) {
+      // On ignore et on passe au fallback
+    }
 
-    if (name.isEmpty) {
+    // 2. Fallback : IP globale sans les points
+    return await _getFallbackIdFromGlobalIP();
+  }
+
+  /// Récupère l'IP globale (WAN) et retire les points.
+  /// En dernier recours absolu, retourne une chaîne basée sur un timestamp.
+  Future<String> _getFallbackIdFromGlobalIP() async {
+    try {
+      final client = http.Client();
+      final response = await client
+          .get(Uri.parse('https://api.ipify.org?format=text'))
+          .timeout(const Duration(seconds: 5));
+      client.close();
+
+      final ip = response.body.trim();
+      if (ip.isNotEmpty) {
+        return ip.replaceAll('.', '');
+      }
+    } catch (_) {
+      // Échec réseau : on tombe sur le dernier recours
+    }
+
+    // 3. Dernier recours absolu (aucune dépendance externe)
+    return DateTime.now().millisecondsSinceEpoch.toString();
+  }
+
+  Future<void> _saveSettings() async {
+    final enteredName = _nameController.text.trim();
+
+    if (enteredName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text("Veuillez entrer un pseudo avant de commencer"),
@@ -72,6 +153,21 @@ class _ParamScreenState extends State<ParamScreen> {
       return;
     }
 
+    // Construction du pseudo complet
+    String fullUserName = settings.localUserName;
+    if (_canChangeName) {
+      final currentDisplayName = displayName(settings.localUserName);
+      if (enteredName != currentDisplayName) {
+        // 🔌 Déconnexion de l'ancien pseudo du relay
+        await _disconnectOldUser();
+
+        // Nouveau pseudo complet
+        final deviceId = await _getDeviceId();
+        fullUserName = '$enteredName-$deviceId';
+      }
+    }
+    // Si _canChangeName est false, on garde l'ancien pseudo complet
+
     // Déterminer l'IP en fonction du mode de communication
     String localIP;
     if (_communicationMode == 'web') {
@@ -80,7 +176,7 @@ class _ParamScreenState extends State<ParamScreen> {
         final client = http.Client();
         final ipResponse = await client
             .get(Uri.parse('https://api.ipify.org?format=text'))
-            .timeout(Duration(seconds: 5)); // timeout sur la requête
+            .timeout(const Duration(seconds: 5)); // timeout sur la requête
         localIP = ipResponse.body.trim();
         client.close();
       } catch (e) {
@@ -99,7 +195,7 @@ class _ParamScreenState extends State<ParamScreen> {
     }
 
     settings = UserSettings(
-      localUserName: _nameController.text,
+      localUserName: fullUserName,
       language: settings.language,
       communicationMode: _communicationMode ?? 'local',
       soundEnabled: _soundEnabled,
@@ -127,6 +223,7 @@ class _ParamScreenState extends State<ParamScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(settingsKey);
     await loadSettings();
+    await _initializeControllers();
   }
 
   Future<void> _fetchDictionaryFromRelay(String language) async {
@@ -142,10 +239,11 @@ class _ParamScreenState extends State<ParamScreen> {
 
       dictionaryService.replaceFromText(response.body, langEnum);
       dictionaryService.setLanguage(langEnum);
-      if (debug)
+      if (debug) {
         print(
           'Dictionnaire $language chargé avec ${dictionaryService.size} mots.',
         );
+      }
     } else {
       throw Exception(
         'Impossible de récupérer le dictionnaire du relay server',
@@ -169,8 +267,19 @@ class _ParamScreenState extends State<ParamScreen> {
             _buildTextField(
               "Nom du joueur :",
               _nameController,
-              hintText: "Veuillez entrer votre pseudo",
+              enabled: _canChangeName,
+              hintText:
+                  _canChangeName
+                      ? "Veuillez entrer votre pseudo"
+                      : "Pseudo verrouillé (parties en cours)",
             ),
+            if (!_canChangeName) ...[
+              const SizedBox(height: 8),
+              const Text(
+                "Le pseudo ne peut pas être modifié tant que des parties sont enregistrées.",
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ],
             const SizedBox(height: 20),
             _buildLanguageSelector(),
 
@@ -281,7 +390,6 @@ class _ParamScreenState extends State<ParamScreen> {
             ElevatedButton(
               onPressed: () async {
                 await clearSettings();
-                await _initializeControllers();
               },
               child: const Text("Recharger les paramètres d'usine"),
             ),

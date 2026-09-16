@@ -2,5 +2,5 @@ library constants;
 
 const bool debug = true;
 const String appName = "starWords";
-const String version = "3.8.9";
+const String version = "3.8.10";
 const defaultRelayServer = "https://relay-server-eu.onrender.com";

@@ -20,6 +20,5 @@ String displayName(String name) {
   if (hyphenIndex != -1) {
     return name.substring(0, hyphenIndex);
   }
-
   return name;
 }

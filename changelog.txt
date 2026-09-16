@@ -273,4 +273,7 @@ Refonte mode web en polling
     Suppression gestion focus audio dansinitAudioPlayer
 3.8.9
     Conditionnement playNotificationSound par settings.soundEnabled
+3.8.10
+    Correction bug construction pseudo avec IP. IP change.
+    Utilisation de device_info_plus
     
