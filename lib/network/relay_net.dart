@@ -265,6 +265,7 @@ class RelayNet implements ScrabbleNet {
 
   @override
   void startPolling(String localName) {
+    print('${logHeader("POLL-TRACE")} TIMER créé pour $localName');
     if (_pollingTimer != null) {
       if (debug)
         print(
@@ -279,9 +280,9 @@ class RelayNet implements ScrabbleNet {
     ) async {
       try {
         await pollMessages(localName);
-      } catch (e) {
+      } catch (e, st) {
         if (debug) {
-          print("${logHeader('pollMessages')} ⚠️ Erreur lors du polling: $e");
+          print('${logHeader("POLL-TRACE")} EXCEPTION timer : $e\n$st');
         }
       }
     });
@@ -289,13 +290,22 @@ class RelayNet implements ScrabbleNet {
 
   @override
   void stopPolling() {
-    if (debug) print("${logHeader("relayNet")} ⏸️ Polling suspendu");
+    if (debug)
+      print(
+        '${logHeader("POLL-TRACE")} STOP demandé '
+        'timer=${_pollingTimer != null} '
+        'time=${DateTime.now()}',
+      );
     _pollingTimer?.cancel();
     _pollingTimer = null;
   }
 
   void _resumePolling(String localName) {
-    if (debug) print("${logHeader("relayNet")} ▶️ Polling repris");
+    if (debug)
+      print(
+        '${logHeader("POLL-TRACE")} RESUME '
+        'user=$localName time=${DateTime.now()}',
+      );
     startPolling(localName);
   }
 
@@ -360,7 +370,8 @@ class RelayNet implements ScrabbleNet {
   @override
   Future<List<Map<String, dynamic>>> getFreePlayers() async {
     try {
-      final uri = Uri.parse('$_relayServerUrl/freeplayers');
+      final String user = settings.localUserName;
+      final uri = Uri.parse('$_relayServerUrl/freeplayers?user=$user');
       final response = await http.get(uri).timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
@@ -509,6 +520,10 @@ class RelayNet implements ScrabbleNet {
   }
 
   Future<void> pollMessages(String localName) async {
+    print(
+      '${logHeader("POLL-TRACE")} ENTER '
+      'user=$localName time=${DateTime.now()}',
+    );
     http.Response? response;
 
     // En priorité, envoyer tous les GameOver en attente
@@ -518,10 +533,23 @@ class RelayNet implements ScrabbleNet {
 
     await retryPendingGameState();
 
+    if (debug)
+      print(
+        '${logHeader("POLL-TRACE")} BEFORE HTTP '
+        'user=$localName time=${DateTime.now()}',
+      );
+
     try {
       response = await http.get(
         Uri.parse("$_relayServerUrl/poll?user=$localName"),
       );
+      if (debug)
+        print(
+          '${logHeader("POLL-TRACE")} AFTER HTTP '
+          'user=$localName '
+          'status=${response.statusCode} '
+          'time=${DateTime.now()}',
+        );
     } catch (e) {
       logger.e("Erreur pollMessages: $e");
       return;

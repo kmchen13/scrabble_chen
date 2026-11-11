@@ -276,4 +276,6 @@ Refonte mode web en polling
 3.8.10
     Correction bug construction pseudo avec IP. IP change.
     Utilisation de device_info_plus
-    
+3.8.11
+    Ajout $localUserName sur req /freeplayers
+    Ajout de logs sur start/resume/startPolling
