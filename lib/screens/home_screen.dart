@@ -33,7 +33,7 @@ class _HomeScreenState extends State<HomeScreen>
   List<String> _savedGames = [];
   List<Map<String, dynamic>> _freePlayers = [];
   bool _loadingFreePlayers = false;
-
+  bool _pollingTransferredToGame = false;
   // ✅ Variables pour gérer le matching
   bool _navigated = false;
   GameState? _bufferedGameState;
@@ -162,8 +162,9 @@ class _HomeScreenState extends State<HomeScreen>
     if (debug) {
       print("${logHeader('homeScreen.dispose')} ${identityHashCode(this)}");
     }
-    // 🔥 Arrêter le polling pour éviter les messages orphelins
-    _net.stopPolling();
+    if (!_pollingTransferredToGame) {
+      _net.stopPolling();
+    }
 
     WidgetsBinding.instance.removeObserver(this);
     if (_route is PageRoute) {
@@ -374,6 +375,8 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   void _navigateToGameScreen(GameState gameState) {
+    _pollingTransferredToGame = true;
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       Navigator.pushReplacement(

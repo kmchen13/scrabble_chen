@@ -279,3 +279,5 @@ Refonte mode web en polling
 3.8.11
     Ajout $localUserName sur req /freeplayers
     Ajout de logs sur start/resume/startPolling
+3.8.12
+    Revision globale du start/startPolling au niveau de home et game_screen

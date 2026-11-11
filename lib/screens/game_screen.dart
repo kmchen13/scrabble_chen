@@ -97,6 +97,8 @@ class _GameScreenState extends State<GameScreen> {
 
     _boardController.value = Matrix4.identity();
     _firstLetter = true;
+
+    _updatePolling();
   }
 
   void _onGameOver(GameState state) {
@@ -170,6 +172,9 @@ class _GameScreenState extends State<GameScreen> {
                         ),
                   ),
                 );
+                if (mounted) {
+                  _updatePolling();
+                }
               },
             ),
           ),
@@ -214,6 +219,8 @@ class _GameScreenState extends State<GameScreen> {
         _updateHandler.onErrorReceived(message);
       },
     );
+
+    _updatePolling();
 
     // 🔥 Flush initial (équivalent à l'ancien attach)
     _updateHandler.flushPending();
@@ -753,6 +760,27 @@ class _GameScreenState extends State<GameScreen> {
         );
       },
     );
+  }
+
+  void _updatePolling() {
+    if (!mounted) return;
+
+    final isCurrentTurn =
+        _gameState.isLeft
+            ? (_gameState.leftName == localName)
+            : (_gameState.rightName == localName);
+
+    if (isCurrentTurn) {
+      if (debug) {
+        print('[GameScreen] Mon tour : arrêt du polling');
+      }
+      _net.stopPolling();
+    } else {
+      if (debug) {
+        print('[GameScreen] Tour adverse : démarrage du polling');
+      }
+      _net.startPolling(settings.localUserName);
+    }
   }
 
   @override
