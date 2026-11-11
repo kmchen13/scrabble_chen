@@ -265,7 +265,6 @@ class RelayNet implements ScrabbleNet {
 
   @override
   void startPolling(String localName) {
-    print('${logHeader("POLL-TRACE")} TIMER créé pour $localName');
     if (_pollingTimer != null) {
       if (debug)
         print(

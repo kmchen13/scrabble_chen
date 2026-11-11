@@ -281,3 +281,5 @@ Refonte mode web en polling
     Ajout de logs sur start/resume/startPolling
 3.8.12
     Revision globale du start/startPolling au niveau de home et game_screen
+3.8.13
+    Correction surbrillance dans gameScree.initState

@@ -135,6 +135,10 @@ class _GameScreenState extends State<GameScreen> {
     _playerLetters = _gameState.localRack(settings.localUserName);
     _initialRack = List.from(_playerLetters);
 
+    _lettersPlacedThisTurn
+      ..clear()
+      ..addAll(_gameState.lettersPlacedThisTurn);
+
     // 🔥 Création de l'handler (sans attach)
     _updateHandler = GameUpdateHandler(
       net: _net,
