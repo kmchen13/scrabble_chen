@@ -9,6 +9,7 @@ import 'models/game_state.dart';
 import 'screens/home_screen.dart';
 import 'screens/param_screen.dart';
 import 'package:scrabble_P2P/services/app_lifecycle.dart';
+import 'package:scrabble_P2P/network/scrabble_net.dart';
 
 final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 final appLifecycle = AppLifecycle();
@@ -31,11 +32,15 @@ void main() async {
   });
   final appLifecycle = AppLifecycle();
   appLifecycle.start();
-  runApp(ScrabbleApp());
+  final ScrabbleNet net = ScrabbleNet();
+
+  runApp(ScrabbleApp(net: net));
 }
 
 class ScrabbleApp extends StatelessWidget {
-  ScrabbleApp({Key? key}) : super(key: key);
+  ScrabbleApp({Key? key, required this.net}) : super(key: key);
+
+  final ScrabbleNet net;
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +56,7 @@ class ScrabbleApp extends StatelessWidget {
               return ParamScreen();
             } else {
               // Sinon, aller à HomeScreen
-              return HomeScreen();
+              return HomeScreen(net: net);
             }
           }
           // Affiche un écran de chargement pendant que les paramètres sont chargés

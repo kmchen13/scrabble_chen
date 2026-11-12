@@ -216,7 +216,10 @@ class _ParamScreenState extends State<ParamScreen> {
 
     await saveSettings();
     if (!context.mounted) return;
-    Navigator.push(context, MaterialPageRoute(builder: (_) => HomeScreen()));
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => HomeScreen(net: _net!)),
+    );
   }
 
   Future<void> clearSettings() async {

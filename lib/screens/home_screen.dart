@@ -17,15 +17,16 @@ import 'param_screen.dart';
 final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final ScrabbleNet net;
 
+  const HomeScreen({super.key, required this.net});
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen>
     with RouteAware, WidgetsBindingObserver {
-  late final ScrabbleNet _net = ScrabbleNet();
+  late final ScrabbleNet _net = widget.net;
 
   String _title = getDefaultTitle();
   bool _loading = true;

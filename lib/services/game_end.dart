@@ -5,6 +5,7 @@ import 'package:scrabble_P2P/models/dragged_letter.dart';
 import 'package:scrabble_P2P/services/game_initializer.dart';
 import 'package:scrabble_P2P/services/game_storage.dart';
 import 'package:scrabble_P2P/services/settings_service.dart';
+import 'package:scrabble_P2P/services/utility.dart';
 import 'package:scrabble_P2P/network/scrabble_net.dart';
 import 'package:scrabble_P2P/screens/home_screen.dart';
 
@@ -15,6 +16,8 @@ class GameEndService {
     required GameState finalState,
     required ScrabbleNet net,
     required void Function(GameState newState) onRematchStarted,
+    required VoidCallback onPollingTransferred,
+    required VoidCallback onRematchWaiting,
   }) {
     final me = settings.localUserName;
     final partner = finalState.partnerFrom(me);
@@ -38,36 +41,34 @@ class GameEndService {
         if (!iStart) {
           // ✅ Je suis le nouveau joueur droit.
           // J'attends le 1er coup du joueur gauche.
-          if (!iStart) {
-            // ✅ Dialog informatif
-            showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder:
-                  (context) => AlertDialog(
-                    title: const Text("Revanche engagée"),
-                    content: Text("À $newLeft de jouer."),
-                    actions: [
-                      TextButton(
-                        onPressed: () {
-                          Navigator.of(context).pop();
-                          // ✅ Naviguer vers HomeScreen
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const HomeScreen(),
-                            ),
-                          );
-                        },
-                        child: const Text("Retour accueil"),
-                      ),
-                    ],
-                  ),
-            );
-
-            return;
-          }
-
+          onPollingTransferred();
+          onRematchWaiting();
+          net.startPolling(me);
+          // ✅ Dialog informatif
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder:
+                (context) => AlertDialog(
+                  title: const Text("Revanche engagée"),
+                  content: Text("À ${displayName(newLeft)} de jouer."),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        // ✅ Naviguer vers HomeScreen
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => HomeScreen(net: net),
+                          ),
+                        );
+                      },
+                      child: const Text("Retour accueil"),
+                    ),
+                  ],
+                ),
+          );
           return;
         }
 
@@ -97,7 +98,7 @@ class GameEndService {
 
         // 🏠 navigation
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const HomeScreen()),
+          MaterialPageRoute(builder: (_) => HomeScreen(net: net)),
           (_) => false,
         );
       },

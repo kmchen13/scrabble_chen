@@ -78,6 +78,8 @@ class _GameScreenState extends State<GameScreen> {
   bool _cachedTurnValid = false;
   final AdMobManager _adMobManager = AdMobManager();
   final localName = settings.localUserName;
+  bool _pollingTransferred = false;
+  bool _waitingForRematchFirstMove = false;
 
   void _applyGameState(GameState newState) {
     if (debug) {
@@ -99,25 +101,53 @@ class _GameScreenState extends State<GameScreen> {
     _firstLetter = true;
 
     _updatePolling();
+
+    if (_waitingForRematchFirstMove) {
+      _waitingForRematchFirstMove = false;
+
+      Navigator.of(context, rootNavigator: true).pop();
+    }
   }
 
   void _onGameOver(GameState state) {
+    print(
+      "[GAMEOVER-TRACE] "
+      "gameId=${state.gameId} "
+      "mounted=$mounted "
+      "_endPopupShown=$_endPopupShown "
+      "localName=$localName "
+      "left=${state.leftName} "
+      "right=${state.rightName}\n"
+      "${StackTrace.current}",
+    );
+
     if (!mounted || _endPopupShown) return;
     _endPopupShown = true;
+
+    print("[GAMEOVER-LOCAL] activation du popup");
 
     GameEndService.showEndGamePopup(
       context: context,
       finalState: GameEndService.finalizeEndGameScore(state),
       net: _net,
+      onPollingTransferred: () {
+        _pollingTransferred = true;
+      },
       onRematchStarted: (newGameState) {
         if (!mounted) return;
+
         _net.resetGameOver();
         _endPopupShown = false;
 
         _applyGameState(newGameState);
         setState(() {});
 
-        _net.startPolling(settings.localUserName);
+        // C'est à moi de commencer : aucun polling nécessaire.
+        _net.stopPolling();
+      },
+      onRematchWaiting: () {
+        _waitingForRematchFirstMove = true;
+        _updateHandler.waitForRematch();
       },
     );
   }
@@ -598,9 +628,9 @@ class _GameScreenState extends State<GameScreen> {
   void refillRack(int rackSize) {
     int missing = rackSize - _playerLetters.length;
     if (missing > 0) {
-      //Débridage fin de partie commenter les 2 lignes suivantes
-      final drawn = _gameState.bag.drawLetters(missing);
-      _playerLetters.addAll(drawn);
+      // //Débridage fin de partie commenter les 2 lignes suivantes
+      // final drawn = _gameState.bag.drawLetters(missing);
+      // _playerLetters.addAll(drawn);
 
       // ✅ MISE À JOUR du GameState avec les nouvelles lettres
       if (_gameState.isLeft) {
@@ -709,10 +739,10 @@ class _GameScreenState extends State<GameScreen> {
           playerLetters: _playerLetters,
           bag: _gameState.bag,
           onPass: (newLetters) {
-            // ✅ Mettre à jour _playerLetters avec les nouvelles lettres
+            // Mettre à jour _playerLetters avec les nouvelles lettres
             _playerLetters = List.from(newLetters);
 
-            // ✅ Créer une copie du GameState avec les modifications
+            // Créer une copie du GameState avec les modifications
             GameState newState;
             final playerName = settings.localUserName;
             final isLeft = _gameState.leftName == playerName;
@@ -724,39 +754,51 @@ class _GameScreenState extends State<GameScreen> {
               newState = _gameState.copyWith(
                 leftLetters: _playerLetters,
                 lettersPlacedThisTurn: [],
-                isLeft: newIsLeft, // ✅ Changer le tour
+                isLeft: newIsLeft,
               );
             } else {
               newState = _gameState.copyWith(
                 rightLetters: _playerLetters,
                 lettersPlacedThisTurn: [],
-                isLeft: newIsLeft, // ✅ Changer le tour
+                isLeft: newIsLeft,
               );
             }
 
-            // ✅ Remplacer l'ancien GameState par le nouveau
+            // Remplacer l'ancien GameState par le nouveau
             _gameState = newState;
             _lettersPlacedThisTurn.clear();
             _appBarTitle = getDefaultTitle();
 
-            // ✅ Sauvegarder
+            // G a terminé et D vient de passer son tour :
+            // la partie est terminée.
+            if (!isLeft && _gameState.leftLetters.isEmpty) {
+              final GameState finalState = GameState.fromJson(
+                _gameState.toJson(),
+              );
+
+              gameStorage.save(finalState);
+
+              _net.sendGameOver(finalState);
+              _onGameOver(finalState);
+              return;
+            }
+
+            // Cas normal : sauvegarder
             gameStorage.save(_gameState);
 
-            // ✅ Envoyer la mise à jour sur le réseau
+            // Envoyer la mise à jour sur le réseau
             widget.net.sendGameState(_gameState);
 
-            // ✅ Mettre à jour l'UI
-            setState(() {
-              // Forcer le rebuild avec le nouveau state
-            });
+            // Mettre à jour l'UI
+            setState(() {});
 
-            // ✅ Utiliser applyIncomingState pour forcer le rebuild
+            // Utiliser applyIncomingState pour forcer le rebuild
             _updateHandler.applyIncomingState(_gameState, updateUI: true);
 
-            // ✅ Afficher un feedback
+            // Afficher un feedback
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Tour passé avec succès'),
+                content: Text('Tour passé avec succès, au partenaire de jouer'),
                 duration: Duration(seconds: 2),
               ),
             );
@@ -792,7 +834,9 @@ class _GameScreenState extends State<GameScreen> {
     if (debug)
       print("${logHeader('gameScreen.dispose')} ${identityHashCode(this)}");
     _net.onError = null;
-    _net.stopPolling();
+    if (!_pollingTransferred) {
+      _net.stopPolling();
+    }
     _adMobManager.dispose();
     // 🔥 Libérer les callbacks du GameScreen
     GameCallbackManager().clearCallbacks(owner: 'game');
@@ -1023,7 +1067,7 @@ class _GameScreenState extends State<GameScreen> {
               onPressed: () {
                 Navigator.pushAndRemoveUntil(
                   context,
-                  MaterialPageRoute(builder: (_) => const HomeScreen()),
+                  MaterialPageRoute(builder: (_) => HomeScreen(net: _net)),
                   (route) => false,
                 );
               },
@@ -1183,7 +1227,9 @@ class _GameScreenState extends State<GameScreen> {
 
                         Navigator.pushAndRemoveUntil(
                           context,
-                          MaterialPageRoute(builder: (_) => const HomeScreen()),
+                          MaterialPageRoute(
+                            builder: (_) => HomeScreen(net: widget.net),
+                          ),
                           (route) => false,
                         );
                       }

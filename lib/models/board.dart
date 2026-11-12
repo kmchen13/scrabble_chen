@@ -321,9 +321,12 @@ Widget _buildLetterTile(
       isJoker
           ? Colors.grey.shade200
           : (highlight
-              ? const Color(
-                0xFFFFD54F,
-              ) // Ambre clair pour les lettres placées ce tour
+              ? const Color.fromARGB(
+                255,
+                250,
+                200,
+                35,
+              ) // Ambre jaune pour les lettres placées ce tour
               : const Color(
                 0xFFF5E6CA,
               )); // Blanc cassé/beige pour les tuiles normales

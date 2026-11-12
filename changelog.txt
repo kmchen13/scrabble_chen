@@ -283,3 +283,9 @@ Refonte mode web en polling
     Revision globale du start/startPolling au niveau de home et game_screen
 3.8.13
     Correction surbrillance dans gameScree.initState
+3.8.14
+    Changement couleur highlight
+    Suppression ancienne partie après fin
+    Corrections affichage des noms
+    instanciation ScrabbleNet dans main
+    Corrections fin de partie suppression du popup "partie engagée" à réception du premier coup

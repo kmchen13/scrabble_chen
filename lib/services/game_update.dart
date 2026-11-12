@@ -26,6 +26,11 @@ class GameUpdateHandler {
   final GameStateCallback? onRematch;
   final StringCallback? onError;
   final VoidCallback? onFlushPending;
+  bool _waitingForRematch = false;
+
+  void waitForRematch() {
+    _waitingForRematch = true;
+  }
 
   GameUpdateHandler({
     required this.net,
@@ -48,25 +53,29 @@ class GameUpdateHandler {
 
   // 🔥 Méthode publique pour traiter un GameState reçu
   Future<void> onGameStateReceived(GameState incoming) async {
-    final mounted = isMounted();
-    final currentGame = getCurrentGame();
+    final bool mounted = isMounted();
+    final GameState currentGame = getCurrentGame();
 
-    // Comparaison par gameId (UNIQUE)
     final bool sameGame = currentGame.gameId == incoming.gameId;
 
     if (mounted && sameGame) {
-      // Même partie → mise à jour UI
+      await applyIncomingState(incoming, updateUI: true);
+      return;
+    }
+
+    if (mounted && _waitingForRematch) {
+      // Le premier état de la nouvelle revanche est reçu.
+      _waitingForRematch = false;
+
       await applyIncomingState(incoming, updateUI: true);
       return;
     }
 
     if (mounted && _isRematch(incoming)) {
-      // C'est un rematch (nouvelle partie avec les mêmes joueurs)
       await applyIncomingState(incoming, updateUI: true);
       return;
     }
 
-    // Autre partie → notification en arrière-plan (sans sauvegarde car déjà faite par RelayNet)
     onBackgroundMove?.call(incoming);
     net.startPolling(settings.localUserName);
   }
