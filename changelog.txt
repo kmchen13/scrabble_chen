@@ -289,3 +289,5 @@ Refonte mode web en polling
     Corrections affichage des noms
     instanciation ScrabbleNet dans main
     Corrections fin de partie suppression du popup "partie engagée" à réception du premier coup
+3.8.15
+    débridage fin de partie
