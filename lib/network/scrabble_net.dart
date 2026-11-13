@@ -65,7 +65,8 @@ abstract class ScrabbleNet {
   void sendGameOver(GameState state);
 
   // Réception d'un GameOver
-  void Function(GameState)? onGameOverReceived;
+  Future<void> Function(GameState state)? get onGameOverReceived;
+  set onGameOverReceived(Future<void> Function(GameState state)? callback);
 
   /// Quitte la partie en cours
   Future<void> sendGameQuit(user, partner);

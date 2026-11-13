@@ -232,7 +232,7 @@ class _HomeScreenState extends State<HomeScreen>
           _refreshSavedGames();
         });
       },
-      onGameOver: (GameState gameState) {
+      onGameOver: (GameState gameState) async {
         if (debug) {
           print(
             '$logHeader(HomeScreen.onGameOverReceived) GameOver reçu de ${gameState.partnerFrom(settings.localUserName)}',

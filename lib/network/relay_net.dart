@@ -480,19 +480,23 @@ class RelayNet implements ScrabbleNet {
   }
 
   @override
-  void Function(GameState state)? get onGameOverReceived {
+  Future<void> Function(GameState state)? get onGameOverReceived {
     return GameCallbackManager().onGameOverReceived;
   }
 
   @override
-  set onGameOverReceived(void Function(GameState state)? callback) {
+  set onGameOverReceived(Future<void> Function(GameState state)? callback) {
     print(
       "${logHeader("relayNet")} onGameOverReceived setter (hash=${callback?.hashCode})",
     );
+
     if (callback != null && _pendingGameOver != null) {
-      final pending = _pendingGameOver!;
+      final GameState pending = _pendingGameOver!;
       _pendingGameOver = null;
-      Future.microtask(() => callback(pending));
+
+      Future.microtask(() async {
+        await callback(pending);
+      });
     }
   }
 
@@ -628,7 +632,7 @@ class RelayNet implements ScrabbleNet {
               await gameStorage.save(gameState, markAsUnread: true);
 
               if (onGameOverReceived != null) {
-                onGameOverReceived!(gameState);
+                await onGameOverReceived!(gameState);
               }
             },
           );

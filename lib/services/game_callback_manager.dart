@@ -3,7 +3,7 @@
 import 'package:scrabble_P2P/models/game_state.dart';
 
 typedef GameStateCallback = void Function(GameState state);
-typedef GameOverCallback = void Function(GameState state);
+typedef GameOverCallback = Future<void> Function(GameState state);
 typedef GameQuitCallback = void Function(String partner);
 typedef StatusCallback = void Function(String message);
 typedef ErrorCallback = void Function(String message);

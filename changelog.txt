@@ -291,3 +291,6 @@ Refonte mode web en polling
     Corrections fin de partie suppression du popup "partie engagée" à réception du premier coup
 3.8.15
     débridage fin de partie
+3.8.16
+    Corrections fin de partie et revanche
+    

@@ -359,7 +359,7 @@ class LocalNet implements ScrabbleNet {
   }
 
   @override
-  void Function(GameState finalState)? onGameOverReceived;
+  Future<void> Function(GameState finalState)? onGameOverReceived;
 
   Future<void> disconnect() async {
     _closeBroadcast();

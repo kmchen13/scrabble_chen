@@ -82,10 +82,6 @@ class _GameScreenState extends State<GameScreen> {
   bool _waitingForRematchFirstMove = false;
 
   void _applyGameState(GameState newState) {
-    if (debug) {
-      print("$logHeader(gameScreen._applyGameState) ${identityHashCode(this)}");
-    }
-
     _gameState = newState;
 
     _board = _gameState.board.map((row) => List<String>.from(row)).toList();
@@ -110,21 +106,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _onGameOver(GameState state) {
-    print(
-      "[GAMEOVER-TRACE] "
-      "gameId=${state.gameId} "
-      "mounted=$mounted "
-      "_endPopupShown=$_endPopupShown "
-      "localName=$localName "
-      "left=${state.leftName} "
-      "right=${state.rightName}\n"
-      "${StackTrace.current}",
-    );
-
-    if (!mounted || _endPopupShown) return;
     _endPopupShown = true;
-
-    print("[GAMEOVER-LOCAL] activation du popup");
 
     GameEndService.showEndGamePopup(
       context: context,
@@ -155,9 +137,7 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
-    if (debug) {
-      print("${logHeader('gameScreen.initState')} ${identityHashCode(this)}");
-    }
+
     _gameState = widget.gameState;
     _net = widget.net;
 
@@ -173,12 +153,15 @@ class _GameScreenState extends State<GameScreen> {
     _updateHandler = GameUpdateHandler(
       net: _net,
       applyIncomingState: (newState, {required bool updateUI}) async {
-        if (debug) {
-          print(
-            "$logHeader(game_screen.applyIncomingState) ${identityHashCode(this)}",
-          );
+        final bool newGame = _gameState.gameId != newState.gameId;
+
+        if (newGame) {
+          _endPopupShown = false;
+          _net.resetGameOver();
         }
+
         _applyGameState(newState);
+
         if (updateUI && mounted) setState(() {});
       },
       getCurrentGame: () => _gameState,
@@ -230,8 +213,8 @@ class _GameScreenState extends State<GameScreen> {
       onGameState: (GameState incoming) {
         _updateHandler.onGameStateReceived(incoming);
       },
-      onGameOver: (GameState finalState) {
-        _updateHandler.onGameOverReceived(finalState);
+      onGameOver: (GameState finalState) async {
+        await _updateHandler.onGameOverReceived(finalState);
       },
       onGameQuit: (String partner) {
         if (!mounted) return;
@@ -263,12 +246,6 @@ class _GameScreenState extends State<GameScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       await loadDefaultDictionary();
-      if (debug) {
-        print(
-          '[GameScreen] dictionnaire prêt après affichage '
-          '${dictionaryService.size} mots',
-        );
-      }
     });
 
     /// AdMob
@@ -534,20 +511,16 @@ class _GameScreenState extends State<GameScreen> {
     final totalScore = result.totalScore;
     final totalStarsUsed = result.totalStarsUsed;
 
-    print('📊 Score: $totalScore, Étoiles gagnées: $totalStarsUsed');
-
     setState(() {
       // Appliquer le score au joueur actif
       if (_gameState.isLeft) {
         _gameState.leftScore += totalScore;
         // ✅ Ajouter les étoiles gagnées (sans multiplier le score)
         _gameState.leftStars += totalStarsUsed;
-        print('⭐ leftStars: ${_gameState.leftStars}');
       } else {
         _gameState.rightScore += totalScore;
         // ✅ Ajouter les étoiles gagnées (sans multiplier le score)
         _gameState.rightStars += totalStarsUsed;
-        print('⭐ rightStars: ${_gameState.rightStars}');
       }
 
       // Placer définitivement les lettres sur le plateau
@@ -642,10 +615,6 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _handleStarUsed() {
-    if (debug) {
-      print("$logHeader(gameScreen._handleStarUsed) ${identityHashCode(this)}");
-    }
-
     final playerName = settings.localUserName;
     final isLeft = _gameState.leftName == playerName;
 
@@ -817,14 +786,8 @@ class _GameScreenState extends State<GameScreen> {
             : (_gameState.rightName == localName);
 
     if (isCurrentTurn) {
-      if (debug) {
-        print('[GameScreen] Mon tour : arrêt du polling');
-      }
       _net.stopPolling();
     } else {
-      if (debug) {
-        print('[GameScreen] Tour adverse : démarrage du polling');
-      }
       _net.startPolling(settings.localUserName);
     }
   }
