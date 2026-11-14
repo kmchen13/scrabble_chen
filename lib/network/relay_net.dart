@@ -66,6 +66,7 @@ class RelayNet implements ScrabbleNet {
   bool _retrying = false;
   int _timerFrequency = 5;
   int _retryDelay = 5;
+  bool _pollInProgress = false;
 
   RelayNet() {
     _relayServerUrl = settings.relayServerUrl;
@@ -268,12 +269,12 @@ class RelayNet implements ScrabbleNet {
     if (_pollingTimer != null) {
       if (debug)
         print(
-          "${logHeader("relayNet")} Polling déjà actif (timer=${identityHashCode(_pollingTimer)})",
+          "${logHeader("POLL-TRACE")} Polling déjà actif (timer=${identityHashCode(_pollingTimer)})",
         );
       return;
     }
     if (debug)
-      print('${logHeader("relayNet")} Polling démarré pour $localName');
+      print('${logHeader("POLL-TRACE")} Polling démarré pour $localName');
     _pollingTimer = Timer.periodic(Duration(seconds: _timerFrequency), (
       _,
     ) async {
@@ -289,12 +290,6 @@ class RelayNet implements ScrabbleNet {
 
   @override
   void stopPolling() {
-    if (debug)
-      print(
-        '${logHeader("POLL-TRACE")} STOP demandé '
-        'timer=${_pollingTimer != null} '
-        'time=${DateTime.now()}',
-      );
     _pollingTimer?.cancel();
     _pollingTimer = null;
   }
@@ -507,13 +502,22 @@ class RelayNet implements ScrabbleNet {
     required int date,
     required Future<void> Function() handler,
   }) async {
+    print(
+      "${logHeader("ACK-TRACE")} traitement type=$type date=$date",
+    ); //test temp
     await handler();
+    print(
+      "${logHeader("ACK-TRACE")} handler terminé, envoi ACK type=$type date=$date",
+    );
     final res = await http.get(
       Uri.parse(
         '$_relayServerUrl/acknowledgement'
         '?user=$localName&partner=$partner&type=$type&date=$date',
       ),
     );
+    print(
+      "${logHeader("ACK-TRACE")} ACK envoyé type=$type date=$date",
+    ); //test temp
     final json = jsonDecode(res.body);
     if (json['status'] != 'OK') {
       logger.w('[relayNet] ACK échoué pour type=$type');
@@ -523,193 +527,195 @@ class RelayNet implements ScrabbleNet {
   }
 
   Future<void> pollMessages(String localName) async {
-    print(
-      '${logHeader("POLL-TRACE")} ENTER '
-      'user=$localName time=${DateTime.now()}',
-    );
-    http.Response? response;
-
-    // En priorité, envoyer tous les GameOver en attente
-    await _resumeAllPendingGameOver();
-    // Puis tous les GameState en attente
-    await _resumeAllPendingGameStates();
-
-    await retryPendingGameState();
-
-    if (debug)
-      print(
-        '${logHeader("POLL-TRACE")} BEFORE HTTP '
-        'user=$localName time=${DateTime.now()}',
-      );
-
-    try {
-      response = await http.get(
-        Uri.parse("$_relayServerUrl/poll?user=$localName"),
-      );
-      if (debug)
-        print(
-          '${logHeader("POLL-TRACE")} AFTER HTTP '
-          'user=$localName '
-          'status=${response.statusCode} '
-          'time=${DateTime.now()}',
-        );
-    } catch (e) {
-      logger.e("Erreur pollMessages: $e");
-      return;
-    }
-
-    final json = jsonDecode(response.body);
-    if (json['result'] == 'NO_MESSAGE') {
-      return;
-    }
-    final String user = json['user'] ?? '';
-    final String partner = json['partner'] ?? '';
-    final String type = json['type'] ?? '';
-    final String message = json['message'] ?? '';
-    final int date = json['date'] ?? 0;
-
-    try {
-      switch (type) {
-        case 'GAMESTATE':
-          await _handleAndAck(
-            localName: user,
-            partner: partner,
-            type: type,
-            date: date,
-            handler: () async {
-              final gameState = GameState.fromJson(message);
-
-              final String stateId = gameState.gameId;
-              final now = DateTime.now();
-
-              if (debug) {
-                print(
-                  "${logHeader("relayNet")} GAMESTATE reçu de $partner (gameId=$stateId) (hash=${gameState.hashCode})",
-                );
-              }
-
-              await gameStorage.save(gameState, markAsUnread: true);
-
-              await _dispatcher.handleIncoming(gameState, onGameStateReceived);
-
-              if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
-                await audioService.playNotificationSound();
-                ();
-              } else if (AppLifecycle.isForeground) {
-                await audioService.playNotificationSound();
-                ();
-              } else {
-                final msg = "$partner a joué";
-                await NotificationService.showGameMessage(msg);
-              }
-
-              if (_gameIsOver) _gameIsOver = false;
-            },
-          );
-          break;
-
-        case 'GAMEOVER':
-          await _handleAndAck(
-            localName: user,
-            partner: partner,
-            type: type,
-            date: date,
-            handler: () async {
-              final msg =
-                  "dernier coup de la partie avec $partner. Celui qui a joué en deuxième joue le dernier coup";
-
-              if (AppLifecycle.isForeground) {
-                await audioService.playNotificationSound();
-                ();
-              } else {
-                await NotificationService.showGameMessage(msg);
-              }
-
-              _gameIsOver = true;
-
-              final gameState = GameState.fromJson(message);
-
-              await gameStorage.save(gameState, markAsUnread: true);
-
-              if (onGameOverReceived != null) {
-                await onGameOverReceived!(gameState);
-              }
-            },
-          );
-          break;
-
-        case 'MATCHED':
-          await _handleAndAck(
-            localName: user,
-            partner: partner,
-            type: type,
-            date: date,
-            handler: () async {
-              _isConnected = true;
-
-              onMatched?.call(
-                leftName: partner,
-                leftIP: '',
-                leftPort: 0,
-                leftStartTime: 0,
-                rightName: localName,
-                rightIP: '',
-                rightPort: 0,
-                rightStartTime: 0,
-              );
-            },
-          );
-          break;
-
-        case 'GAMEQUIT':
-          await _handleAndAck(
-            localName: user,
-            partner: partner,
-            type: type,
-            date: date,
-            handler: () async {
-              if (debug) {
-                print("${logHeader("relayNet")} GAMEQUIT reçu de $partner");
-              }
-
-              if (partner.isNotEmpty) {
-                await gameStorage.delete(partner);
-              }
-
-              _gameIsOver = false;
-
-              onGameQuitReceived?.call(partner);
-            },
-          );
-          break;
-
-        case 'CHAT':
-          await _handleAndAck(
-            localName: user,
-            partner: partner,
-            type: type,
-            date: date,
-            handler: () async {
-              final msg = "$partner: $message";
-              if (AppLifecycle.isForeground) {
-                await audioService.playNotificationSound();
-                ();
-              } else {
-                await NotificationService.showGameMessage(msg);
-              }
-              if (debug) {
-                print("${logHeader("relayNet")} Message reçu: ${message}");
-              }
-            },
-          );
-          break;
-      }
-    } catch (e, st) {
+    if (_pollInProgress) {
       if (debug) {
-        logger.e("Erreur pollMessages : $e\n$st");
-        print("message reçu: ${json}");
-        print("type reçu: ${json['type']}");
+        print(
+          "${logHeader("POLL-TRACE")} Poll ignoré : un poll est déjà en cours",
+        );
       }
+      return;
+    }
+    _pollInProgress = true;
+
+    try {
+      http.Response? response;
+
+      // En priorité, envoyer tous les GameOver en attente
+      await _resumeAllPendingGameOver();
+      // Puis tous les GameState en attente
+      await _resumeAllPendingGameStates();
+
+      await retryPendingGameState();
+
+      try {
+        response = await http.get(
+          Uri.parse("$_relayServerUrl/poll?user=$localName"),
+        );
+      } catch (e) {
+        logger.e("Erreur pollMessages: $e");
+        return;
+      }
+
+      final json = jsonDecode(response.body);
+      if (json['result'] == 'NO_MESSAGE') {
+        return;
+      }
+      final String user = json['user'] ?? '';
+      final String partner = json['partner'] ?? '';
+      final String type = json['type'] ?? '';
+      final String message = json['message'] ?? '';
+      final int date = json['date'] ?? 0;
+
+      try {
+        switch (type) {
+          case 'GAMESTATE':
+            await _handleAndAck(
+              localName: user,
+              partner: partner,
+              type: type,
+              date: date,
+              handler: () async {
+                final gameState = GameState.fromJson(message);
+
+                final String stateId = gameState.gameId;
+                final now = DateTime.now();
+
+                if (debug) {
+                  print(
+                    "${logHeader("relayNet")} GAMESTATE reçu de $partner (gameId=$stateId) (hash=${gameState.hashCode})",
+                  );
+                }
+
+                await gameStorage.save(gameState, markAsUnread: true);
+
+                await _dispatcher.handleIncoming(
+                  gameState,
+                  onGameStateReceived,
+                );
+
+                if (Platform.isLinux ||
+                    Platform.isWindows ||
+                    Platform.isMacOS) {
+                  await audioService.playNotificationSound();
+                  ();
+                } else if (AppLifecycle.isForeground) {
+                  await audioService.playNotificationSound();
+                  ();
+                } else {
+                  final msg = "$partner a joué";
+                  await NotificationService.showGameMessage(msg);
+                }
+
+                if (_gameIsOver) _gameIsOver = false;
+              },
+            );
+            break;
+
+          case 'GAMEOVER':
+            await _handleAndAck(
+              localName: user,
+              partner: partner,
+              type: type,
+              date: date,
+              handler: () async {
+                final msg =
+                    "dernier coup de la partie avec $partner. Celui qui a joué en deuxième joue le dernier coup";
+
+                if (AppLifecycle.isForeground) {
+                  await audioService.playNotificationSound();
+                  ();
+                } else {
+                  await NotificationService.showGameMessage(msg);
+                }
+
+                _gameIsOver = true;
+
+                final gameState = GameState.fromJson(message);
+
+                await gameStorage.save(gameState, markAsUnread: true);
+
+                if (onGameOverReceived != null) {
+                  await onGameOverReceived!(gameState);
+                }
+              },
+            );
+            break;
+
+          case 'MATCHED':
+            await _handleAndAck(
+              localName: user,
+              partner: partner,
+              type: type,
+              date: date,
+              handler: () async {
+                _isConnected = true;
+
+                onMatched?.call(
+                  leftName: partner,
+                  leftIP: '',
+                  leftPort: 0,
+                  leftStartTime: 0,
+                  rightName: localName,
+                  rightIP: '',
+                  rightPort: 0,
+                  rightStartTime: 0,
+                );
+              },
+            );
+            break;
+
+          case 'GAMEQUIT':
+            await _handleAndAck(
+              localName: user,
+              partner: partner,
+              type: type,
+              date: date,
+              handler: () async {
+                if (debug) {
+                  print("${logHeader("relayNet")} GAMEQUIT reçu de $partner");
+                }
+
+                if (partner.isNotEmpty) {
+                  await gameStorage.delete(partner);
+                }
+
+                _gameIsOver = false;
+
+                onGameQuitReceived?.call(partner);
+              },
+            );
+            break;
+
+          case 'CHAT':
+            await _handleAndAck(
+              localName: user,
+              partner: partner,
+              type: type,
+              date: date,
+              handler: () async {
+                final msg = "$partner: $message";
+                if (AppLifecycle.isForeground) {
+                  await audioService.playNotificationSound();
+                  ();
+                } else {
+                  await NotificationService.showGameMessage(msg);
+                }
+                if (debug) {
+                  print("${logHeader("relayNet")} Message reçu: ${message}");
+                }
+              },
+            );
+            break;
+        }
+      } catch (e, st) {
+        if (debug) {
+          logger.e("Erreur pollMessages : $e\n$st");
+          print("message reçu: ${json}");
+          print("type reçu: ${json['type']}");
+        }
+      }
+    } finally {
+      _pollInProgress = false;
     }
   }
 

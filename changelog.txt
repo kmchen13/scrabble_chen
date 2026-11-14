@@ -293,4 +293,6 @@ Refonte mode web en polling
     débridage fin de partie
 3.8.16
     Corrections fin de partie et revanche
-    
+3.8.17
+    Ajout licence GNU Affero General Public License v3.0 au README.md
+    Correction snackbar "partenaire a joué"

@@ -1,4 +1,5 @@
 # StarWords
+StarWords is licensed under the GNU Affero General Public License v3.0. See the LICENSE file for details.
 
 Un jeu de type Scrabble en ligne gratuit compatible Android et IOS
 
